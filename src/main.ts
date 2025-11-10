@@ -1,5 +1,5 @@
 import { Plugin } from 'obsidian';
-import { KanbanView } from './src/kanbanView';
+import { KanbanView } from './kanbanView';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
 

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../main';
+import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main';
 import { KanbanView } from '../src/kanbanView';
 import { setupTestEnvironment, createDivWithMethods, createMockQueryController } from './helpers';
 

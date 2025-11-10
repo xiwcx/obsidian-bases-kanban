@@ -1,5 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
+import type { BasesPropertyId } from 'obsidian';
 import { KanbanView } from '../src/kanbanView';
 import {
 	setupTestEnvironment,
@@ -83,7 +84,7 @@ describe('KanbanView Initialization', () => {
 		setupKanbanViewWithApp(view, app);
 
 		// Mock config.getAsPropertyId to return null
-		controller.config.getAsPropertyId = () => null;
+		controller.config.getAsPropertyId = (): BasesPropertyId | null => null;
 
 		view.onDataUpdated();
 
@@ -121,7 +122,7 @@ describe('Data Rendering - Empty States', () => {
 	});
 
 	test('Renders empty state when no properties', () => {
-		const controllerNoProps = createMockQueryController([], []); // Empty properties array
+		const controllerNoProps = createMockQueryController([], []) as any; // Empty properties array
 		controllerNoProps.app = app;
 		const view = new KanbanView(controllerNoProps, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -677,7 +678,7 @@ describe('Error Handling - Error Display', () => {
 	});
 
 	test('displayError shows error UI', () => {
-		const controller = createMockQueryController([], []);
+		const controller = createMockQueryController([], []) as any;
 		controller.app = app;
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -712,7 +713,7 @@ describe('Error Handling - Error Display', () => {
 	});
 
 	test('Stack trace toggle works (show/hide)', () => {
-		const controller = createMockQueryController([], []);
+		const controller = createMockQueryController([], []) as any;
 		controller.app = app;
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -739,7 +740,7 @@ describe('Error Handling - Error Display', () => {
 	});
 
 	test('Retry button triggers onDataUpdated', () => {
-		const controller = createMockQueryController([], []);
+		const controller = createMockQueryController([], []) as any;
 		controller.app = app;
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -774,7 +775,7 @@ describe('Error Handling - Error Context', () => {
 	});
 
 	test('handleError logs errors correctly', () => {
-		const controller = createMockQueryController([], []);
+		const controller = createMockQueryController([], []) as any;
 		controller.app = app;
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -814,7 +815,7 @@ describe('Error Handling - Error Recovery', () => {
 
 	test('Render skips when lastError exists', () => {
 		const entries = createEntriesWithStatus();
-		const controller = createMockQueryController(entries, TEST_PROPERTIES);
+		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
@@ -836,7 +837,7 @@ describe('Error Handling - Error Recovery', () => {
 
 	test('Retry clears error and re-renders', () => {
 		const entries = createEntriesWithStatus();
-		const controller = createMockQueryController(entries, TEST_PROPERTIES);
+		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
@@ -871,7 +872,7 @@ describe('Data Updates', () => {
 
 	test('onDataUpdated refreshes view', () => {
 		const entries = createEntriesWithStatus();
-		const controller = createMockQueryController(entries, TEST_PROPERTIES);
+		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
@@ -901,7 +902,7 @@ describe('Data Updates', () => {
 	});
 
 	test('onDataUpdated handles errors', () => {
-		const controller = createMockQueryController([], []);
+		const controller = createMockQueryController([], []) as any;
 		controller.app = app;
 		
 		const view = new KanbanView(controller, scrollEl);

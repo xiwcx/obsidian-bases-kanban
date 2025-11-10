@@ -263,11 +263,11 @@ describe('Integration Tests - Multiple Views', () => {
 		const entries1 = createEntriesWithStatus();
 		const entries2 = createEntriesWithMixedProperties();
 
-		const controller1 = createMockQueryController(entries1, TEST_PROPERTIES);
+		const controller1 = createMockQueryController(entries1, TEST_PROPERTIES) as any;
 		controller1.app = app;
 		controller1.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const controller2 = createMockQueryController(entries2, TEST_PROPERTIES);
+		const controller2 = createMockQueryController(entries2, TEST_PROPERTIES) as any;
 		controller2.app = app;
 		controller2.config.getAsPropertyId = () => PROPERTY_PRIORITY;
 
@@ -313,11 +313,11 @@ describe('Integration Tests - Multiple Views', () => {
 
 	test('Cleanup does not affect other instances', () => {
 		const entries = createEntriesWithStatus();
-		const controller1 = createMockQueryController(entries, TEST_PROPERTIES);
+		const controller1 = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller1.app = app;
 		controller1.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const controller2 = createMockQueryController(entries, TEST_PROPERTIES);
+		const controller2 = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller2.app = app;
 		controller2.config.getAsPropertyId = () => PROPERTY_STATUS;
 
@@ -350,10 +350,10 @@ describe('Integration Tests - Multiple Views', () => {
 	});
 
 	test('Each view maintains independent error state', () => {
-		const controller1 = createMockQueryController([], []);
+		const controller1 = createMockQueryController([], []) as any;
 		controller1.app = app;
 
-		const controller2 = createMockQueryController([], []);
+		const controller2 = createMockQueryController([], []) as any;
 		controller2.app = app;
 
 		const scrollEl1 = createDivWithMethods();

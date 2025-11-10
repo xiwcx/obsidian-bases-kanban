@@ -99,7 +99,8 @@ describe('View Options', () => {
 
 	test('Property filter excludes file.* properties', () => {
 		const options = KanbanView.getViewOptions();
-		const filter = options[0].filter;
+		const option = options[0] as { filter?: (prop: string) => boolean };
+		const filter = option.filter;
 		
 		assert.ok(filter, 'Filter should be defined');
 		

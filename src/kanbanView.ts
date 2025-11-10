@@ -1,5 +1,16 @@
 import { BasesView, QueryController, BasesEntry, BasesPropertyId, TFile, parsePropertyId, ViewOption } from 'obsidian';
 import Sortable from 'sortablejs';
+import {
+	UNCATEGORIZED_LABEL,
+	SORTABLE_GROUP,
+	DATA_ATTRIBUTES,
+	CSS_CLASSES,
+	SORTABLE_CONFIG,
+	ERROR_TEXT,
+	EMPTY_STATE_MESSAGES,
+} from './constants';
+import { toError, formatErrorMessage } from './utils/errorHandling';
+import { ensureGroupExists, normalizePropertyValue } from './utils/grouping';
 
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
@@ -13,7 +24,7 @@ export class KanbanView extends BasesView {
 	constructor(controller: QueryController, scrollEl: HTMLElement) {
 		super(controller);
 		this.scrollEl = scrollEl;
-		this.containerEl = scrollEl.createDiv({ cls: 'kanban-view-container' });
+		this.containerEl = scrollEl.createDiv({ cls: CSS_CLASSES.VIEW_CONTAINER });
 	}
 
 	onDataUpdated(): void {
@@ -21,13 +32,13 @@ export class KanbanView extends BasesView {
 			this.loadConfig();
 			this.render();
 		} catch (error) {
-			this.handleError(error as Error, 'onDataUpdated');
+			this.handleError(toError(error), 'onDataUpdated');
 		}
 	}
 
 	private handleError(error: Error, context: string): void {
 		this.lastError = error;
-		const errorMessage = `[${context}] ${error.name}: ${error.message}`;
+		const errorMessage = formatErrorMessage(error, context);
 		const errorStack = error.stack || '';
 		
 		// Log to console
@@ -43,62 +54,55 @@ export class KanbanView extends BasesView {
 		// Clear existing content
 		this.containerEl.empty();
 		
-		const errorContainer = this.containerEl.createDiv({ cls: 'kanban-error-container' });
+		const errorContainer = this.containerEl.createDiv({ cls: CSS_CLASSES.ERROR_CONTAINER });
 		
 		// Error icon and title
-		const errorHeader = errorContainer.createDiv({ cls: 'kanban-error-header' });
-		errorHeader.createSpan({ text: '⚠️', cls: 'kanban-error-icon' });
-		errorHeader.createSpan({ text: 'Kanban View Error', cls: 'kanban-error-title' });
+		const errorHeader = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_HEADER });
+		errorHeader.createSpan({ text: ERROR_TEXT.ICON, cls: CSS_CLASSES.ERROR_ICON });
+		errorHeader.createSpan({ text: ERROR_TEXT.TITLE, cls: CSS_CLASSES.ERROR_TITLE });
 		
 		// Error message
-		const errorMessageEl = errorContainer.createDiv({ cls: 'kanban-error-message' });
+		const errorMessageEl = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_MESSAGE });
 		errorMessageEl.textContent = message;
 		
 		// Stack trace (collapsible)
 		if (stack) {
-			const stackContainer = errorContainer.createDiv({ cls: 'kanban-error-stack-container' });
-			const stackToggle = stackContainer.createDiv({ cls: 'kanban-error-stack-toggle' });
-			stackToggle.textContent = 'Show stack trace';
-			stackToggle.style.cursor = 'pointer';
-			stackToggle.style.color = 'var(--text-muted)';
-			stackToggle.style.fontSize = '0.9em';
-			stackToggle.style.marginTop = '10px';
+			const stackContainer = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK_CONTAINER });
+			const stackToggle = stackContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK_TOGGLE });
+			stackToggle.textContent = ERROR_TEXT.SHOW_STACK;
 			
-			const stackContent = stackContainer.createDiv({ cls: 'kanban-error-stack' });
-			stackContent.style.display = 'none';
-			stackContent.style.fontFamily = 'monospace';
-			stackContent.style.fontSize = '0.85em';
-			stackContent.style.color = 'var(--text-muted)';
-			stackContent.style.whiteSpace = 'pre-wrap';
-			stackContent.style.overflow = 'auto';
-			stackContent.style.maxHeight = '200px';
-			stackContent.style.marginTop = '5px';
-			stackContent.style.padding = '10px';
-			stackContent.style.backgroundColor = 'var(--background-secondary)';
-			stackContent.style.borderRadius = '4px';
+			const stackContent = stackContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK });
 			stackContent.textContent = stack;
+			// Set initial hidden state (CSS also sets this, but inline style needed for test compatibility)
+			stackContent.style.display = 'none';
 			
-			stackToggle.addEventListener('click', () => {
-				const isVisible = stackContent.style.display !== 'none';
-				stackContent.style.display = isVisible ? 'none' : 'block';
-				stackToggle.textContent = isVisible ? 'Show stack trace' : 'Hide stack trace';
-			});
+			const toggleHandler = () => {
+				const isVisible = stackContent.classList.contains('is-visible');
+				if (isVisible) {
+					stackContent.classList.remove('is-visible');
+					stackContent.style.display = 'none';
+					stackToggle.textContent = ERROR_TEXT.SHOW_STACK;
+				} else {
+					stackContent.classList.add('is-visible');
+					stackContent.style.display = 'block';
+					stackToggle.textContent = ERROR_TEXT.HIDE_STACK;
+				}
+			};
+			stackToggle.addEventListener('click', toggleHandler);
 		}
 		
 		// Retry button
-		const retryButton = errorContainer.createEl('button', { cls: 'kanban-error-retry' });
-		retryButton.textContent = 'Retry';
-		retryButton.style.marginTop = '15px';
-		retryButton.style.padding = '8px 16px';
-		retryButton.style.cursor = 'pointer';
-		retryButton.addEventListener('click', () => {
+		const retryButton = errorContainer.createEl('button', { cls: CSS_CLASSES.ERROR_RETRY });
+		retryButton.textContent = ERROR_TEXT.RETRY;
+		const retryHandler = () => {
 			this.lastError = null;
 			try {
 				this.onDataUpdated();
 			} catch (retryError) {
-				this.handleError(retryError as Error, 'Retry');
+				this.handleError(toError(retryError), 'Retry');
 			}
-		});
+		};
+		retryButton.addEventListener('click', retryHandler);
 	}
 
 	private loadConfig(): void {
@@ -121,8 +125,8 @@ export class KanbanView extends BasesView {
 			const entries = this.data?.data || [];
 			if (!entries || entries.length === 0) {
 				this.containerEl.createDiv({
-					text: 'No entries found. Add some notes to your base.',
-					cls: 'kanban-empty-state'
+					text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
+					cls: CSS_CLASSES.EMPTY_STATE
 				});
 				return;
 			}
@@ -136,8 +140,8 @@ export class KanbanView extends BasesView {
 					this.columnPropertyId = availablePropertyIds[0];
 				} else {
 					this.containerEl.createDiv({
-						text: 'No properties found in entries.',
-						cls: 'kanban-empty-state'
+						text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
+						cls: CSS_CLASSES.EMPTY_STATE
 					});
 					return;
 				}
@@ -147,7 +151,7 @@ export class KanbanView extends BasesView {
 			const groupedEntries = this.groupEntriesByProperty(entries, this.columnPropertyId);
 
 			// Create kanban board
-			const boardEl = this.containerEl.createDiv({ cls: 'kanban-board' });
+			const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
 
 			// Create columns for each unique property value
 			const propertyValues = Array.from(groupedEntries.keys()).sort();
@@ -160,7 +164,7 @@ export class KanbanView extends BasesView {
 			// Initialize drag and drop
 			this.initializeSortable();
 		} catch (error) {
-			this.handleError(error as Error, 'render');
+			this.handleError(toError(error), 'render');
 		}
 	}
 
@@ -169,30 +173,15 @@ export class KanbanView extends BasesView {
 
 		entries.forEach((entry) => {
 			try {
-				let value = '';
-				
 				const propValue = entry.getValue(propertyId);
-				if (propValue !== null && propValue !== undefined) {
-					// Convert Value to string
-					value = String(propValue);
-				}
-
-				// Use 'Uncategorized' for empty values
-				if (!value || value.trim() === '') {
-					value = 'Uncategorized';
-				}
-
-				if (!grouped.has(value)) {
-					grouped.set(value, []);
-				}
-				grouped.get(value)!.push(entry);
+				const value = normalizePropertyValue(propValue);
+				const group = ensureGroupExists(grouped, value);
+				group.push(entry);
 			} catch (error) {
 				console.warn('Error processing entry:', entry.file.path, error);
 				// Add to Uncategorized on error
-				if (!grouped.has('Uncategorized')) {
-					grouped.set('Uncategorized', []);
-				}
-				grouped.get('Uncategorized')!.push(entry);
+				const uncategorizedGroup = ensureGroupExists(grouped, UNCATEGORIZED_LABEL);
+				uncategorizedGroup.push(entry);
 			}
 		});
 
@@ -201,17 +190,17 @@ export class KanbanView extends BasesView {
 
 	private createColumn(value: string, entries: BasesEntry[]): HTMLElement {
 		const columnEl = document.createElement('div');
-		columnEl.className = 'kanban-column';
-		columnEl.setAttribute('data-column-value', value);
+		columnEl.className = CSS_CLASSES.COLUMN;
+		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
 		// Column header
-		const headerEl = columnEl.createDiv({ cls: 'kanban-column-header' });
-		headerEl.createSpan({ text: value, cls: 'kanban-column-title' });
-		headerEl.createSpan({ text: `(${entries.length})`, cls: 'kanban-column-count' });
+		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
+		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
+		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
 
 		// Column body (cards container)
-		const bodyEl = columnEl.createDiv({ cls: 'kanban-column-body' });
-		bodyEl.setAttribute('data-sortable-container', 'true');
+		const bodyEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_BODY });
+		bodyEl.setAttribute(DATA_ATTRIBUTES.SORTABLE_CONTAINER, 'true');
 
 		// Create cards for each entry
 		entries.forEach((entry) => {
@@ -224,18 +213,21 @@ export class KanbanView extends BasesView {
 
 	private createCard(entry: BasesEntry): HTMLElement {
 		const cardEl = document.createElement('div');
-		cardEl.className = 'kanban-card';
+		cardEl.className = CSS_CLASSES.CARD;
 		const filePath = entry.file.path;
-		cardEl.setAttribute('data-entry-path', filePath);
+		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
 
 		// Card title - use file basename
-		const titleEl = cardEl.createDiv({ cls: 'kanban-card-title' });
+		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
 		titleEl.textContent = entry.file.basename;
 
 		// Make card clickable to open the note
-		cardEl.addEventListener('click', () => {
-			this.app.workspace.openLinkText(filePath, '', false);
-		});
+		const clickHandler = () => {
+			if (this.app?.workspace) {
+				this.app.workspace.openLinkText(filePath, '', false);
+			}
+		};
+		cardEl.addEventListener('click', clickHandler);
 
 		return cardEl;
 	}
@@ -248,15 +240,22 @@ export class KanbanView extends BasesView {
 		this.sortableInstances = [];
 
 		// Get all column bodies
-		const columnBodies = this.containerEl.querySelectorAll('.kanban-column-body[data-sortable-container]');
+		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
+		const columnBodies = this.containerEl.querySelectorAll(selector);
 
 		columnBodies.forEach((columnBody) => {
-			const sortable = new Sortable(columnBody as HTMLElement, {
-				group: 'kanban-columns',
-				animation: 150,
-				dragClass: 'kanban-card-dragging',
-				ghostClass: 'kanban-card-ghost',
-				chosenClass: 'kanban-card-chosen',
+			// Type guard to ensure we have an HTMLElement
+			if (!(columnBody instanceof HTMLElement)) {
+				console.warn('Column body is not an HTMLElement:', columnBody);
+				return;
+			}
+
+			const sortable = new Sortable(columnBody, {
+				group: SORTABLE_GROUP,
+				animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+				dragClass: CSS_CLASSES.CARD_DRAGGING,
+				ghostClass: CSS_CLASSES.CARD_GHOST,
+				chosenClass: CSS_CLASSES.CARD_CHOSEN,
 				onEnd: (evt: Sortable.SortableEvent) => {
 					this.handleCardDrop(evt);
 				},
@@ -267,8 +266,14 @@ export class KanbanView extends BasesView {
 	}
 
 	private async handleCardDrop(evt: Sortable.SortableEvent): Promise<void> {
-		const cardEl = evt.item as HTMLElement;
-		const entryPath = cardEl.getAttribute('data-entry-path');
+		// Type guard to ensure evt.item is an HTMLElement
+		if (!(evt.item instanceof HTMLElement)) {
+			console.warn('Card element is not an HTMLElement:', evt.item);
+			return;
+		}
+
+		const cardEl = evt.item;
+		const entryPath = cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
 		
 		if (!entryPath) {
 			console.warn('No entry path found on card');
@@ -276,16 +281,24 @@ export class KanbanView extends BasesView {
 		}
 
 		// Get the old and new column values
-		const oldColumnEl = evt.from.closest('.kanban-column');
-		const newColumnEl = evt.to.closest('.kanban-column');
+		const columnSelector = `.${CSS_CLASSES.COLUMN}`;
+		const oldColumnEl = evt.from.closest(columnSelector);
+		const newColumnEl = evt.to.closest(columnSelector);
 		
 		if (!newColumnEl) {
 			console.warn('Could not find new column element');
 			return;
 		}
 
-		const oldColumnValue = oldColumnEl?.getAttribute('data-column-value');
-		const newColumnValue = newColumnEl.getAttribute('data-column-value');
+		if (!(newColumnEl instanceof HTMLElement)) {
+			console.warn('New column element is not an HTMLElement');
+			return;
+		}
+
+		const oldColumnValue = oldColumnEl instanceof HTMLElement
+			? oldColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
+			: null;
+		const newColumnValue = newColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 		
 		if (!newColumnValue) {
 			console.warn('No column value found');
@@ -298,7 +311,12 @@ export class KanbanView extends BasesView {
 		}
 
 		// Find the entry
-		const entries = this.data.data;
+		const entries = this.data?.data;
+		if (!entries) {
+			console.warn('No entries data available');
+			return;
+		}
+
 		const entry = entries.find((e: BasesEntry) => {
 			return e.file.path === entryPath;
 		});
@@ -313,10 +331,15 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
+		if (!this.app?.fileManager) {
+			console.warn('File manager not available');
+			return;
+		}
+
 		// Update the entry's property using fileManager
 		// For "Uncategorized", we'll set it to empty string or null
 		try {
-			const valueToSet = newColumnValue === 'Uncategorized' ? '' : newColumnValue;
+			const valueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
 			
 			// Extract property name from property ID (e.g., "note.status" -> "status")
 			const parsedProperty = parsePropertyId(this.columnPropertyId);
@@ -348,6 +371,10 @@ export class KanbanView extends BasesView {
 			instance.destroy();
 		});
 		this.sortableInstances = [];
+		
+		// Note: DOM event listeners attached to elements within containerEl
+		// are automatically cleaned up when containerEl is cleared (via empty()).
+		// No manual cleanup needed for listeners on child elements.
 	}
 
 	static getViewOptions(): ViewOption[] {

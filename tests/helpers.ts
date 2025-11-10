@@ -1,5 +1,5 @@
 import { JSDOM } from 'jsdom';
-import type { BasesEntry, BasesPropertyId, QueryController, TFile, App } from 'obsidian';
+import type { BasesEntry, BasesPropertyId, TFile, App, QueryController } from 'obsidian';
 import type Sortable from 'sortablejs';
 
 // Setup jsdom environment
@@ -107,7 +107,7 @@ export function createMockBasesEntry(
 export function createMockQueryController(
 	entries: BasesEntry[] = [],
 	properties: BasesPropertyId[] = []
-): QueryController & { app?: App } {
+): QueryController {
 	const controller = {
 		data: {
 			data: entries,
@@ -118,7 +118,7 @@ export function createMockQueryController(
 				return null;
 			},
 		},
-	} as QueryController & { app?: App };
+	} as unknown as QueryController;
 	return controller;
 }
 

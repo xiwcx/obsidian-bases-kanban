@@ -1,0 +1,117 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert';
+import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../main';
+import { KanbanView } from '../src/kanbanView';
+import { setupTestEnvironment, createDivWithMethods, createMockQueryController } from './helpers';
+
+setupTestEnvironment();
+
+describe('Plugin Registration', () => {
+	test('Plugin loads and registers view correctly', () => {
+		// Mock the plugin's registerBasesView method
+		let registeredViewType: string | null = null;
+		let registeredName: string | null = null;
+		let registeredIcon: string | null = null;
+		let factoryController: any = null;
+		let factoryScrollEl: HTMLElement | null = null;
+
+		// Create a mock plugin instance
+		const mockApp = {} as any;
+		const plugin = new KanbanBasesViewPlugin(mockApp, {} as any);
+		
+		// Override registerBasesView to capture calls
+		plugin.registerBasesView = function(
+			viewType: string,
+			options: {
+				name: string;
+				icon: string;
+				factory: (controller: any, scrollEl: HTMLElement) => any;
+				options: () => any[];
+			}
+		) {
+			registeredViewType = viewType;
+			registeredName = options.name;
+			registeredIcon = options.icon;
+			
+			// Test factory function
+			const scrollEl = createDivWithMethods();
+			const controller = createMockQueryController();
+			const view = options.factory(controller, scrollEl);
+			factoryController = controller;
+			factoryScrollEl = scrollEl;
+			
+			return view;
+		};
+
+		// Call onload
+		plugin.onload();
+
+		// Verify registration
+		assert.strictEqual(registeredViewType, KANBAN_VIEW_TYPE, 'View type should match constant');
+		assert.strictEqual(registeredName, 'Kanban', 'View name should be "Kanban"');
+		assert.strictEqual(registeredIcon, 'columns', 'View icon should be "columns"');
+		assert.notStrictEqual(factoryController, null, 'Factory should receive controller');
+		assert.notStrictEqual(factoryScrollEl, null, 'Factory should receive scrollEl');
+	});
+
+	test('Factory function returns KanbanView instance', () => {
+		const scrollEl = createDivWithMethods();
+		const controller = createMockQueryController();
+		
+		// Get the factory from getViewOptions static method
+		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
+		
+		// Mock registerBasesView to get the factory
+		let factoryFn: ((controller: any, scrollEl: HTMLElement) => any) | null = null;
+		plugin.registerBasesView = function(viewType: string, options: any) {
+			factoryFn = options.factory;
+			return null;
+		};
+		
+		plugin.onload();
+		
+		assert.notStrictEqual(factoryFn, null, 'Factory function should be defined');
+		
+		const view = factoryFn!(controller, scrollEl);
+		assert.ok(view instanceof KanbanView, 'Factory should return KanbanView instance');
+	});
+
+	test('Plugin unloads cleanly', () => {
+		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
+		
+		// Should not throw
+		assert.doesNotThrow(() => {
+			plugin.onunload();
+		}, 'onunload should not throw');
+	});
+});
+
+describe('View Options', () => {
+	test('getViewOptions returns correct structure', () => {
+		const options = KanbanView.getViewOptions();
+		
+		assert.strictEqual(options.length, 1, 'Should return one option');
+		assert.strictEqual(options[0].displayName, 'Column property', 'Display name should match');
+		assert.strictEqual(options[0].type, 'property', 'Type should be "property"');
+		assert.strictEqual(options[0].key, 'columnProperty', 'Key should be "columnProperty"');
+		assert.strictEqual(options[0].placeholder, 'Property', 'Placeholder should match');
+	});
+
+	test('Property filter excludes file.* properties', () => {
+		const options = KanbanView.getViewOptions();
+		const filter = options[0].filter;
+		
+		assert.ok(filter, 'Filter should be defined');
+		
+		// Test that file.* properties are excluded
+		assert.strictEqual(filter('file.name'), false, 'file.name should be excluded');
+		assert.strictEqual(filter('file.path'), false, 'file.path should be excluded');
+		assert.strictEqual(filter('file.size'), false, 'file.size should be excluded');
+		
+		// Test that other properties are included
+		assert.strictEqual(filter('note.status'), true, 'note.status should be included');
+		assert.strictEqual(filter('note.priority'), true, 'note.priority should be included');
+		assert.strictEqual(filter('status'), true, 'status should be included');
+	});
+});
+

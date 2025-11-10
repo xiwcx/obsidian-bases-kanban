@@ -8,10 +8,11 @@ export default class KanbanBasesViewPlugin extends Plugin {
 		// Register the custom Bases view
 		this.registerBasesView(KANBAN_VIEW_TYPE, {
 			name: 'Kanban',
-			icon: 'layout-kanban',
-			factory: (controller, containerEl) => {
-				return new KanbanView(controller, containerEl);
+			icon: 'columns',
+			factory: (controller, scrollEl) => {
+				return new KanbanView(controller, scrollEl);
 			},
+			options: KanbanView.getViewOptions,
 		});
 	}
 

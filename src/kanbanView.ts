@@ -1,126 +1,199 @@
-import { BasesView, QueryController, BasesEntry, BasesPropertyId, TFile, parsePropertyId } from 'obsidian';
+import { BasesView, QueryController, BasesEntry, BasesPropertyId, TFile, parsePropertyId, ViewOption } from 'obsidian';
 import Sortable from 'sortablejs';
 
 export class KanbanView extends BasesView {
-	readonly type = 'kanban-view';
+	type = 'kanban-view';
 	
-	private containerEl: HTMLElement;
+	scrollEl: HTMLElement;
+	containerEl: HTMLElement;
 	private columnPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
-	private propertySelectorEl: HTMLElement | null = null;
+	private lastError: Error | null = null;
 
-	constructor(controller: QueryController, containerEl: HTMLElement) {
+	constructor(controller: QueryController, scrollEl: HTMLElement) {
 		super(controller);
-		this.containerEl = containerEl;
-		this.containerEl.addClass('kanban-view-container');
+		this.scrollEl = scrollEl;
+		this.containerEl = scrollEl.createDiv({ cls: 'kanban-view-container' });
 	}
 
 	onDataUpdated(): void {
-		this.render();
+		try {
+			this.loadConfig();
+			this.render();
+		} catch (error) {
+			this.handleError(error as Error, 'onDataUpdated');
+		}
+	}
+
+	private handleError(error: Error, context: string): void {
+		this.lastError = error;
+		const errorMessage = `[${context}] ${error.name}: ${error.message}`;
+		const errorStack = error.stack || '';
+		
+		// Log to console
+		console.error('KanbanView Error:', errorMessage);
+		console.error('Stack:', errorStack);
+		console.error('Error object:', error);
+		
+		// Display error in the view
+		this.displayError(errorMessage, errorStack);
+	}
+
+	private displayError(message: string, stack?: string): void {
+		// Clear existing content
+		this.containerEl.empty();
+		
+		const errorContainer = this.containerEl.createDiv({ cls: 'kanban-error-container' });
+		
+		// Error icon and title
+		const errorHeader = errorContainer.createDiv({ cls: 'kanban-error-header' });
+		errorHeader.createSpan({ text: '⚠️', cls: 'kanban-error-icon' });
+		errorHeader.createSpan({ text: 'Kanban View Error', cls: 'kanban-error-title' });
+		
+		// Error message
+		const errorMessageEl = errorContainer.createDiv({ cls: 'kanban-error-message' });
+		errorMessageEl.textContent = message;
+		
+		// Stack trace (collapsible)
+		if (stack) {
+			const stackContainer = errorContainer.createDiv({ cls: 'kanban-error-stack-container' });
+			const stackToggle = stackContainer.createDiv({ cls: 'kanban-error-stack-toggle' });
+			stackToggle.textContent = 'Show stack trace';
+			stackToggle.style.cursor = 'pointer';
+			stackToggle.style.color = 'var(--text-muted)';
+			stackToggle.style.fontSize = '0.9em';
+			stackToggle.style.marginTop = '10px';
+			
+			const stackContent = stackContainer.createDiv({ cls: 'kanban-error-stack' });
+			stackContent.style.display = 'none';
+			stackContent.style.fontFamily = 'monospace';
+			stackContent.style.fontSize = '0.85em';
+			stackContent.style.color = 'var(--text-muted)';
+			stackContent.style.whiteSpace = 'pre-wrap';
+			stackContent.style.overflow = 'auto';
+			stackContent.style.maxHeight = '200px';
+			stackContent.style.marginTop = '5px';
+			stackContent.style.padding = '10px';
+			stackContent.style.backgroundColor = 'var(--background-secondary)';
+			stackContent.style.borderRadius = '4px';
+			stackContent.textContent = stack;
+			
+			stackToggle.addEventListener('click', () => {
+				const isVisible = stackContent.style.display !== 'none';
+				stackContent.style.display = isVisible ? 'none' : 'block';
+				stackToggle.textContent = isVisible ? 'Show stack trace' : 'Hide stack trace';
+			});
+		}
+		
+		// Retry button
+		const retryButton = errorContainer.createEl('button', { cls: 'kanban-error-retry' });
+		retryButton.textContent = 'Retry';
+		retryButton.style.marginTop = '15px';
+		retryButton.style.padding = '8px 16px';
+		retryButton.style.cursor = 'pointer';
+		retryButton.addEventListener('click', () => {
+			this.lastError = null;
+			try {
+				this.onDataUpdated();
+			} catch (retryError) {
+				this.handleError(retryError as Error, 'Retry');
+			}
+		});
+	}
+
+	private loadConfig(): void {
+		// Load column property from config
+		// Based on map-view.ts: this.config.getAsPropertyId('columnProperty')
+		this.columnPropertyId = this.config.getAsPropertyId('columnProperty');
 	}
 
 	private render(): void {
 		// Clear existing content
 		this.containerEl.empty();
-
-		// Get all entries from the data
-		const entries = this.data.data;
-		if (!entries || entries.length === 0) {
-			this.containerEl.createDiv({
-				text: 'No entries found. Add some notes to your base.',
-				cls: 'kanban-empty-state'
-			});
+		
+		// Don't render if there's an error (let error display stay)
+		if (this.lastError) {
 			return;
 		}
 
-		// Create property selector
-		this.renderPropertySelector(entries);
-
-		// Get available properties from entries
-		const availablePropertyIds = this.allProperties || [];
-		
-		// Validate column property
-		if (!this.columnPropertyId || !availablePropertyIds.includes(this.columnPropertyId)) {
-			if (availablePropertyIds.length > 0) {
-				this.columnPropertyId = availablePropertyIds[0];
-			} else {
+		try {
+			// Get all entries from the data
+			const entries = this.data?.data || [];
+			if (!entries || entries.length === 0) {
 				this.containerEl.createDiv({
-					text: 'No properties found in entries.',
+					text: 'No entries found. Add some notes to your base.',
 					cls: 'kanban-empty-state'
 				});
 				return;
 			}
-		}
 
-		// Group entries by column property value
-		const groupedEntries = this.groupEntriesByProperty(entries, this.columnPropertyId);
-
-		// Create kanban board
-		const boardEl = this.containerEl.createDiv({ cls: 'kanban-board' });
-
-		// Create columns for each unique property value
-		const propertyValues = Array.from(groupedEntries.keys()).sort();
-		
-		propertyValues.forEach((value) => {
-			const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
-			boardEl.appendChild(columnEl);
-		});
-
-		// Initialize drag and drop
-		this.initializeSortable();
-	}
-
-	private renderPropertySelector(entries: BasesEntry[]): void {
-		if (!entries || entries.length === 0) return;
-
-		const availablePropertyIds = this.allProperties || [];
-		if (availablePropertyIds.length === 0) return;
-
-		const selectorContainer = this.containerEl.createDiv({ cls: 'kanban-property-selector' });
-		selectorContainer.createSpan({ text: 'Column Property: ', cls: 'kanban-property-label' });
-		
-		const selectEl = selectorContainer.createEl('select', { cls: 'kanban-property-select' });
-		
-		availablePropertyIds.forEach((propId) => {
-			// Get display name for the property
-			const displayName = this.config.getDisplayName(propId);
-			const option = selectEl.createEl('option', { text: displayName });
-			option.value = propId;
-			if (propId === this.columnPropertyId) {
-				option.selected = true;
+			// Get available properties from entries
+			const availablePropertyIds = this.allProperties || [];
+			
+			// Validate column property
+			if (!this.columnPropertyId || !availablePropertyIds.includes(this.columnPropertyId)) {
+				if (availablePropertyIds.length > 0) {
+					this.columnPropertyId = availablePropertyIds[0];
+				} else {
+					this.containerEl.createDiv({
+						text: 'No properties found in entries.',
+						cls: 'kanban-empty-state'
+					});
+					return;
+				}
 			}
-		});
 
-		selectEl.addEventListener('change', (e) => {
-			const target = e.target as HTMLSelectElement;
-			this.columnPropertyId = target.value as BasesPropertyId;
-			this.render();
-		});
+			// Group entries by column property value
+			const groupedEntries = this.groupEntriesByProperty(entries, this.columnPropertyId);
 
-		this.propertySelectorEl = selectorContainer;
+			// Create kanban board
+			const boardEl = this.containerEl.createDiv({ cls: 'kanban-board' });
+
+			// Create columns for each unique property value
+			const propertyValues = Array.from(groupedEntries.keys()).sort();
+			
+			propertyValues.forEach((value) => {
+				const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
+				boardEl.appendChild(columnEl);
+			});
+
+			// Initialize drag and drop
+			this.initializeSortable();
+		} catch (error) {
+			this.handleError(error as Error, 'render');
+		}
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
 		const grouped = new Map<string, BasesEntry[]>();
 
 		entries.forEach((entry) => {
-			let value = '';
-			
-			const propValue = entry.getValue(propertyId);
-			if (propValue !== null && propValue !== undefined) {
-				// Convert Value to string
-				value = String(propValue);
-			}
+			try {
+				let value = '';
+				
+				const propValue = entry.getValue(propertyId);
+				if (propValue !== null && propValue !== undefined) {
+					// Convert Value to string
+					value = String(propValue);
+				}
 
-			// Use 'Uncategorized' for empty values
-			if (!value || value.trim() === '') {
-				value = 'Uncategorized';
-			}
+				// Use 'Uncategorized' for empty values
+				if (!value || value.trim() === '') {
+					value = 'Uncategorized';
+				}
 
-			if (!grouped.has(value)) {
-				grouped.set(value, []);
+				if (!grouped.has(value)) {
+					grouped.set(value, []);
+				}
+				grouped.get(value)!.push(entry);
+			} catch (error) {
+				console.warn('Error processing entry:', entry.file.path, error);
+				// Add to Uncategorized on error
+				if (!grouped.has('Uncategorized')) {
+					grouped.set('Uncategorized', []);
+				}
+				grouped.get('Uncategorized')!.push(entry);
 			}
-			grouped.get(value)!.push(entry);
 		});
 
 		return grouped;
@@ -275,5 +348,17 @@ export class KanbanView extends BasesView {
 			instance.destroy();
 		});
 		this.sortableInstances = [];
+	}
+
+	static getViewOptions(): ViewOption[] {
+		return [
+			{
+				displayName: 'Column property',
+				type: 'property',
+				key: 'columnProperty',
+				filter: (prop: string) => !prop.startsWith('file.'),
+				placeholder: 'Property',
+			},
+		];
 	}
 }

@@ -7,10 +7,8 @@ import {
 	DATA_ATTRIBUTES,
 	CSS_CLASSES,
 	SORTABLE_CONFIG,
-	ERROR_TEXT,
 	EMPTY_STATE_MESSAGES,
 } from './constants.ts';
-import { toError, formatErrorMessage } from './utils/errorHandling.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 
 interface KanbanPlugin {
@@ -44,7 +42,6 @@ export class KanbanView extends BasesView {
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
 	private columnSortable: Sortable | null = null;
-	private lastError: Error | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement) {
 		super(controller);
@@ -57,74 +54,8 @@ export class KanbanView extends BasesView {
 			this.loadConfig();
 			this.render();
 		} catch (error) {
-			this.handleError(toError(error), 'onDataUpdated');
+			console.error('KanbanView error:', error);
 		}
-	}
-
-	private handleError(error: Error, context: string): void {
-		this.lastError = error;
-		const errorMessage = formatErrorMessage(error, context);
-		const errorStack = error.stack || '';
-		
-		// Log to console
-		console.error('KanbanView Error:', errorMessage);
-		console.error('Stack:', errorStack);
-		console.error('Error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-		
-		// Display error in the view
-		this.displayError(errorMessage, errorStack);
-	}
-
-	private displayError(message: string, stack?: string): void {
-		// Clear existing content
-		this.containerEl.empty();
-		
-		const errorContainer = this.containerEl.createDiv({ cls: CSS_CLASSES.ERROR_CONTAINER });
-		
-		// Error icon and title
-		const errorHeader = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_HEADER });
-		errorHeader.createSpan({ text: ERROR_TEXT.ICON, cls: CSS_CLASSES.ERROR_ICON });
-		errorHeader.createSpan({ text: ERROR_TEXT.TITLE, cls: CSS_CLASSES.ERROR_TITLE });
-		
-		// Error message
-		const errorMessageEl = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_MESSAGE });
-		errorMessageEl.textContent = message;
-		
-		// Stack trace (collapsible)
-		if (stack) {
-			const stackContainer = errorContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK_CONTAINER });
-			const stackToggle = stackContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK_TOGGLE });
-			stackToggle.textContent = ERROR_TEXT.SHOW_STACK;
-			
-			const stackContent = stackContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK });
-			stackContent.textContent = stack;
-			// Initial hidden state is handled by CSS (.kanban-error-stack { display: none; })
-			
-			const toggleHandler = () => {
-				const isVisible = stackContent.classList.contains('is-visible');
-				if (isVisible) {
-					stackContent.classList.remove('is-visible');
-					stackToggle.textContent = ERROR_TEXT.SHOW_STACK;
-				} else {
-					stackContent.classList.add('is-visible');
-					stackToggle.textContent = ERROR_TEXT.HIDE_STACK;
-				}
-			};
-			stackToggle.addEventListener('click', toggleHandler);
-		}
-		
-		// Retry button
-		const retryButton = errorContainer.createEl('button', { cls: CSS_CLASSES.ERROR_RETRY });
-		retryButton.textContent = ERROR_TEXT.RETRY;
-		const retryHandler = () => {
-			this.lastError = null;
-			try {
-				this.onDataUpdated();
-			} catch (retryError) {
-				this.handleError(toError(retryError), 'Retry');
-			}
-		};
-		retryButton.addEventListener('click', retryHandler);
 	}
 
 	private loadConfig(): void {
@@ -135,11 +66,6 @@ export class KanbanView extends BasesView {
 	private render(): void {
 		// Clear existing content
 		this.containerEl.empty();
-		
-		// Don't render if there's an error (let error display stay)
-		if (this.lastError) {
-			return;
-		}
 
 		try {
 			// Get all entries from the data
@@ -187,7 +113,7 @@ export class KanbanView extends BasesView {
 			this.initializeSortable();
 			this.initializeColumnSortable();
 		} catch (error) {
-			this.handleError(toError(error), 'render');
+			console.error('KanbanView error:', error);
 		}
 	}
 

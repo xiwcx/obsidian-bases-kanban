@@ -39,17 +39,6 @@ export const CSS_CLASSES = {
 	CARD_GHOST: 'kanban-card-ghost',
 	CARD_CHOSEN: 'kanban-card-chosen',
 	
-	// Error display
-	ERROR_CONTAINER: 'kanban-error-container',
-	ERROR_HEADER: 'kanban-error-header',
-	ERROR_ICON: 'kanban-error-icon',
-	ERROR_TITLE: 'kanban-error-title',
-	ERROR_MESSAGE: 'kanban-error-message',
-	ERROR_STACK_CONTAINER: 'kanban-error-stack-container',
-	ERROR_STACK_TOGGLE: 'kanban-error-stack-toggle',
-	ERROR_STACK: 'kanban-error-stack',
-	ERROR_RETRY: 'kanban-error-retry',
-	
 	// Empty state
 	EMPTY_STATE: 'kanban-empty-state',
 } as const;
@@ -57,15 +46,6 @@ export const CSS_CLASSES = {
 /** Sortable.js configuration constants */
 export const SORTABLE_CONFIG = {
 	ANIMATION_DURATION: 150,
-} as const;
-
-/** Error display text */
-export const ERROR_TEXT = {
-	ICON: '⚠️',
-	TITLE: 'Kanban View Error',
-	SHOW_STACK: 'Show stack trace',
-	HIDE_STACK: 'Hide stack trace',
-	RETRY: 'Retry',
 } as const;
 
 /** Empty state messages */

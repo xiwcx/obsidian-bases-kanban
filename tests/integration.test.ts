@@ -348,40 +348,6 @@ describe('Integration Tests - Multiple Views', () => {
 		const board2After = view2.containerEl.querySelector('.kanban-board');
 		assert.ok(board2After, 'View2 should still render after view1 cleanup');
 	});
-
-	test('Each view maintains independent error state', () => {
-		const controller1 = createMockQueryController([], []) as any;
-		controller1.app = app;
-
-		const controller2 = createMockQueryController([], []) as any;
-		controller2.app = app;
-
-		const scrollEl1 = createDivWithMethods();
-		const scrollEl2 = createDivWithMethods();
-
-		const view1 = new KanbanView(controller1, scrollEl1);
-		const view2 = new KanbanView(controller2, scrollEl2);
-		setupKanbanViewWithApp(view1, app);
-		setupKanbanViewWithApp(view2, app);
-
-		// Trigger error in view1
-		const error1 = new Error('View1 error');
-		(view1 as any).handleError(error1, 'test');
-
-		// Verify view1 has error
-		assert.strictEqual((view1 as any).lastError, error1, 'View1 should have error');
-
-		// Verify view2 does not have error
-		assert.strictEqual((view2 as any).lastError, null, 'View2 should not have error');
-
-		// Trigger error in view2
-		const error2 = new Error('View2 error');
-		(view2 as any).handleError(error2, 'test');
-
-		// Verify both views have independent errors
-		assert.strictEqual((view1 as any).lastError, error1, 'View1 should still have its error');
-		assert.strictEqual((view2 as any).lastError, error2, 'View2 should have its error');
-	});
 });
 
 describe('Integration Tests - Edge Cases', () => {

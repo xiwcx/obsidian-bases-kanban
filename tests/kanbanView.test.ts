@@ -48,9 +48,9 @@ describe('KanbanView Initialization', () => {
 		);
 		assert.strictEqual(view.scrollEl, scrollEl, 'scrollEl reference should be stored');
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			null,
-			'columnPropertyId should be null initially'
+			'groupByPropertyId should be null initially'
 		);
 		assert.strictEqual(
 			(view as any).sortableInstances.length,
@@ -59,14 +59,14 @@ describe('KanbanView Initialization', () => {
 		);
 	});
 
-	test('loadConfig loads column property from config', () => {
+	test('loadConfig loads group by property from config', () => {
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		const testPropertyId = PROPERTY_STATUS;
 
 		// Mock config.getAsPropertyId
 		controller.config.getAsPropertyId = (key: string) => {
-			if (key === 'columnProperty') {
+			if (key === 'groupByProperty') {
 				return testPropertyId;
 			}
 			return null;
@@ -76,9 +76,9 @@ describe('KanbanView Initialization', () => {
 		view.onDataUpdated();
 
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			testPropertyId,
-			'columnPropertyId should be set from config'
+			'groupByPropertyId should be set from config'
 		);
 	});
 
@@ -92,9 +92,9 @@ describe('KanbanView Initialization', () => {
 		view.onDataUpdated();
 
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			null,
-			'columnPropertyId should remain null when config returns null'
+			'groupByPropertyId should remain null when config returns null'
 		);
 	});
 });

@@ -100,10 +100,10 @@ describe('View Options', () => {
 		const options = KanbanView.getViewOptions();
 		
 		assert.strictEqual(options.length, 1, 'Should return one option');
-		assert.strictEqual(options[0].displayName, 'Column property', 'Display name should match');
+		assert.strictEqual(options[0].displayName, 'Group by', 'Display name should match');
 		assert.strictEqual(options[0].type, 'property', 'Type should be "property"');
-		assert.strictEqual(options[0].key, 'columnProperty', 'Key should be "columnProperty"');
-		assert.strictEqual(options[0].placeholder, 'Property', 'Placeholder should match');
+		assert.strictEqual(options[0].key, 'groupByProperty', 'Key should be "groupByProperty"');
+		assert.strictEqual(options[0].placeholder, 'Select property', 'Placeholder should match');
 	});
 
 	test('Property filter excludes file.* properties', () => {

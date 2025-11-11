@@ -50,7 +50,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 ### Example
 
 If your base has a "Status" property with values "To Do", "Doing", and "Done":
-- Select "Status" as your column property
+- Select "Status" in the "Group by" dropdown
 - Three columns will appear: "To Do", "Doing", and "Done"
 - Drag cards between columns to change their status
 

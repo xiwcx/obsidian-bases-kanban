@@ -18,7 +18,7 @@ export class KanbanView extends BasesView {
 	
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
-	private columnPropertyId: BasesPropertyId | null = null;
+	private groupByPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
 	private columnSortable: Sortable | null = null;
 	private lastError: Error | null = null;
@@ -108,9 +108,8 @@ export class KanbanView extends BasesView {
 	}
 
 	private loadConfig(): void {
-		// Load column property from config
-		// Based on map-view.ts: this.config.getAsPropertyId('columnProperty')
-		this.columnPropertyId = this.config.getAsPropertyId('columnProperty');
+		// Load group by property from config
+		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
 	}
 
 	private render(): void {
@@ -136,10 +135,10 @@ export class KanbanView extends BasesView {
 			// Get available properties from entries
 			const availablePropertyIds = this.allProperties || [];
 			
-			// Validate column property
-			if (!this.columnPropertyId || !availablePropertyIds.includes(this.columnPropertyId)) {
+			// Validate group by property
+			if (!this.groupByPropertyId || !availablePropertyIds.includes(this.groupByPropertyId)) {
 				if (availablePropertyIds.length > 0) {
-					this.columnPropertyId = availablePropertyIds[0];
+					this.groupByPropertyId = availablePropertyIds[0];
 				} else {
 					this.containerEl.createDiv({
 						text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
@@ -149,8 +148,8 @@ export class KanbanView extends BasesView {
 				}
 			}
 
-			// Group entries by column property value
-			const groupedEntries = this.groupEntriesByProperty(entries, this.columnPropertyId);
+			// Group entries by group by property value
+			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
 
 			// Create kanban board
 			const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
@@ -335,8 +334,8 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		if (!this.columnPropertyId) {
-			console.warn('No column property ID set');
+		if (!this.groupByPropertyId) {
+			console.warn('No group by property ID set');
 			return;
 		}
 
@@ -351,7 +350,7 @@ export class KanbanView extends BasesView {
 			const valueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
 			
 			// Extract property name from property ID (e.g., "note.status" -> "status")
-			const parsedProperty = parsePropertyId(this.columnPropertyId);
+			const parsedProperty = parsePropertyId(this.groupByPropertyId);
 			const propertyName = parsedProperty.name;
 			
 			console.log('Updating property:', propertyName, 'to value:', valueToSet, 'for file:', entry.file.path);
@@ -375,9 +374,9 @@ export class KanbanView extends BasesView {
 	}
 
 	private getOrderedColumnValues(values: string[]): string[] {
-		if (!this.columnPropertyId) return values.sort();
+		if (!this.groupByPropertyId) return values.sort();
 		
-		const savedOrder = this.getColumnOrderFromStorage(this.columnPropertyId);
+		const savedOrder = this.getColumnOrderFromStorage(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
 		
 		// Merge saved order with new values
@@ -406,7 +405,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private async handleColumnDrop(evt: Sortable.SortableEvent): Promise<void> {
-		if (!this.columnPropertyId) return;
+		if (!this.groupByPropertyId) return;
 		
 		// Extract current column order from DOM
 		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
@@ -414,7 +413,7 @@ export class KanbanView extends BasesView {
 			col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
 		).filter(v => v !== null) as string[];
 		
-		await this.saveColumnOrderToStorage(this.columnPropertyId, order);
+		await this.saveColumnOrderToStorage(this.groupByPropertyId, order);
 	}
 
 	private getColumnOrderFromStorage(propertyId: BasesPropertyId): string[] | null {
@@ -451,11 +450,11 @@ export class KanbanView extends BasesView {
 	static getViewOptions(): ViewOption[] {
 		return [
 			{
-				displayName: 'Column property',
+				displayName: 'Group by',
 				type: 'property',
-				key: 'columnProperty',
+				key: 'groupByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
-				placeholder: 'Property',
+				placeholder: 'Select property',
 			},
 		];
 	}

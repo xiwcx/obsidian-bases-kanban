@@ -4,7 +4,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 ## Demo
 
-<video src="https://github.com/user-attachments/assets/933e075a-041d-40ea-b65a-13944173c95f" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/933e075a-041d-40ea-b65a-13944173c95f" controls width="100%" title="Kanban Bases View Demo - Drag and drop tasks between columns"></video>
 
 ## Features
 

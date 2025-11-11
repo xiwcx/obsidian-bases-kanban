@@ -396,12 +396,9 @@ export class KanbanView extends BasesView {
 		const savedOrder = this.getColumnOrderFromStorage(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
 		
-		// Normalize saved order values in case they contain old JSON strings
-		const normalizedSavedOrder = savedOrder.map(v => normalizePropertyValue(v));
-		
-		// Merge saved order with new values
-		const newValues = values.filter(v => !normalizedSavedOrder.includes(v));
-		return [...normalizedSavedOrder.filter(v => values.includes(v)), ...newValues];
+		// Saved order is already normalized strings, use directly
+		const newValues = values.filter(v => !savedOrder.includes(v));
+		return [...savedOrder.filter(v => values.includes(v)), ...newValues];
 	}
 
 	private initializeColumnSortable(): void {

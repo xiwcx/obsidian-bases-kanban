@@ -25,80 +25,25 @@ export function ensureGroupExists(
 }
 
 /**
- * Type guard to check if value is an object with a Data property (case-insensitive)
- */
-function hasDataProperty(value: unknown): value is Record<string, unknown> & { Data: unknown } {
-	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-		return false;
-	}
-	// Check for Data property (case-insensitive)
-	const keys = Object.keys(value);
-	return keys.some(key => key.toLowerCase() === 'data');
-}
-
-/**
- * Gets the Data field from an object (case-insensitive)
- */
-function getDataField(value: Record<string, unknown>): unknown {
-	const keys = Object.keys(value);
-	const dataKey = keys.find(key => key.toLowerCase() === 'data');
-	return dataKey ? value[dataKey] : undefined;
-}
-
-/**
  * Normalizes a property value to a string, using Uncategorized for empty values
- * @param value - The property value to normalize
+ * @param value - The property value to normalize (typically a Value object from Obsidian Bases)
  * @returns Normalized string value
  */
 export function normalizePropertyValue(value: unknown): string {
+	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return UNCATEGORIZED_LABEL;
 	}
 	
-	// Handle primitive types
-	if (typeof value === 'string') {
-		const trimmed = value.trim();
-		if (trimmed === '') {
-			return UNCATEGORIZED_LABEL;
-		}
-		
-		// Try parsing as JSON (Obsidian Bases may serialize property objects as JSON)
-		try {
-			const parsed = JSON.parse(trimmed);
-			if (hasDataProperty(parsed)) {
-				const dataValue = getDataField(parsed);
-				if (dataValue !== undefined) {
-					// Recursively normalize the Data field
-					return normalizePropertyValue(dataValue);
-				}
-			}
-			// If JSON parsed but no Data field, fall through to return trimmed
-		} catch {
-			// Not JSON, use the string as-is
-		}
-		
-		return trimmed;
+	// Value objects from Obsidian Bases have toString()
+	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
+		const stringValue = value.toString().trim();
+		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 	}
 	
-	if (typeof value === 'number' || typeof value === 'boolean') {
-		return String(value);
-	}
-	
-	// Handle Obsidian Bases property objects with Data field
-	if (hasDataProperty(value)) {
-		// Recursively normalize the Data field to handle nested cases
-		const dataValue = getDataField(value);
-		return normalizePropertyValue(dataValue);
-	}
-	
-	// For other objects, use JSON.stringify
-	try {
-		const stringValue = JSON.stringify(value).trim();
-		return stringValue === '' || stringValue === 'null' ? UNCATEGORIZED_LABEL : stringValue;
-	} catch {
-		// If stringification fails, fall back to Object.toString
-		return UNCATEGORIZED_LABEL;
-	}
+	// Fallback for primitives (shouldn't happen in production, but keeps tests simple)
+	const stringValue = String(value).trim();
+	return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 }
 
 

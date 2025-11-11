@@ -1519,8 +1519,8 @@ describe('Column Order Normalization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		// Set saved order with old JSON strings (backwards compatibility)
-		const savedOrder = ['{"Data": "Done"}', '{"Data": "Doing"}', 'To Do'];
+		// Saved order should be normalized strings (as they are when saved from column values)
+		const savedOrder = ['Done', 'Doing', 'To Do'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
 		const view = new KanbanView(controller, scrollEl);
@@ -1532,12 +1532,12 @@ describe('Column Order Normalization', () => {
 			col.getAttribute('data-column-value')
 		);
 
-		// Should normalize JSON strings and render correctly
+		// Should render correctly with saved order
 		assert.ok(renderedOrder.includes('Done'), 'Done should be in rendered order');
 		assert.ok(renderedOrder.includes('Doing'), 'Doing should be in rendered order');
 		assert.ok(renderedOrder.includes('To Do'), 'To Do should be in rendered order');
 		
-		// Order should match normalized saved order (Done, Doing, To Do)
+		// Order should match saved order (Done, Doing, To Do)
 		assert.strictEqual(renderedOrder[0], 'Done', 'First column should be Done (from saved order)');
 		assert.strictEqual(renderedOrder[1], 'Doing', 'Second column should be Doing (from saved order)');
 	});
@@ -1548,8 +1548,8 @@ describe('Column Order Normalization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		// Mix of JSON strings and plain strings
-		const savedOrder = ['{"Data": "Done"}', 'To Do', '{"data": "Doing"}'];
+		// Saved order should be normalized strings
+		const savedOrder = ['Done', 'To Do', 'Doing'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
 		const view = new KanbanView(controller, scrollEl);
@@ -1561,10 +1561,10 @@ describe('Column Order Normalization', () => {
 			col.getAttribute('data-column-value')
 		);
 
-		// Should normalize all values correctly
-		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (normalized from JSON)');
-		assert.strictEqual(renderedOrder[1], 'To Do', 'Second should be To Do (plain string)');
-		assert.strictEqual(renderedOrder[2], 'Doing', 'Third should be Doing (normalized from JSON)');
+		// Should render in saved order
+		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (from saved order)');
+		assert.strictEqual(renderedOrder[1], 'To Do', 'Second should be To Do (from saved order)');
+		assert.strictEqual(renderedOrder[2], 'Doing', 'Third should be Doing (from saved order)');
 	});
 
 	test('New values merged correctly with normalized saved order', () => {
@@ -1573,8 +1573,8 @@ describe('Column Order Normalization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		// Saved order with only some columns (old data)
-		const savedOrder = ['{"Data": "Done"}'];
+		// Saved order with only some columns (normalized strings)
+		const savedOrder = ['Done'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
 		const view = new KanbanView(controller, scrollEl);
@@ -1604,21 +1604,21 @@ describe('Column Order Normalization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		// Old format with various JSON structures
+		// Old format with invalid saved data (JSON strings won't match column values)
+		// This simulates old data that might have been saved incorrectly
 		const savedOrder = [
-			'{"Data": "Done"}',
-			'{"Data": {"Data": "Doing"}}', // Nested
-			'{"data": "To Do"}', // Lowercase
+			'{"Data": "Done"}', // JSON string won't match normalized column value
+			'InvalidValue', // Invalid value that doesn't exist
 		];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 
-		// Should not throw
+		// Should not throw - invalid saved data should be ignored gracefully
 		assert.doesNotThrow(() => {
 			view.onDataUpdated();
-		}, 'Should handle old saved data without errors');
+		}, 'Should handle invalid saved data without errors');
 
 		const columns = view.containerEl.querySelectorAll('.kanban-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');

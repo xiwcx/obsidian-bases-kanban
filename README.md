@@ -70,8 +70,8 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- npm or yarn
+- Node.js (v24)
+- npm
 
 ### Building
 
@@ -101,31 +101,23 @@ npm run typecheck
 
 ## Releasing
 
-### Version Bumping
-
-To bump the version manually (for local development):
-
-```bash
-npm run version
-```
-
-This will increment the minor version in `manifest.json`, `package.json`, and update `versions.json`.
-
 ### Creating a Release
 
-1. **Update version**: Manually update the version in `manifest.json` following [Semantic Versioning](https://semver.org/), or use `npm run version` for minor version bumps.
+1. **Update version**: Manually update the version in `manifest.json` following [Semantic Versioning](https://semver.org/).
 
-2. **Update versions.json**: Ensure the new version maps to the correct `minAppVersion` in `versions.json`.
+2. **Update package.json**: Ensure the version in `package.json` matches the version in `manifest.json` (the CI workflow will verify this).
 
-3. **Build**: Run `npm run build` to create production artifacts in the `dist/` directory.
+3. **Update versions.json**: Add an entry mapping the new version to the correct `minAppVersion` in `versions.json`.
 
-4. **Create GitHub Release**:
-   - Push your changes to the repository
-   - Create a git tag matching the version exactly (no `v` prefix): `git tag 0.36.0`
-   - Push the tag: `git push origin 0.36.0`
-   - The GitHub Actions workflow will automatically create a release and upload `main.js`, `manifest.json`, and `styles.css` as release assets
+4. **Push to main**: Push your changes to the `main` branch. The GitHub Actions workflow will automatically:
+   - Run tests and verify that `manifest.json` and `package.json` versions match
+   - Verify that the version exists in `versions.json`
+   - Build the plugin (runs `npm run build`)
+   - Extract the version from the built `dist/manifest.json`
+   - Create a git tag matching the version exactly (no `v` prefix) if it doesn't already exist
+   - Create a GitHub release and upload `main.js`, `manifest.json`, and `styles.css` as release assets
 
-   Alternatively, you can trigger the release workflow manually from the GitHub Actions tab.
+   Note: The release workflow only runs on pushes to `main` (not on pull requests). You can also trigger it manually from the GitHub Actions tab.
 
 5. **Submit to Obsidian Community Plugins** (first release only):
    - Follow the [Obsidian plugin submission guidelines](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)

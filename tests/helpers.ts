@@ -93,7 +93,18 @@ export function createMockBasesEntry(
 	const entry = {
 		file,
 		getValue: (propertyId: BasesPropertyId) => {
-			return properties[propertyId] ?? null;
+			const value = properties[propertyId] ?? null;
+			if (value === null) return null;
+			
+			// Return a mock Value object to match Obsidian Bases API
+			// We only use toString() in our code, but include other required methods for type compatibility
+			return {
+				toString: () => String(value),
+				isTruthy: () => !!value,
+				equals: () => false, // Stub implementation
+				looseEquals: () => false, // Stub implementation
+				renderTo: () => {}, // Stub implementation
+			} as any; // Cast to any to satisfy Value interface requirements
 		},
 		getProperty: (propertyId: BasesPropertyId) => {
 			return properties[propertyId] ?? null;

@@ -26,14 +26,22 @@ export function ensureGroupExists(
 
 /**
  * Normalizes a property value to a string, using Uncategorized for empty values
- * @param value - The property value to normalize
+ * @param value - The property value to normalize (typically a Value object from Obsidian Bases)
  * @returns Normalized string value
  */
 export function normalizePropertyValue(value: unknown): string {
+	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return UNCATEGORIZED_LABEL;
 	}
 	
+	// Value objects from Obsidian Bases have toString()
+	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
+		const stringValue = value.toString().trim();
+		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
+	}
+	
+	// Fallback for primitives (shouldn't happen in production, but keeps tests simple)
 	const stringValue = String(value).trim();
 	return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 }

@@ -11,6 +11,8 @@
 		"importHelpers": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
 		"lib": [
 			"DOM",
 			"ES5",

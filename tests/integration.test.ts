@@ -1,6 +1,7 @@
+import './setup.ts';
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { KanbanView } from '../src/kanbanView';
+import { KanbanView } from '../src/kanbanView.ts';
 import {
 	setupTestEnvironment,
 	createDivWithMethods,
@@ -11,14 +12,14 @@ import {
 	createMockBasesEntry,
 	createMockTFile,
 	setupKanbanViewWithApp,
-} from './helpers';
+} from './helpers.ts';
 import {
 	createEntriesWithStatus,
 	createEntriesWithMixedProperties,
 	PROPERTY_STATUS,
 	PROPERTY_PRIORITY,
 	TEST_PROPERTIES,
-} from './fixtures';
+} from './fixtures.ts';
 
 setupTestEnvironment();
 

@@ -1,13 +1,14 @@
+import './setup.ts';
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main';
-import { KanbanView } from '../src/kanbanView';
-import { setupTestEnvironment, createDivWithMethods, createMockQueryController } from './helpers';
+import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
+import { KanbanView } from '../src/kanbanView.ts';
+import { setupTestEnvironment, createDivWithMethods, createMockQueryController } from './helpers.ts';
 
 setupTestEnvironment();
 
 describe('Plugin Registration', () => {
-	test('Plugin loads and registers view correctly', () => {
+	test('Plugin loads and registers view correctly', async () => {
 		// Mock the plugin's registerBasesView method
 		let registeredViewType: string | null = null;
 		let registeredName: string | null = null;
@@ -15,9 +16,13 @@ describe('Plugin Registration', () => {
 		let factoryController: any = null;
 		let factoryScrollEl: HTMLElement | null = null;
 
-		// Create a mock plugin instance
+		// Create a mock plugin instance with loadData mock
 		const mockApp = {} as any;
 		const plugin = new KanbanBasesViewPlugin(mockApp, {} as any);
+		
+		// Mock loadData and saveData
+		plugin.loadData = async () => ({});
+		plugin.saveData = async () => {};
 		
 		// Override registerBasesView to capture calls
 		plugin.registerBasesView = function(
@@ -43,8 +48,8 @@ describe('Plugin Registration', () => {
 			return view;
 		};
 
-		// Call onload
-		plugin.onload();
+		// Call onload (it's async now)
+		await plugin.onload();
 
 		// Verify registration
 		assert.strictEqual(registeredViewType, KANBAN_VIEW_TYPE, 'View type should match constant');
@@ -54,12 +59,16 @@ describe('Plugin Registration', () => {
 		assert.notStrictEqual(factoryScrollEl, null, 'Factory should receive scrollEl');
 	});
 
-	test('Factory function returns KanbanView instance', () => {
+	test('Factory function returns KanbanView instance', async () => {
 		const scrollEl = createDivWithMethods();
 		const controller = createMockQueryController();
 		
 		// Get the factory from getViewOptions static method
 		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
+		
+		// Mock loadData and saveData
+		plugin.loadData = async () => ({});
+		plugin.saveData = async () => {};
 		
 		// Mock registerBasesView to get the factory
 		let factoryFn: ((controller: any, scrollEl: HTMLElement) => any) | null = null;
@@ -68,7 +77,7 @@ describe('Plugin Registration', () => {
 			return null;
 		};
 		
-		plugin.onload();
+		await plugin.onload();
 		
 		assert.notStrictEqual(factoryFn, null, 'Factory function should be defined');
 		

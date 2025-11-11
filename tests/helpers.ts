@@ -187,27 +187,10 @@ export function mockSortable() {
 		return instance as any;
 	};
 
-	// Clear module cache and set up the mock
-	try {
-		delete require.cache[require.resolve('sortablejs')];
-		const sortablejs = require('sortablejs');
-		if (sortablejs.resetMockInstances) {
-			sortablejs.resetMockInstances();
-		}
-	} catch (e) {
-		// Module might not be available yet, that's ok
-	}
-
 	return {
 		Sortable: SortableConstructor,
 		instances,
 		getInstances: () => {
-			try {
-				const sortablejs = require('sortablejs');
-				if (sortablejs.getMockInstances) {
-					return sortablejs.getMockInstances();
-				}
-			} catch (e) {}
 			return instances;
 		},
 	};
@@ -273,12 +256,13 @@ export function setupKanbanViewWithApp(view: any, app: App): void {
 }
 
 // Helper to create a fully set up KanbanView (for convenience in tests)
+// Note: KanbanView should be imported dynamically in test files using dynamic import
 export function createKanbanViewWithApp(
+	KanbanView: any,
 	controller: QueryController,
 	scrollEl: HTMLElement,
 	app: App
 ): any {
-	const { KanbanView } = require('../src/kanbanView');
 	const view = new KanbanView(controller, scrollEl);
 	setupKanbanViewWithApp(view, app);
 	return view;

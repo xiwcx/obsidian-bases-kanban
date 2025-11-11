@@ -1,5 +1,5 @@
-import { BasesEntry } from 'obsidian';
-import { UNCATEGORIZED_LABEL } from '../constants';
+import type { BasesEntry } from 'obsidian';
+import { UNCATEGORIZED_LABEL } from '../constants.ts';
 
 /**
  * Ensures a group exists in the map, creating it if necessary
@@ -37,4 +37,6 @@ export function normalizePropertyValue(value: unknown): string {
 	const stringValue = String(value).trim();
 	return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 }
+
+
 

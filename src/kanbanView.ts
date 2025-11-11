@@ -1,4 +1,5 @@
-import { BasesView, QueryController, BasesEntry, BasesPropertyId, TFile, parsePropertyId, ViewOption } from 'obsidian';
+import { BasesView, parsePropertyId } from 'obsidian';
+import type { QueryController, BasesEntry, BasesPropertyId, TFile, ViewOption } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	UNCATEGORIZED_LABEL,
@@ -8,9 +9,9 @@ import {
 	SORTABLE_CONFIG,
 	ERROR_TEXT,
 	EMPTY_STATE_MESSAGES,
-} from './constants';
-import { toError, formatErrorMessage } from './utils/errorHandling';
-import { ensureGroupExists, normalizePropertyValue } from './utils/grouping';
+} from './constants.ts';
+import { toError, formatErrorMessage } from './utils/errorHandling.ts';
+import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
@@ -19,6 +20,7 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private columnPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
+	private columnSortable: Sortable | null = null;
 	private lastError: Error | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement) {
@@ -154,15 +156,17 @@ export class KanbanView extends BasesView {
 			const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
 
 			// Create columns for each unique property value
-			const propertyValues = Array.from(groupedEntries.keys()).sort();
+			const propertyValues = Array.from(groupedEntries.keys());
+			const orderedValues = this.getOrderedColumnValues(propertyValues);
 			
-			propertyValues.forEach((value) => {
+			orderedValues.forEach((value) => {
 				const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
 				boardEl.appendChild(columnEl);
 			});
 
 			// Initialize drag and drop
 			this.initializeSortable();
+			this.initializeColumnSortable();
 		} catch (error) {
 			this.handleError(toError(error), 'render');
 		}
@@ -195,6 +199,11 @@ export class KanbanView extends BasesView {
 
 		// Column header
 		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
+		
+		// Add drag handle
+		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
+		dragHandle.innerHTML = '⋮⋮';
+		
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
 
@@ -365,12 +374,74 @@ export class KanbanView extends BasesView {
 		}
 	}
 
+	private getOrderedColumnValues(values: string[]): string[] {
+		if (!this.columnPropertyId) return values.sort();
+		
+		const savedOrder = this.getColumnOrderFromStorage(this.columnPropertyId);
+		if (!savedOrder) return values.sort();
+		
+		// Merge saved order with new values
+		const newValues = values.filter(v => !savedOrder.includes(v));
+		return [...savedOrder.filter(v => values.includes(v)), ...newValues];
+	}
+
+	private initializeColumnSortable(): void {
+		if (this.columnSortable) {
+			this.columnSortable.destroy();
+		}
+		
+		const boardEl = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		if (!boardEl || !(boardEl instanceof HTMLElement)) return;
+		
+		this.columnSortable = new Sortable(boardEl, {
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
+			draggable: `.${CSS_CLASSES.COLUMN}`,
+			ghostClass: CSS_CLASSES.COLUMN_GHOST,
+			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this.handleColumnDrop(evt);
+			},
+		});
+	}
+
+	private async handleColumnDrop(evt: Sortable.SortableEvent): Promise<void> {
+		if (!this.columnPropertyId) return;
+		
+		// Extract current column order from DOM
+		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
+		const order = Array.from(columns).map(col => 
+			col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
+		).filter(v => v !== null) as string[];
+		
+		await this.saveColumnOrderToStorage(this.columnPropertyId, order);
+	}
+
+	private getColumnOrderFromStorage(propertyId: BasesPropertyId): string[] | null {
+		// Access plugin data via this.app
+		const plugin = (this.app as any)?.plugins?.plugins?.['kanban-bases-view'];
+		return plugin?.getColumnOrder?.(propertyId) || null;
+	}
+
+	private async saveColumnOrderToStorage(propertyId: BasesPropertyId, order: string[]): Promise<void> {
+		const plugin = (this.app as any)?.plugins?.plugins?.['kanban-bases-view'];
+		if (plugin?.saveColumnOrder) {
+			await plugin.saveColumnOrder(propertyId, order);
+		}
+	}
+
 	onClose(): void {
 		// Clean up Sortable instances
 		this.sortableInstances.forEach((instance) => {
 			instance.destroy();
 		});
 		this.sortableInstances = [];
+		
+		// Clean up column Sortable instance
+		if (this.columnSortable) {
+			this.columnSortable.destroy();
+			this.columnSortable = null;
+		}
 		
 		// Note: DOM event listeners attached to elements within containerEl
 		// are automatically cleaned up when containerEl is cleared (via empty()).

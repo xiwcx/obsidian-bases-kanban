@@ -1,5 +1,7 @@
-// Mock obsidian module for testing
-// This provides the minimal interface needed for tests
+// CommonJS mock for obsidian module
+// This file is required by node_modules/obsidian/index.js
+// The loader intercepts 'obsidian' imports and redirects to obsidian.ts for ESM,
+// but this file is needed for the CommonJS require() call in node_modules/obsidian/index.js
 
 class BasesView {
 	constructor(controller) {
@@ -25,7 +27,9 @@ class Plugin {
 	async onload() {}
 	onunload() {}
 	
-	registerBasesView(viewType, options) {}
+	registerBasesView(viewType, options) {
+		// Mock implementation
+	}
 }
 
 function parsePropertyId(propertyId) {
@@ -46,4 +50,3 @@ module.exports = {
 	Plugin,
 	parsePropertyId,
 };
-

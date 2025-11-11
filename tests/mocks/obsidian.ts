@@ -77,7 +77,9 @@ export class Plugin {
 	async onload(): Promise<void> {}
 	onunload(): void {}
 	
-	registerBasesView?(viewType: string, options: any): void;
+	registerBasesView?(viewType: string, options: any): void {
+		// Mock implementation
+	}
 }
 
 export function parsePropertyId(propertyId: BasesPropertyId): { name: string; source?: string } {

@@ -8,9 +8,15 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"test": "node test-runner.mjs"
+		"test": "NODE_NO_WARNINGS=1 node --import ./loader.mjs --test"
 	},
-	"keywords": ["obsidian", "obsidian-plugin", "kanban", "bases", "task-management"],
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"kanban",
+		"bases",
+		"task-management"
+	],
 	"author": "I. Welch Canavan",
 	"license": "MIT",
 	"devDependencies": {
@@ -24,7 +30,7 @@
 		"jsdom": "^24.0.0",
 		"obsidian": "latest",
 		"tslib": "2.6.2",
-		"tsx": "^4.7.0",
+		"tsx": "^4.20.6",
 		"typescript": "5.3.3"
 	},
 	"dependencies": {

@@ -25,6 +25,27 @@ export function ensureGroupExists(
 }
 
 /**
+ * Type guard to check if value is an object with a Data property (case-insensitive)
+ */
+function hasDataProperty(value: unknown): value is Record<string, unknown> & { Data: unknown } {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	// Check for Data property (case-insensitive)
+	const keys = Object.keys(value);
+	return keys.some(key => key.toLowerCase() === 'data');
+}
+
+/**
+ * Gets the Data field from an object (case-insensitive)
+ */
+function getDataField(value: Record<string, unknown>): unknown {
+	const keys = Object.keys(value);
+	const dataKey = keys.find(key => key.toLowerCase() === 'data');
+	return dataKey ? value[dataKey] : undefined;
+}
+
+/**
  * Normalizes a property value to a string, using Uncategorized for empty values
  * @param value - The property value to normalize
  * @returns Normalized string value
@@ -37,14 +58,40 @@ export function normalizePropertyValue(value: unknown): string {
 	// Handle primitive types
 	if (typeof value === 'string') {
 		const trimmed = value.trim();
-		return trimmed === '' ? UNCATEGORIZED_LABEL : trimmed;
+		if (trimmed === '') {
+			return UNCATEGORIZED_LABEL;
+		}
+		
+		// Try parsing as JSON (Obsidian Bases may serialize property objects as JSON)
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (hasDataProperty(parsed)) {
+				const dataValue = getDataField(parsed);
+				if (dataValue !== undefined) {
+					// Recursively normalize the Data field
+					return normalizePropertyValue(dataValue);
+				}
+			}
+			// If JSON parsed but no Data field, fall through to return trimmed
+		} catch {
+			// Not JSON, use the string as-is
+		}
+		
+		return trimmed;
 	}
 	
 	if (typeof value === 'number' || typeof value === 'boolean') {
 		return String(value);
 	}
 	
-	// For objects, use JSON.stringify
+	// Handle Obsidian Bases property objects with Data field
+	if (hasDataProperty(value)) {
+		// Recursively normalize the Data field to handle nested cases
+		const dataValue = getDataField(value);
+		return normalizePropertyValue(dataValue);
+	}
+	
+	// For other objects, use JSON.stringify
 	try {
 		const stringValue = JSON.stringify(value).trim();
 		return stringValue === '' || stringValue === 'null' ? UNCATEGORIZED_LABEL : stringValue;

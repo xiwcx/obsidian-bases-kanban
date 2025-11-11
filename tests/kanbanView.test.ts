@@ -727,16 +727,16 @@ describe('Error Handling - Error Display', () => {
 		assert.ok(stackToggle, 'Stack toggle should exist');
 		assert.ok(stackContent, 'Stack content should exist');
 
-		// Initially hidden
-		assert.strictEqual(stackContent.style.display, 'none', 'Stack should be hidden initially');
+		// Initially hidden (no is-visible class)
+		assert.ok(!stackContent.classList.contains('is-visible'), 'Stack should be hidden initially');
 
 		// Click to show
 		stackToggle.click();
-		assert.strictEqual(stackContent.style.display, 'block', 'Stack should be visible after click');
+		assert.ok(stackContent.classList.contains('is-visible'), 'Stack should be visible after click');
 
 		// Click to hide
 		stackToggle.click();
-		assert.strictEqual(stackContent.style.display, 'none', 'Stack should be hidden after second click');
+		assert.ok(!stackContent.classList.contains('is-visible'), 'Stack should be hidden after second click');
 	});
 
 	test('Retry button triggers onDataUpdated', () => {

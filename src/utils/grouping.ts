@@ -34,8 +34,24 @@ export function normalizePropertyValue(value: unknown): string {
 		return UNCATEGORIZED_LABEL;
 	}
 	
-	const stringValue = String(value).trim();
-	return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
+	// Handle primitive types
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		return trimmed === '' ? UNCATEGORIZED_LABEL : trimmed;
+	}
+	
+	if (typeof value === 'number' || typeof value === 'boolean') {
+		return String(value);
+	}
+	
+	// For objects, use JSON.stringify
+	try {
+		const stringValue = JSON.stringify(value).trim();
+		return stringValue === '' || stringValue === 'null' ? UNCATEGORIZED_LABEL : stringValue;
+	} catch {
+		// If stringification fails, fall back to Object.toString
+		return UNCATEGORIZED_LABEL;
+	}
 }
 
 

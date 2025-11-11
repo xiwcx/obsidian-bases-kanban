@@ -27,7 +27,11 @@ export function toError(error: unknown): Error {
 	}
 	
 	if (error && typeof error === 'object' && 'message' in error) {
-		return new Error(String(error.message));
+		const messageValue = error.message;
+		const messageStr = typeof messageValue === 'string' 
+			? messageValue 
+			: JSON.stringify(messageValue);
+		return new Error(messageStr);
 	}
 	
 	return new Error(String(error));

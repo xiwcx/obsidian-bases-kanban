@@ -1,5 +1,5 @@
 import { BasesView, parsePropertyId } from 'obsidian';
-import type { QueryController, BasesEntry, BasesPropertyId, TFile, ViewOption } from 'obsidian';
+import type { QueryController, BasesEntry, BasesPropertyId, ViewOption, App } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	UNCATEGORIZED_LABEL,
@@ -12,6 +12,29 @@ import {
 } from './constants.ts';
 import { toError, formatErrorMessage } from './utils/errorHandling.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
+
+interface KanbanPlugin {
+	getColumnOrder(propertyId: BasesPropertyId): string[] | null;
+	saveColumnOrder(propertyId: BasesPropertyId, order: string[]): Promise<void>;
+}
+
+// Extend Obsidian's App type to include plugins registry
+// Obsidian's App structure: app.plugins is PluginManager, app.plugins.plugins is the registry
+// Plugins are accessed via app.plugins.plugins[pluginId] where pluginId matches manifest.json id
+// Reference: Obsidian API type definitions - https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts
+// This is an internal but commonly used API pattern in Obsidian plugins
+interface AppWithPluginRegistry extends App {
+	plugins?: {
+		plugins?: {
+			[key: string]: unknown;
+		};
+	};
+}
+
+// Type guard to check if app has plugin registry
+function hasPluginRegistry(app: App | undefined): app is AppWithPluginRegistry {
+	return app !== undefined && 'plugins' in app;
+}
 
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
@@ -46,7 +69,7 @@ export class KanbanView extends BasesView {
 		// Log to console
 		console.error('KanbanView Error:', errorMessage);
 		console.error('Stack:', errorStack);
-		console.error('Error object:', error);
+		console.error('Error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
 		
 		// Display error in the view
 		this.displayError(errorMessage, errorStack);
@@ -75,18 +98,15 @@ export class KanbanView extends BasesView {
 			
 			const stackContent = stackContainer.createDiv({ cls: CSS_CLASSES.ERROR_STACK });
 			stackContent.textContent = stack;
-			// Set initial hidden state (CSS also sets this, but inline style needed for test compatibility)
-			stackContent.style.display = 'none';
+			// Initial hidden state is handled by CSS (.kanban-error-stack { display: none; })
 			
 			const toggleHandler = () => {
 				const isVisible = stackContent.classList.contains('is-visible');
 				if (isVisible) {
 					stackContent.classList.remove('is-visible');
-					stackContent.style.display = 'none';
 					stackToggle.textContent = ERROR_TEXT.SHOW_STACK;
 				} else {
 					stackContent.classList.add('is-visible');
-					stackContent.style.display = 'block';
 					stackToggle.textContent = ERROR_TEXT.HIDE_STACK;
 				}
 			};
@@ -201,7 +221,7 @@ export class KanbanView extends BasesView {
 		
 		// Add drag handle
 		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
-		dragHandle.innerHTML = '⋮⋮';
+		dragHandle.textContent = '⋮⋮';
 		
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
@@ -232,7 +252,7 @@ export class KanbanView extends BasesView {
 		// Make card clickable to open the note
 		const clickHandler = () => {
 			if (this.app?.workspace) {
-				this.app.workspace.openLinkText(filePath, '', false);
+				void this.app.workspace.openLinkText(filePath, '', false);
 			}
 		};
 		cardEl.addEventListener('click', clickHandler);
@@ -408,19 +428,25 @@ export class KanbanView extends BasesView {
 		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
 		const order = Array.from(columns).map(col => 
 			col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
-		).filter(v => v !== null) as string[];
+		).filter((v): v is string => v !== null);
 		
 		await this.saveColumnOrderToStorage(this.groupByPropertyId, order);
 	}
 
 	private getColumnOrderFromStorage(propertyId: BasesPropertyId): string[] | null {
 		// Access plugin data via this.app
-		const plugin = (this.app as any)?.plugins?.plugins?.['kanban-bases-view'];
+		if (!hasPluginRegistry(this.app)) {
+			return null;
+		}
+		const plugin = this.app.plugins?.plugins?.['kanban-bases-view'] as KanbanPlugin | undefined;
 		return plugin?.getColumnOrder?.(propertyId) || null;
 	}
 
 	private async saveColumnOrderToStorage(propertyId: BasesPropertyId, order: string[]): Promise<void> {
-		const plugin = (this.app as any)?.plugins?.plugins?.['kanban-bases-view'];
+		if (!hasPluginRegistry(this.app)) {
+			return;
+		}
+		const plugin = this.app.plugins?.plugins?.['kanban-bases-view'] as KanbanPlugin | undefined;
 		if (plugin?.saveColumnOrder) {
 			await plugin.saveColumnOrder(propertyId, order);
 		}

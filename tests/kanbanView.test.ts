@@ -1348,3 +1348,311 @@ describe('Column Reordering - Order Persistence', () => {
 	});
 });
 
+describe('Plugin Registry Type Guards', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('getColumnOrderFromStorage returns null when app has no plugins property', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Remove plugins property
+		delete (app as any).plugins;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Should not crash and should use alphabetical order
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should still be rendered');
+	});
+
+	test('getColumnOrderFromStorage returns null when plugins.plugins is undefined', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Set plugins but not plugins.plugins
+		(app as any).plugins = {};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Should not crash
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should still be rendered');
+	});
+
+	test('getColumnOrderFromStorage returns null when plugin not found', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Set plugins registry but without kanban-bases-view plugin
+		(app as any).plugins = {
+			plugins: {
+				'some-other-plugin': {},
+			},
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Should fallback to alphabetical order
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		const expectedOrder = [...renderedOrder].sort();
+		assert.deepStrictEqual(
+			renderedOrder,
+			expectedOrder,
+			'Should fallback to alphabetical when plugin not found'
+		);
+	});
+
+	test('saveColumnOrderToStorage handles missing plugin registry gracefully', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Remove plugins property
+		delete (app as any).plugins;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Should not throw when trying to save
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const boardEl = view.containerEl.querySelector('.kanban-board') as HTMLElement;
+		
+		const mockEvent = {
+			item: columns[0] as HTMLElement,
+			from: boardEl,
+			to: boardEl,
+			oldIndex: 0,
+			newIndex: 1,
+		};
+
+		// Should not throw
+		await assert.doesNotReject(
+			async () => await (view as any).handleColumnDrop(mockEvent),
+			'Should handle missing plugin registry gracefully'
+		);
+	});
+
+	test('Plugin access works correctly when registry exists', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const mockPlugin = {
+			columnOrders: {},
+			async saveColumnOrder(propertyId: string, order: string[]) {
+				this.columnOrders[propertyId] = order;
+			},
+			getColumnOrder(propertyId: string): string[] | null {
+				return this.columnOrders[propertyId] || null;
+			},
+		};
+
+		(app as any).plugins = {
+			plugins: {
+				'kanban-bases-view': mockPlugin,
+			},
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Should work normally
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should be rendered');
+	});
+});
+
+describe('Column Order Normalization', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+	let mockPlugin: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		mockPlugin = {
+			columnOrders: {},
+			async saveColumnOrder(propertyId: string, order: string[]) {
+				this.columnOrders[propertyId] = order;
+			},
+			getColumnOrder(propertyId: string): string[] | null {
+				return this.columnOrders[propertyId] || null;
+			},
+		};
+		(app as any).plugins = {
+			plugins: {
+				'kanban-bases-view': mockPlugin,
+			},
+		};
+	});
+
+	test('Normalizes old JSON strings in saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Set saved order with old JSON strings (backwards compatibility)
+		const savedOrder = ['{"Data": "Done"}', '{"Data": "Doing"}', 'To Do'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should normalize JSON strings and render correctly
+		assert.ok(renderedOrder.includes('Done'), 'Done should be in rendered order');
+		assert.ok(renderedOrder.includes('Doing'), 'Doing should be in rendered order');
+		assert.ok(renderedOrder.includes('To Do'), 'To Do should be in rendered order');
+		
+		// Order should match normalized saved order (Done, Doing, To Do)
+		assert.strictEqual(renderedOrder[0], 'Done', 'First column should be Done (from saved order)');
+		assert.strictEqual(renderedOrder[1], 'Doing', 'Second column should be Doing (from saved order)');
+	});
+
+	test('Handles mixed JSON strings and plain strings in saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Mix of JSON strings and plain strings
+		const savedOrder = ['{"Data": "Done"}', 'To Do', '{"data": "Doing"}'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should normalize all values correctly
+		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (normalized from JSON)');
+		assert.strictEqual(renderedOrder[1], 'To Do', 'Second should be To Do (plain string)');
+		assert.strictEqual(renderedOrder[2], 'Doing', 'Third should be Doing (normalized from JSON)');
+	});
+
+	test('New values merged correctly with normalized saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Saved order with only some columns (old data)
+		const savedOrder = ['{"Data": "Done"}'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should have Done first (from saved order), then new columns
+		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (from saved order)');
+		assert.ok(renderedOrder.includes('To Do'), 'To Do should be included');
+		assert.ok(renderedOrder.includes('Doing'), 'Doing should be included');
+		
+		// New columns should appear after saved ones
+		const toDoIndex = renderedOrder.indexOf('To Do');
+		const doingIndex = renderedOrder.indexOf('Doing');
+		assert.ok(toDoIndex > 0, 'To Do should appear after Done');
+		assert.ok(doingIndex > 0, 'Doing should appear after Done');
+	});
+
+	test('Backwards compatibility: old saved data does not break rendering', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Old format with various JSON structures
+		const savedOrder = [
+			'{"Data": "Done"}',
+			'{"Data": {"Data": "Doing"}}', // Nested
+			'{"data": "To Do"}', // Lowercase
+		];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+
+		// Should not throw
+		assert.doesNotThrow(() => {
+			view.onDataUpdated();
+		}, 'Should handle old saved data without errors');
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should be rendered');
+		
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		
+		// All values should be normalized correctly
+		assert.ok(renderedOrder.includes('Done'), 'Done should be present');
+		assert.ok(renderedOrder.includes('Doing'), 'Doing should be present');
+		assert.ok(renderedOrder.includes('To Do'), 'To Do should be present');
+	});
+
+	test('Handles invalid JSON strings in saved order gracefully', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Saved order with invalid JSON (should fall back to string value)
+		const savedOrder = ['{invalid json}', 'To Do'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+
+		// Should not throw
+		assert.doesNotThrow(() => {
+			view.onDataUpdated();
+		}, 'Should handle invalid JSON gracefully');
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should be rendered');
+	});
+});
+

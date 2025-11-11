@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { KanbanView } from '../src/kanbanView';
+import { KanbanView } from '../src/kanbanView.ts';
 import {
 	setupTestEnvironment,
 	createDivWithMethods,
@@ -11,14 +11,14 @@ import {
 	createMockBasesEntry,
 	createMockTFile,
 	setupKanbanViewWithApp,
-} from './helpers';
+} from './helpers.ts';
 import {
 	createEntriesWithStatus,
 	createEntriesWithMixedProperties,
 	PROPERTY_STATUS,
 	PROPERTY_PRIORITY,
 	TEST_PROPERTIES,
-} from './fixtures';
+} from './fixtures.ts';
 
 setupTestEnvironment();
 
@@ -160,7 +160,7 @@ describe('Integration Tests - Property Selection', () => {
 		(global as any).Sortable = sortableMock.Sortable;
 	});
 
-	test('Changing column property updates view', () => {
+	test('Changing group by property updates view', () => {
 		const entries = createEntriesWithMixedProperties();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
@@ -298,14 +298,14 @@ describe('Integration Tests - Multiple Views', () => {
 		assert.ok(columns1.length > 0, 'View1 should have columns');
 		assert.ok(columns2.length > 0, 'View2 should have columns');
 
-		// Verify columnPropertyId is independent
+		// Verify groupByPropertyId is independent
 		assert.strictEqual(
-			(view1 as any).columnPropertyId,
+			(view1 as any).groupByPropertyId,
 			PROPERTY_STATUS,
 			'View1 should have STATUS property'
 		);
 		assert.strictEqual(
-			(view2 as any).columnPropertyId,
+			(view2 as any).groupByPropertyId,
 			PROPERTY_PRIORITY,
 			'View2 should have PRIORITY property'
 		);

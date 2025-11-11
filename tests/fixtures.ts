@@ -1,4 +1,4 @@
-import { createMockTFile, createMockBasesEntry } from './helpers';
+import { createMockTFile, createMockBasesEntry } from './helpers.ts';
 import type { BasesEntry, BasesPropertyId } from 'obsidian';
 
 export const PROPERTY_STATUS = 'note.status' as BasesPropertyId;

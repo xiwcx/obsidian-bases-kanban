@@ -43,3 +43,6 @@ export function formatErrorMessage(error: Error, context: string): string {
 	return `[${context}] ${error.name}: ${error.message}`;
 }
 
+
+
+

@@ -99,6 +99,28 @@
 	justify-content: space-between;
 	align-items: center;
 	flex-shrink: 0;
+	gap: 8px;
+}
+
+.kanban-column-drag-handle {
+	cursor: grab;
+	padding: 4px;
+	opacity: 0.5;
+	user-select: none;
+	font-size: 16px;
+	line-height: 1;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+}
+
+.kanban-column-drag-handle:hover {
+	opacity: 1;
+	color: var(--text-normal);
+}
+
+.kanban-column-drag-handle:active {
+	cursor: grabbing;
 }
 
 .kanban-column-title {
@@ -197,6 +219,16 @@
 	cursor: grabbing;
 	transform: rotate(2deg);
 	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Column Drag and Drop States */
+.kanban-column-dragging {
+	opacity: 0.5;
+}
+
+.kanban-column-ghost {
+	opacity: 0.3;
+	background: var(--background-modifier-border);
 }
 
 /* Sortable placeholder */

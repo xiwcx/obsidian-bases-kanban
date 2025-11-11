@@ -1,17 +1,27 @@
 {
 	"name": "kanban-bases-view",
-	"version": "0.35.0",
+	"version": "0.1.0",
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
+	"imports": {
+		"obsidian": "./tests/mocks/obsidian.ts",
+		"sortablejs": "./tests/mocks/sortablejs.js"
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "node version-bump.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"test": "node test-runner.mjs"
+		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test"
 	},
-	"keywords": [],
-	"author": "",
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"kanban",
+		"bases",
+		"task-management"
+	],
+	"author": "I. Welch Canavan",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",
@@ -22,9 +32,9 @@
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.19.8",
 		"jsdom": "^24.0.0",
-		"obsidian": "latest",
+		"obsidian": "^1.5.8",
 		"tslib": "2.6.2",
-		"tsx": "^4.7.0",
+		"tsx": "^4.20.6",
 		"typescript": "5.3.3"
 	},
 	"dependencies": {

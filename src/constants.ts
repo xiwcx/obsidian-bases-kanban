@@ -13,6 +13,7 @@ export const DATA_ATTRIBUTES = {
 	COLUMN_VALUE: 'data-column-value',
 	ENTRY_PATH: 'data-entry-path',
 	SORTABLE_CONTAINER: 'data-sortable-container',
+	COLUMN_POSITION: 'data-column-position',
 } as const;
 
 /** CSS class names */
@@ -27,6 +28,9 @@ export const CSS_CLASSES = {
 	COLUMN_TITLE: 'kanban-column-title',
 	COLUMN_COUNT: 'kanban-column-count',
 	COLUMN_BODY: 'kanban-column-body',
+	COLUMN_DRAG_HANDLE: 'kanban-column-drag-handle',
+	COLUMN_DRAGGING: 'kanban-column-dragging',
+	COLUMN_GHOST: 'kanban-column-ghost',
 	
 	// Card
 	CARD: 'kanban-card',

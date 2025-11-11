@@ -1,7 +1,7 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import type { BasesPropertyId } from 'obsidian';
-import { KanbanView } from '../src/kanbanView';
+import { KanbanView } from '../src/kanbanView.ts';
 import {
 	setupTestEnvironment,
 	createDivWithMethods,
@@ -10,14 +10,16 @@ import {
 	mockSortable,
 	addClosestPolyfill,
 	setupKanbanViewWithApp,
-} from './helpers';
+} from './helpers.ts';
 import {
 	createEntriesWithStatus,
 	createEntriesWithEmptyValues,
 	createEmptyEntries,
+	createEntriesWithMixedProperties,
 	PROPERTY_STATUS,
+	PROPERTY_PRIORITY,
 	TEST_PROPERTIES,
-} from './fixtures';
+} from './fixtures.ts';
 
 setupTestEnvironment();
 
@@ -45,9 +47,9 @@ describe('KanbanView Initialization', () => {
 		);
 		assert.strictEqual(view.scrollEl, scrollEl, 'scrollEl reference should be stored');
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			null,
-			'columnPropertyId should be null initially'
+			'groupByPropertyId should be null initially'
 		);
 		assert.strictEqual(
 			(view as any).sortableInstances.length,
@@ -56,14 +58,14 @@ describe('KanbanView Initialization', () => {
 		);
 	});
 
-	test('loadConfig loads column property from config', () => {
+	test('loadConfig loads group by property from config', () => {
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		const testPropertyId = PROPERTY_STATUS;
 
 		// Mock config.getAsPropertyId
 		controller.config.getAsPropertyId = (key: string) => {
-			if (key === 'columnProperty') {
+			if (key === 'groupByProperty') {
 				return testPropertyId;
 			}
 			return null;
@@ -73,9 +75,9 @@ describe('KanbanView Initialization', () => {
 		view.onDataUpdated();
 
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			testPropertyId,
-			'columnPropertyId should be set from config'
+			'groupByPropertyId should be set from config'
 		);
 	});
 
@@ -89,9 +91,9 @@ describe('KanbanView Initialization', () => {
 		view.onDataUpdated();
 
 		assert.strictEqual(
-			(view as any).columnPropertyId,
+			(view as any).groupByPropertyId,
 			null,
-			'columnPropertyId should remain null when config returns null'
+			'groupByPropertyId should remain null when config returns null'
 		);
 	});
 });
@@ -372,8 +374,6 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		scrollEl = createDivWithMethods();
 		app = createMockApp();
 		sortableMock = mockSortable();
-		// Reset module cache to ensure mock is used
-		delete require.cache[require.resolve('sortablejs')];
 	});
 
 	test('initializeSortable sets up drag-and-drop', () => {
@@ -967,6 +967,383 @@ describe('Cleanup', () => {
 			(view as any).sortableInstances.length,
 			0,
 			'sortableInstances array should be cleared'
+		);
+	});
+});
+
+describe('Column Reordering - Drag Handle', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Column drag handle appears in column headers', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should exist');
+
+		columns.forEach((column) => {
+			const header = column.querySelector('.kanban-column-header');
+			assert.ok(header, 'Column header should exist');
+			
+			const dragHandle = header?.querySelector('.kanban-column-drag-handle');
+			assert.ok(dragHandle, 'Drag handle should exist in column header');
+		});
+	});
+
+	test('Drag handle has correct CSS class', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const dragHandle = view.containerEl.querySelector('.kanban-column-drag-handle');
+		assert.ok(dragHandle, 'Drag handle should exist');
+		assert.ok(
+			dragHandle?.classList.contains('kanban-column-drag-handle'),
+			'Drag handle should have correct CSS class'
+		);
+	});
+});
+
+describe('Column Reordering - Sortable Initialization', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+	let sortableMock: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		sortableMock = mockSortable();
+		(global as any).Sortable = sortableMock.Sortable;
+	});
+
+	test('Column Sortable instance is created for board', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columnSortable = (view as any).columnSortable;
+		assert.ok(columnSortable, 'Column Sortable instance should be created');
+		assert.ok(!columnSortable.destroyed, 'Column Sortable should not be destroyed');
+	});
+
+	test('Column Sortable uses drag handle selector', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columnSortable = (view as any).columnSortable;
+		assert.ok(columnSortable, 'Column Sortable should exist');
+		
+		// Check the columnSortable instance directly
+		assert.ok(columnSortable.options, 'Column Sortable should have options');
+		assert.strictEqual(
+			columnSortable.options.handle,
+			'.kanban-column-drag-handle',
+			'Column Sortable should use drag handle selector'
+		);
+	});
+
+	test('Column Sortable is destroyed on cleanup', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columnSortable = (view as any).columnSortable;
+		assert.ok(columnSortable, 'Column Sortable should exist');
+		
+		// Verify it's a Sortable instance (has destroy method)
+		assert.ok(typeof columnSortable.destroy === 'function', 'Column Sortable should have destroy method');
+
+		view.onClose();
+
+		// After cleanup, columnSortable should be null
+		assert.strictEqual((view as any).columnSortable, null, 'Column Sortable should be null after cleanup');
+		
+		// Verify destroy was called if the mock tracks it
+		if (columnSortable && typeof columnSortable.destroyed !== 'undefined') {
+			assert.strictEqual(columnSortable.destroyed, true, 'Column Sortable should be destroyed');
+		}
+	});
+});
+
+describe('Column Reordering - Order Persistence', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+	let mockPlugin: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		mockPlugin = {
+			columnOrders: {},
+			async saveColumnOrder(propertyId: string, order: string[]) {
+				this.columnOrders[propertyId] = order;
+			},
+			getColumnOrder(propertyId: string): string[] | null {
+				return this.columnOrders[propertyId] || null;
+			},
+		};
+		// Mock plugin access
+		(app as any).plugins = {
+			plugins: {
+				'kanban-bases-view': mockPlugin,
+			},
+		};
+	});
+
+	test('handleColumnDrop saves order to storage', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const boardEl = view.containerEl.querySelector('.kanban-board') as HTMLElement;
+		
+		// Simulate column reorder: move first column to end
+		const firstColumn = columns[0] as HTMLElement;
+		const lastColumn = columns[columns.length - 1] as HTMLElement;
+
+		const mockEvent = {
+			item: firstColumn,
+			from: boardEl,
+			to: boardEl,
+			oldIndex: 0,
+			newIndex: columns.length - 1,
+		};
+
+		await (view as any).handleColumnDrop(mockEvent);
+
+		// Verify order was saved
+		const savedOrder = mockPlugin.getColumnOrder(PROPERTY_STATUS);
+		assert.ok(savedOrder, 'Column order should be saved');
+		assert.ok(Array.isArray(savedOrder), 'Saved order should be an array');
+	});
+
+	test('Render respects saved column order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Set saved order
+		const savedOrder = ['Done', 'Doing', 'To Do'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should match saved order (filtered to only include existing values)
+		const expectedOrder = savedOrder.filter(v => 
+			['Done', 'Doing', 'To Do'].includes(v)
+		);
+		assert.deepStrictEqual(
+			renderedOrder,
+			expectedOrder,
+			'Columns should be rendered in saved order'
+		);
+	});
+
+	test('New columns appear at end of existing columns', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Set saved order with only some columns
+		const savedOrder = ['Done', 'Doing'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should have saved columns first, then new ones
+		assert.strictEqual(renderedOrder[0], 'Done', 'First column should be from saved order');
+		assert.strictEqual(renderedOrder[1], 'Doing', 'Second column should be from saved order');
+		assert.ok(renderedOrder.includes('To Do'), 'New column should be included');
+		// To Do should be after the saved columns
+		const toDoIndex = renderedOrder.indexOf('To Do');
+		assert.ok(toDoIndex >= 2, 'New column should appear after saved columns');
+	});
+
+	test('Property toggle preserves order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		
+		// Set initial property and order
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		const savedOrder = ['Done', 'Doing', 'To Do'];
+		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Verify initial order
+		let columns = view.containerEl.querySelectorAll('.kanban-column');
+		let renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		assert.deepStrictEqual(renderedOrder, savedOrder, 'Initial order should match saved order');
+
+		// Switch to different property
+		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		view.onDataUpdated();
+
+		// Switch back to original property
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		view.onDataUpdated();
+
+		// Verify order is preserved
+		columns = view.containerEl.querySelectorAll('.kanban-column');
+		renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		assert.deepStrictEqual(
+			renderedOrder,
+			savedOrder,
+			'Order should be preserved after property toggle'
+		);
+	});
+
+	test('Multiple properties have independent orders', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+
+		// Set different orders for different properties
+		mockPlugin.columnOrders[PROPERTY_STATUS] = ['Done', 'Doing', 'To Do'];
+		mockPlugin.columnOrders[PROPERTY_PRIORITY] = ['Low', 'Medium', 'High'];
+
+		// Test status property
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		const view1 = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view1, app);
+		view1.onDataUpdated();
+
+		let columns = view1.containerEl.querySelectorAll('.kanban-column');
+		let order1 = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		assert.strictEqual(order1[0], 'Done', 'Status order should be respected');
+
+		// Test priority property
+		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		const view2 = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view2, app);
+		view2.onDataUpdated();
+
+		columns = view2.containerEl.querySelectorAll('.kanban-column');
+		const order2 = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		assert.strictEqual(order2[0], 'Low', 'Priority order should be independent');
+		assert.notDeepStrictEqual(order1, order2, 'Orders should be different');
+	});
+
+	test('Fallback to alphabetical when no saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// No saved order
+		mockPlugin.columnOrders = {};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+
+		// Should be alphabetical
+		const expectedOrder = [...renderedOrder].sort();
+		assert.deepStrictEqual(
+			renderedOrder,
+			expectedOrder,
+			'Columns should be alphabetical when no saved order'
+		);
+	});
+
+	test('Handle null/undefined saved order gracefully', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Mock getColumnOrder to return null
+		mockPlugin.getColumnOrder = (): string[] | null => null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		assert.ok(columns.length > 0, 'Columns should still be rendered');
+		
+		const renderedOrder = Array.from(columns).map((col) =>
+			col.getAttribute('data-column-value')
+		);
+		const expectedOrder = [...renderedOrder].sort();
+		assert.deepStrictEqual(
+			renderedOrder,
+			expectedOrder,
+			'Should fallback to alphabetical when order is null'
 		);
 	});
 });

@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {
-			"obsidian": ["./tests/mocks/obsidian.ts"]
+			"obsidian": ["./tests/mocks/obsidian.ts"],
+			"sortablejs": ["./tests/mocks/sortablejs.js"]
 		}
 	},
 	"include": [

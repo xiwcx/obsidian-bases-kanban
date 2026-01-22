@@ -186,7 +186,6 @@
 	font-weight: 500;
 	font-size: 14px;
 	color: var(--text-normal);
-	margin-bottom: 6px;
 	line-height: 1.4;
 	word-wrap: break-word;
 }
@@ -201,6 +200,23 @@
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.kanban-card-property {
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	display: flex;
+	gap: 6px;
+}
+
+.kanban-card-property-label {
+	color: var(--text-faint);
+}
+
+.kanban-card-property-value {
+	color: var(--text-muted);
 }
 
 /* Drag and Drop States */

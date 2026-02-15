@@ -48,10 +48,10 @@ describe('Integration Tests - Full Workflow', () => {
 		view.onDataUpdated();
 
 		// Verify board is rendered with multiple columns
-		const board = view.containerEl.querySelector('.kanban-board');
+		const board = view.containerEl.querySelector('.obk-board');
 		assert.ok(board, 'Board should be rendered');
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length >= 2, 'Should have multiple columns');
 
 		// Verify entries are in correct columns
@@ -59,7 +59,7 @@ describe('Integration Tests - Full Workflow', () => {
 			col.getAttribute('data-column-value')?.includes('To Do')
 		);
 		assert.ok(toDoColumn, 'To Do column should exist');
-		const toDoCards = toDoColumn?.querySelectorAll('.kanban-card');
+		const toDoCards = toDoColumn?.querySelectorAll('.obk-card');
 		assert.strictEqual(toDoCards?.length, 2, 'To Do should have 2 cards');
 
 		// Simulate drag-and-drop operation
@@ -68,10 +68,10 @@ describe('Integration Tests - Full Workflow', () => {
 		) as HTMLElement;
 		assert.ok(doingColumn, 'Doing column should exist');
 
-		const card = toDoColumn?.querySelector('.kanban-card') as HTMLElement;
+		const card = toDoColumn?.querySelector('.obk-card') as HTMLElement;
 		const entryPath = card.getAttribute('data-entry-path');
-		const toDoBody = toDoColumn?.querySelector('.kanban-column-body') as HTMLElement;
-		const doingBody = doingColumn.querySelector('.kanban-column-body') as HTMLElement;
+		const toDoBody = toDoColumn?.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
 
 		const mockEvent = {
 			item: card,
@@ -111,11 +111,11 @@ describe('Integration Tests - Full Workflow', () => {
 		view.onDataUpdated();
 
 		// Get initial state
-		const initialColumns = view.containerEl.querySelectorAll('.kanban-column');
+		const initialColumns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(initialColumns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('To Do')
 		);
-		const initialToDoCount = toDoColumn?.querySelectorAll('.kanban-card').length || 0;
+		const initialToDoCount = toDoColumn?.querySelectorAll('.obk-card').length || 0;
 
 		// Simulate property update by modifying entry data
 		// In a real scenario, this would happen via file system change
@@ -132,11 +132,11 @@ describe('Integration Tests - Full Workflow', () => {
 		view.onDataUpdated();
 
 		// Verify view re-rendered
-		const updatedColumns = view.containerEl.querySelectorAll('.kanban-column');
+		const updatedColumns = view.containerEl.querySelectorAll('.obk-column');
 		const updatedToDoColumn = Array.from(updatedColumns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('To Do')
 		);
-		const updatedToDoCount = updatedToDoColumn?.querySelectorAll('.kanban-card').length || 0;
+		const updatedToDoCount = updatedToDoColumn?.querySelectorAll('.obk-card').length || 0;
 
 		// To Do should have one less card
 		assert.strictEqual(
@@ -171,7 +171,7 @@ describe('Integration Tests - Property Selection', () => {
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		view.onDataUpdated();
 
-		const statusColumns = view.containerEl.querySelectorAll('.kanban-column');
+		const statusColumns = view.containerEl.querySelectorAll('.obk-column');
 		const statusColumnValues = Array.from(statusColumns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -190,7 +190,7 @@ describe('Integration Tests - Property Selection', () => {
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
 		view.onDataUpdated();
 
-		const priorityColumns = view.containerEl.querySelectorAll('.kanban-column');
+		const priorityColumns = view.containerEl.querySelectorAll('.obk-column');
 		const priorityColumnValues = Array.from(priorityColumns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -210,7 +210,7 @@ describe('Integration Tests - Property Selection', () => {
 		);
 
 		// Verify entries are regrouped correctly
-		const allCards = view.containerEl.querySelectorAll('.kanban-card');
+		const allCards = view.containerEl.querySelectorAll('.obk-card');
 		assert.strictEqual(allCards.length, entries.length, 'All entries should be present');
 	});
 
@@ -225,14 +225,14 @@ describe('Integration Tests - Property Selection', () => {
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		view.onDataUpdated();
 
-		const statusCards = view.containerEl.querySelectorAll('.kanban-card');
+		const statusCards = view.containerEl.querySelectorAll('.obk-card');
 		const statusCardCount = statusCards.length;
 
 		// Change to PRIORITY property
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
 		view.onDataUpdated();
 
-		const priorityCards = view.containerEl.querySelectorAll('.kanban-card');
+		const priorityCards = view.containerEl.querySelectorAll('.obk-card');
 		const priorityCardCount = priorityCards.length;
 
 		// Card count should remain the same (all entries should still be present)
@@ -287,14 +287,14 @@ describe('Integration Tests - Multiple Views', () => {
 		assert.notStrictEqual(view1.scrollEl, view2.scrollEl, 'Views should have different scroll elements');
 
 		// Verify each view renders correctly
-		const board1 = view1.containerEl.querySelector('.kanban-board');
-		const board2 = view2.containerEl.querySelector('.kanban-board');
+		const board1 = view1.containerEl.querySelector('.obk-board');
+		const board2 = view2.containerEl.querySelector('.obk-board');
 		assert.ok(board1, 'View1 should have board');
 		assert.ok(board2, 'View2 should have board');
 
 		// Verify different column counts (different properties)
-		const columns1 = view1.containerEl.querySelectorAll('.kanban-column');
-		const columns2 = view2.containerEl.querySelectorAll('.kanban-column');
+		const columns1 = view1.containerEl.querySelectorAll('.obk-column');
+		const columns2 = view2.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns1.length > 0, 'View1 should have columns');
 		assert.ok(columns2.length > 0, 'View2 should have columns');
 
@@ -338,14 +338,14 @@ describe('Integration Tests - Multiple Views', () => {
 		view1.onClose();
 
 		// Verify view2 still works
-		const board2 = view2.containerEl.querySelector('.kanban-board');
+		const board2 = view2.containerEl.querySelector('.obk-board');
 		assert.ok(board2, 'View2 should still have board after view1 cleanup');
 
 		// Verify view2's Sortable instances are still active
 		// (In real scenario, each view would have its own instances, but our mock shares them)
 		// For this test, we verify that view2 can still render
 		view2.onDataUpdated();
-		const board2After = view2.containerEl.querySelector('.kanban-board');
+		const board2After = view2.containerEl.querySelector('.obk-board');
 		assert.ok(board2After, 'View2 should still render after view1 cleanup');
 	});
 });
@@ -382,7 +382,7 @@ describe('Integration Tests - Edge Cases', () => {
 		view.onDataUpdated();
 
 		// Should not crash and should render correctly
-		const board = view.containerEl.querySelector('.kanban-board');
+		const board = view.containerEl.querySelector('.obk-board');
 		assert.ok(board, 'Board should be rendered after rapid changes');
 	});
 
@@ -402,16 +402,16 @@ describe('Integration Tests - Edge Cases', () => {
 		view.onDataUpdated();
 
 		// Should render without errors
-		const board = view.containerEl.querySelector('.kanban-board');
+		const board = view.containerEl.querySelector('.obk-board');
 		assert.ok(board, 'Board should be rendered');
 
 		// Entry without property should go to Uncategorized
 		const uncategorizedColumn = Array.from(
-			view.containerEl.querySelectorAll('.kanban-column')
+			view.containerEl.querySelectorAll('.obk-column')
 		).find((col) => col.getAttribute('data-column-value')?.includes('Uncategorized'));
 
 		assert.ok(uncategorizedColumn, 'Uncategorized column should exist');
-		const uncategorizedCards = uncategorizedColumn?.querySelectorAll('.kanban-card');
+		const uncategorizedCards = uncategorizedColumn?.querySelectorAll('.obk-card');
 		assert.ok(uncategorizedCards && uncategorizedCards.length >= 1, 'Should have at least one uncategorized card');
 	});
 });

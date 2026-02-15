@@ -6,7 +6,7 @@
 export const UNCATEGORIZED_LABEL = 'Uncategorized';
 
 /** Sortable.js group name for kanban columns */
-export const SORTABLE_GROUP = 'kanban-columns';
+export const SORTABLE_GROUP = 'obk-columns';
 
 /** Data attribute names */
 export const DATA_ATTRIBUTES = {
@@ -19,28 +19,37 @@ export const DATA_ATTRIBUTES = {
 /** CSS class names */
 export const CSS_CLASSES = {
 	// Container
-	VIEW_CONTAINER: 'kanban-view-container',
-	BOARD: 'kanban-board',
+	VIEW_CONTAINER: 'obk-view-container',
+	BOARD: 'obk-board',
+	
+	// Property selector (for future or framework-driven UI)
+	PROPERTY_SELECTOR: 'obk-property-selector',
+	PROPERTY_LABEL: 'obk-property-label',
+	PROPERTY_SELECT: 'obk-property-select',
 	
 	// Column
-	COLUMN: 'kanban-column',
-	COLUMN_HEADER: 'kanban-column-header',
-	COLUMN_TITLE: 'kanban-column-title',
-	COLUMN_COUNT: 'kanban-column-count',
-	COLUMN_BODY: 'kanban-column-body',
-	COLUMN_DRAG_HANDLE: 'kanban-column-drag-handle',
-	COLUMN_DRAGGING: 'kanban-column-dragging',
-	COLUMN_GHOST: 'kanban-column-ghost',
+	COLUMN: 'obk-column',
+	COLUMN_HEADER: 'obk-column-header',
+	COLUMN_TITLE: 'obk-column-title',
+	COLUMN_COUNT: 'obk-column-count',
+	COLUMN_BODY: 'obk-column-body',
+	COLUMN_DRAG_HANDLE: 'obk-column-drag-handle',
+	COLUMN_DRAGGING: 'obk-column-dragging',
+	COLUMN_GHOST: 'obk-column-ghost',
 	
 	// Card
-	CARD: 'kanban-card',
-	CARD_TITLE: 'kanban-card-title',
-	CARD_DRAGGING: 'kanban-card-dragging',
-	CARD_GHOST: 'kanban-card-ghost',
-	CARD_CHOSEN: 'kanban-card-chosen',
+	CARD: 'obk-card',
+	CARD_TITLE: 'obk-card-title',
+	CARD_PREVIEW: 'obk-card-preview',
+	CARD_DRAGGING: 'obk-card-dragging',
+	CARD_GHOST: 'obk-card-ghost',
+	CARD_CHOSEN: 'obk-card-chosen',
 	
 	// Empty state
-	EMPTY_STATE: 'kanban-empty-state',
+	EMPTY_STATE: 'obk-empty-state',
+	
+	// Sortable placeholder (fallback / shared ghost style)
+	SORTABLE_GHOST: 'obk-sortable-ghost',
 } as const;
 
 /** Sortable.js configuration constants */

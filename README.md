@@ -99,6 +99,10 @@ npm test
 npm run typecheck
 ```
 
+### Technical notes
+
+- The plugin uses the **`.obk-`** CSS class prefix (Obsidian Bases Kanban) for all view UI classes to avoid collisions with other plugins and themes.
+
 ## Releasing
 
 ### Creating a Release

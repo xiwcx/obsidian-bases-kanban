@@ -1,6 +1,6 @@
-## Map view for Obsidian Bases
+## Kanban view for Obsidian Bases
 
-Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive map view.
+Adds a kanban layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive kanban view.
 
 - Dynamically display markers that match your filters.
 - Use marker icons and colors defined by properties.
@@ -12,6 +12,7 @@ Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can
 - Target: Obsidian Community Plugin (TypeScript → bundled JavaScript).
 - Entry point: `main.ts` compiled to `main.js` and loaded by Obsidian.
 - Required release artifacts: `main.js`, `manifest.json`, and optional `styles.css`.
+- **CSS class prefix**: The plugin uses the `.obk-` prefix (Obsidian Bases Kanban) for all view UI classes; constants live in `src/constants.ts` (`CSS_CLASSES`). Use this prefix to avoid collisions with other plugins and themes.
 
 ## Environment & tooling
 

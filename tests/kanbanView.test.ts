@@ -42,7 +42,7 @@ describe('KanbanView Initialization', () => {
 		assert.ok(view.containerEl, 'containerEl should be created');
 		assert.strictEqual(
 			view.containerEl.className,
-			'kanban-view-container',
+			'obk-view-container',
 			'containerEl should have correct class'
 		);
 		assert.strictEqual(view.scrollEl, scrollEl, 'scrollEl reference should be stored');
@@ -115,7 +115,7 @@ describe('Data Rendering - Empty States', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const emptyState = view.containerEl.querySelector('.kanban-empty-state');
+		const emptyState = view.containerEl.querySelector('.obk-empty-state');
 		assert.ok(emptyState, 'Empty state element should exist');
 		assert.ok(
 			emptyState?.textContent?.includes('No entries found'),
@@ -133,7 +133,7 @@ describe('Data Rendering - Empty States', () => {
 		controllerNoProps.config.getAsPropertyId = () => PROPERTY_STATUS;
 		view.onDataUpdated();
 
-		const emptyState = view.containerEl.querySelector('.kanban-empty-state');
+		const emptyState = view.containerEl.querySelector('.obk-empty-state');
 		assert.ok(emptyState, 'Empty state element should exist');
 		// The code will try to use the first available property, but since there are none,
 		// it should show the "No properties found" message
@@ -166,7 +166,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		view.onDataUpdated();
 
 		// Check that columns were created
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		// Verify "To Do" column has 2 entries
@@ -174,7 +174,7 @@ describe('Data Rendering - Entry Grouping', () => {
 			col.getAttribute('data-column-value')?.includes('To Do')
 		);
 		assert.ok(toDoColumn, 'To Do column should exist');
-		const toDoCards = toDoColumn?.querySelectorAll('.kanban-card');
+		const toDoCards = toDoColumn?.querySelectorAll('.obk-card');
 		assert.strictEqual(toDoCards?.length, 2, 'To Do column should have 2 cards');
 	});
 
@@ -189,7 +189,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		view.onDataUpdated();
 
 		// Check for Uncategorized column
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const uncategorizedColumn = Array.from(columns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('Uncategorized')
 		);
@@ -206,7 +206,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const uncategorizedColumn = Array.from(columns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('Uncategorized')
 		);
@@ -234,7 +234,7 @@ describe('Data Rendering - Column Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		const firstColumn = columns[0] as HTMLElement;
@@ -243,16 +243,16 @@ describe('Data Rendering - Column Rendering', () => {
 			'Column should have data-column-value attribute'
 		);
 
-		const header = firstColumn.querySelector('.kanban-column-header');
+		const header = firstColumn.querySelector('.obk-column-header');
 		assert.ok(header, 'Column header should exist');
 
-		const title = header?.querySelector('.kanban-column-title');
+		const title = header?.querySelector('.obk-column-title');
 		assert.ok(title, 'Column title should exist');
 
-		const count = header?.querySelector('.kanban-column-count');
+		const count = header?.querySelector('.obk-column-count');
 		assert.ok(count, 'Column count should exist');
 
-		const body = firstColumn.querySelector('.kanban-column-body');
+		const body = firstColumn.querySelector('.obk-column-body');
 		assert.ok(body, 'Column body should exist');
 		assert.ok(
 			body?.getAttribute('data-sortable-container'),
@@ -281,7 +281,7 @@ describe('Data Rendering - Card Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const cards = view.containerEl.querySelectorAll('.kanban-card');
+		const cards = view.containerEl.querySelectorAll('.obk-card');
 		assert.ok(cards.length > 0, 'Cards should be created');
 
 		const firstCard = cards[0] as HTMLElement;
@@ -290,7 +290,7 @@ describe('Data Rendering - Card Rendering', () => {
 			'Card should have data-entry-path attribute'
 		);
 
-		const title = firstCard.querySelector('.kanban-card-title');
+		const title = firstCard.querySelector('.obk-card-title');
 		assert.ok(title, 'Card title should exist');
 		assert.ok(title?.textContent, 'Card title should have text content');
 	});
@@ -305,7 +305,7 @@ describe('Data Rendering - Card Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const card = view.containerEl.querySelector('.kanban-card') as HTMLElement;
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		assert.ok(card, 'Card should exist');
 
 		const entryPath = card.getAttribute('data-entry-path');
@@ -341,10 +341,10 @@ describe('Data Rendering - Board Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const board = view.containerEl.querySelector('.kanban-board');
+		const board = view.containerEl.querySelector('.obk-board');
 		assert.ok(board, 'Board container should be created');
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		// Verify columns are sorted alphabetically
@@ -359,7 +359,7 @@ describe('Data Rendering - Board Rendering', () => {
 		);
 
 		// Verify all entries appear in columns
-		const allCards = view.containerEl.querySelectorAll('.kanban-card');
+		const allCards = view.containerEl.querySelectorAll('.obk-card');
 		assert.strictEqual(allCards.length, entries.length, 'All entries should appear as cards');
 	});
 });
@@ -400,8 +400,8 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		assert.ok(firstInstance, 'Sortable instance should exist');
 		
 		// Verify that initializeSortable found column bodies to attach to
-		// This is the key functionality - it should find all .kanban-column-body elements
-		const columnBodies = view.containerEl.querySelectorAll('.kanban-column-body[data-sortable-container]');
+		// This is the key functionality - it should find all .obk-column-body elements
+		const columnBodies = view.containerEl.querySelectorAll('.obk-column-body[data-sortable-container]');
 		assert.ok(columnBodies.length > 0, 'Should have column bodies for Sortable');
 		assert.strictEqual(
 			viewInstances.length,
@@ -464,7 +464,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		view.onDataUpdated();
 
 		// Find a card in "To Do" column
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('To Do')
 		) as HTMLElement;
@@ -475,12 +475,12 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		assert.ok(toDoColumn, 'To Do column should exist');
 		assert.ok(doingColumn, 'Doing column should exist');
 
-		const card = toDoColumn.querySelector('.kanban-card') as HTMLElement;
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
 		assert.ok(card, 'Card should exist');
 
 		const entryPath = card.getAttribute('data-entry-path');
-		const toDoBody = toDoColumn.querySelector('.kanban-column-body') as HTMLElement;
-		const doingBody = doingColumn.querySelector('.kanban-column-body') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
 
 		// Create mock sortable event
 		const mockEvent = {
@@ -512,13 +512,13 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('To Do')
 		) as HTMLElement;
 
-		const card = toDoColumn.querySelector('.kanban-card') as HTMLElement;
-		const toDoBody = toDoColumn.querySelector('.kanban-column-body') as HTMLElement;
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
 
 		const mockEvent = {
 			item: card,
@@ -550,7 +550,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
 			col.getAttribute('data-column-value')?.includes('To Do')
 		) as HTMLElement;
@@ -561,17 +561,17 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		if (!uncategorizedColumn) {
 			// Create uncategorized column if it doesn't exist
 			const uncatDiv = document.createElement('div');
-			uncatDiv.className = 'kanban-column';
+			uncatDiv.className = 'obk-column';
 			uncatDiv.setAttribute('data-column-value', 'Uncategorized');
 			const uncatBody = document.createElement('div');
-			uncatBody.className = 'kanban-column-body';
+			uncatBody.className = 'obk-column-body';
 			uncatDiv.appendChild(uncatBody);
-			view.containerEl.querySelector('.kanban-board')?.appendChild(uncatDiv);
+			view.containerEl.querySelector('.obk-board')?.appendChild(uncatDiv);
 		}
 
-		const card = toDoColumn.querySelector('.kanban-card') as HTMLElement;
-		const toDoBody = toDoColumn.querySelector('.kanban-column-body') as HTMLElement;
-		const uncatBody = (uncategorizedColumn || view.containerEl.querySelector('[data-column-value="Uncategorized"]'))?.querySelector('.kanban-column-body') as HTMLElement;
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const uncatBody = (uncategorizedColumn || view.containerEl.querySelector('[data-column-value="Uncategorized"]'))?.querySelector('.obk-column-body') as HTMLElement;
 
 		const mockEvent = {
 			item: card,
@@ -613,7 +613,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		view.onDataUpdated();
 
 		const card = document.createElement('div');
-		card.className = 'kanban-card';
+		card.className = 'obk-card';
 		// No data-entry-path attribute
 
 		const mockEvent = {
@@ -646,7 +646,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		view.onDataUpdated();
 
 		const card = document.createElement('div');
-		card.className = 'kanban-card';
+		card.className = 'obk-card';
 		card.setAttribute('data-entry-path', 'test.md');
 
 		const mockEvent = {
@@ -779,14 +779,14 @@ describe('Column Reordering - Drag Handle', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should exist');
 
 		columns.forEach((column) => {
-			const header = column.querySelector('.kanban-column-header');
+			const header = column.querySelector('.obk-column-header');
 			assert.ok(header, 'Column header should exist');
 			
-			const dragHandle = header?.querySelector('.kanban-column-drag-handle');
+			const dragHandle = header?.querySelector('.obk-column-drag-handle');
 			assert.ok(dragHandle, 'Drag handle should exist in column header');
 		});
 	});
@@ -801,10 +801,10 @@ describe('Column Reordering - Drag Handle', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const dragHandle = view.containerEl.querySelector('.kanban-column-drag-handle');
+		const dragHandle = view.containerEl.querySelector('.obk-column-drag-handle');
 		assert.ok(dragHandle, 'Drag handle should exist');
 		assert.ok(
-			dragHandle?.classList.contains('kanban-column-drag-handle'),
+			dragHandle?.classList.contains('obk-column-drag-handle'),
 			'Drag handle should have correct CSS class'
 		);
 	});
@@ -855,7 +855,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		assert.ok(columnSortable.options, 'Column Sortable should have options');
 		assert.strictEqual(
 			columnSortable.options.handle,
-			'.kanban-column-drag-handle',
+			'.obk-column-drag-handle',
 			'Column Sortable should use drag handle selector'
 		);
 	});
@@ -924,8 +924,8 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
-		const boardEl = view.containerEl.querySelector('.kanban-board') as HTMLElement;
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const boardEl = view.containerEl.querySelector('.obk-board') as HTMLElement;
 		
 		// Simulate column reorder: move first column to end
 		const firstColumn = columns[0] as HTMLElement;
@@ -961,7 +961,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -991,7 +991,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1020,7 +1020,7 @@ describe('Column Reordering - Order Persistence', () => {
 		view.onDataUpdated();
 
 		// Verify initial order
-		let columns = view.containerEl.querySelectorAll('.kanban-column');
+		let columns = view.containerEl.querySelectorAll('.obk-column');
 		let renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1035,7 +1035,7 @@ describe('Column Reordering - Order Persistence', () => {
 		view.onDataUpdated();
 
 		// Verify order is preserved
-		columns = view.containerEl.querySelectorAll('.kanban-column');
+		columns = view.containerEl.querySelectorAll('.obk-column');
 		renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1061,7 +1061,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view1, app);
 		view1.onDataUpdated();
 
-		let columns = view1.containerEl.querySelectorAll('.kanban-column');
+		let columns = view1.containerEl.querySelectorAll('.obk-column');
 		let order1 = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1073,7 +1073,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view2, app);
 		view2.onDataUpdated();
 
-		columns = view2.containerEl.querySelectorAll('.kanban-column');
+		columns = view2.containerEl.querySelectorAll('.obk-column');
 		const order2 = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1094,7 +1094,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1121,7 +1121,7 @@ describe('Column Reordering - Order Persistence', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should still be rendered');
 		
 		const renderedOrder = Array.from(columns).map((col) =>
@@ -1160,7 +1160,7 @@ describe('Plugin Registry Type Guards', () => {
 		view.onDataUpdated();
 
 		// Should not crash and should use alphabetical order
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should still be rendered');
 	});
 
@@ -1178,7 +1178,7 @@ describe('Plugin Registry Type Guards', () => {
 		view.onDataUpdated();
 
 		// Should not crash
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should still be rendered');
 	});
 
@@ -1200,7 +1200,7 @@ describe('Plugin Registry Type Guards', () => {
 		view.onDataUpdated();
 
 		// Should fallback to alphabetical order
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1226,8 +1226,8 @@ describe('Plugin Registry Type Guards', () => {
 		view.onDataUpdated();
 
 		// Should not throw when trying to save
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
-		const boardEl = view.containerEl.querySelector('.kanban-board') as HTMLElement;
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const boardEl = view.containerEl.querySelector('.obk-board') as HTMLElement;
 		
 		const mockEvent = {
 			item: columns[0] as HTMLElement,
@@ -1271,7 +1271,7 @@ describe('Plugin Registry Type Guards', () => {
 		view.onDataUpdated();
 
 		// Should work normally
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');
 	});
 });
@@ -1315,7 +1315,7 @@ describe('Column Order Normalization', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1344,7 +1344,7 @@ describe('Column Order Normalization', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1369,7 +1369,7 @@ describe('Column Order Normalization', () => {
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) =>
 			col.getAttribute('data-column-value')
 		);
@@ -1408,7 +1408,7 @@ describe('Column Order Normalization', () => {
 			view.onDataUpdated();
 		}, 'Should handle invalid saved data without errors');
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');
 		
 		const renderedOrder = Array.from(columns).map((col) =>
@@ -1439,7 +1439,7 @@ describe('Column Order Normalization', () => {
 			view.onDataUpdated();
 		}, 'Should handle invalid JSON gracefully');
 
-		const columns = view.containerEl.querySelectorAll('.kanban-column');
+		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');
 	});
 });

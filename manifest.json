@@ -1,11 +1,10 @@
 {
 	"id": "kanban-bases-view",
 	"name": "Kanban Bases View",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"minAppVersion": "1.0.0",
 	"description": "A kanban-style drag-and-drop custom view for Bases.",
 	"author": "I. Welch Canavan",
 	"authorUrl": "https://welchcanavan.com",
-	"fundingUrl": "",
 	"isDesktopOnly": false
 }

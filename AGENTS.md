@@ -1,6 +1,6 @@
-## Map view for Obsidian Bases
+## Kanban view for Obsidian Bases
 
-Adds a map layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive map view.
+Adds a kanban layout to [Obsidian Bases](https://help.obsidian.md/bases) so you can display notes as an interactive kanban view.
 
 - Dynamically display markers that match your filters.
 - Use marker icons and colors defined by properties.

@@ -31,6 +31,7 @@ export interface QueryController {
 	allProperties: BasesPropertyId[];
 	config: {
 		getAsPropertyId(key: string): BasesPropertyId | null;
+		getOrder(): string[];
 	};
 	app?: App;
 }
@@ -52,6 +53,7 @@ export abstract class BasesView {
 	allProperties?: BasesPropertyId[];
 	config?: {
 		getAsPropertyId(key: string): BasesPropertyId | null;
+		getOrder(): string[];
 	};
 	
 	constructor(controller: QueryController) {

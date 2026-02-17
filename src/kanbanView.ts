@@ -175,6 +175,28 @@ export class KanbanView extends BasesView {
 		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
 		titleEl.textContent = entry.file.basename;
 
+		// Properties
+		const order = this.config.getOrder();
+
+		for (const propertyName of order) {
+			const [, name] = propertyName.split('.'); // [(note|file|formula), propertyName]
+			const value = entry.getValue(propertyName).toString();
+
+			if (['', 'null'].includes(value.trim())) continue;
+
+			const propertyEl = cardEl.createDiv({ 
+				cls: 'kanban-card-property'
+			});
+			propertyEl.createSpan({
+				cls: 'kanban-card-property-label',
+				text: name,
+			});
+			propertyEl.createSpan({
+				cls: 'kanban-card-property-value',
+				text: value,
+			});
+		}
+
 		// Make card clickable to open the note
 		const clickHandler = () => {
 			if (this.app?.workspace) {

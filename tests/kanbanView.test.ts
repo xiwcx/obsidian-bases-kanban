@@ -321,6 +321,203 @@ describe('Data Rendering - Card Rendering', () => {
 	});
 });
 
+describe('Data Rendering - Card Properties', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Properties from getOrder() are rendered on cards', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const cards = view.containerEl.querySelectorAll('.kanban-card');
+		assert.ok(cards.length > 0, 'Cards should be created');
+
+		// Find a card that should have a property displayed
+		// Cards in the "To Do" column have status = "To Do"
+		const firstCard = cards[0] as HTMLElement;
+		const propertyEls = firstCard.querySelectorAll('.kanban-card-property');
+		assert.ok(propertyEls.length > 0, 'Card should have property elements');
+
+		const label = propertyEls[0].querySelector('.kanban-card-property-label');
+		assert.ok(label, 'Property label element should exist');
+		assert.strictEqual(label?.textContent, 'status', 'Label should show property name after the dot');
+
+		const value = propertyEls[0].querySelector('.kanban-card-property-value');
+		assert.ok(value, 'Property value element should exist');
+		assert.ok(value?.textContent, 'Property value should have text content');
+	});
+
+	test('Multiple properties render in order', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const cards = view.containerEl.querySelectorAll('.kanban-card');
+		assert.ok(cards.length > 0, 'Cards should exist');
+
+		const firstCard = cards[0] as HTMLElement;
+		const propertyEls = firstCard.querySelectorAll('.kanban-card-property');
+		assert.strictEqual(propertyEls.length, 2, 'Card should have two property elements');
+
+		const labels = Array.from(propertyEls).map(
+			(el) => el.querySelector('.kanban-card-property-label')?.textContent
+		);
+		assert.strictEqual(labels[0], 'status', 'First property label should be status');
+		assert.strictEqual(labels[1], 'priority', 'Second property label should be priority');
+	});
+
+	test('Property label is extracted correctly from dotted name', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		// Use a property name with "file." prefix to test label extraction
+		controller.config.getOrder = () => ['file.createdDate'];
+
+		// Entries need to return a value for 'file.createdDate'
+		entries.forEach((entry: any) => {
+			const originalGetValue = entry.getValue;
+			entry.getValue = (propId: string) => {
+				if (propId === 'file.createdDate') {
+					return { toString: () => '2025-01-01' };
+				}
+				return originalGetValue(propId);
+			};
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const propertyLabel = view.containerEl.querySelector('.kanban-card-property-label');
+		assert.ok(propertyLabel, 'Property label should exist');
+		assert.strictEqual(
+			propertyLabel?.textContent,
+			'createdDate',
+			'Label should show only the part after the dot'
+		);
+	});
+
+	test('Empty and null values are skipped', () => {
+		const entries = createEntriesWithEmptyValues();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const cards = view.containerEl.querySelectorAll('.kanban-card');
+
+		// The entry with status "To Do" should have a property displayed
+		const toDoCard = Array.from(cards).find((card) => {
+			const props = card.querySelectorAll('.kanban-card-property');
+			return Array.from(props).some(
+				(p) => p.querySelector('.kanban-card-property-value')?.textContent === 'To Do'
+			);
+		});
+		assert.ok(toDoCard, 'Card with "To Do" value should display the property');
+
+		// Cards for entries with null/empty status should NOT have property elements
+		// Find cards in the Uncategorized column (null and empty entries go there)
+		const uncategorizedColumn = Array.from(
+			view.containerEl.querySelectorAll('.kanban-column')
+		).find((col) => col.getAttribute('data-column-value') === 'Uncategorized');
+
+		if (uncategorizedColumn) {
+			const uncategorizedCards = uncategorizedColumn.querySelectorAll('.kanban-card');
+			uncategorizedCards.forEach((card) => {
+				const propertyEls = card.querySelectorAll('.kanban-card-property');
+				assert.strictEqual(
+					propertyEls.length,
+					0,
+					'Cards with empty/null values should not display property elements'
+				);
+			});
+		}
+	});
+
+	test('No properties rendered when getOrder() returns empty array', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const propertyEls = view.containerEl.querySelectorAll('.kanban-card-property');
+		assert.strictEqual(
+			propertyEls.length,
+			0,
+			'No property elements should exist when getOrder() returns empty array'
+		);
+	});
+
+	test('Properties render alongside existing card structure', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const card = view.containerEl.querySelector('.kanban-card') as HTMLElement;
+		assert.ok(card, 'Card should exist');
+
+		// Title still exists
+		const title = card.querySelector('.kanban-card-title');
+		assert.ok(title, 'Card title should still exist');
+		assert.ok(title?.textContent, 'Card title should have text content');
+
+		// Property comes after title
+		const children = Array.from(card.children);
+		const titleIndex = children.indexOf(title as Element);
+		const propertyEl = card.querySelector('.kanban-card-property');
+		assert.ok(propertyEl, 'Property element should exist');
+		const propertyIndex = children.indexOf(propertyEl as Element);
+		assert.ok(
+			propertyIndex > titleIndex,
+			'Property should appear after title in DOM order'
+		);
+
+		// Click handler still works
+		const entryPath = card.getAttribute('data-entry-path');
+		card.click();
+		assert.strictEqual(
+			app.workspace.openLinkText.calls.length,
+			1,
+			'Click handler should still work with properties rendered'
+		);
+	});
+});
+
 describe('Data Rendering - Board Rendering', () => {
 	let scrollEl: HTMLElement;
 	let controller: any;

@@ -28,6 +28,7 @@ export class KanbanView extends BasesView {
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private _renderedGroupByPropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
+	private _entryMap: Map<string, BasesEntry> = new Map();
 	private columnSortable: Sortable | null = null;
 	private _debouncedRender: DebouncedFn<() => void>;
 
@@ -85,6 +86,9 @@ export class KanbanView extends BasesView {
 				}
 			}
 
+			// Build path→entry lookup map for O(1) access in handleCardDrop
+			this._entryMap = new Map(entries.map((e: BasesEntry) => [e.file.path, e]));
+
 			// Group entries by group by property value
 			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
 			const propertyValues = Array.from(groupedEntries.keys());
@@ -110,6 +114,7 @@ export class KanbanView extends BasesView {
 		this.containerEl.empty();
 		this._columnSortables.forEach((s) => s.destroy());
 		this._columnSortables.clear();
+		this._entryMap.clear();
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
@@ -380,17 +385,7 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		// Find the entry
-		const entries = this.data?.data;
-		if (!entries) {
-			console.warn('No entries data available');
-			return;
-		}
-
-		const entry = entries.find((e: BasesEntry) => {
-			return e.file.path === entryPath;
-		});
-
+		const entry = this._entryMap.get(entryPath);
 		if (!entry) {
 			console.warn('Entry not found for path:', entryPath);
 			return;

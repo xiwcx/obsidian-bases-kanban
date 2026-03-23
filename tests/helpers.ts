@@ -128,6 +128,8 @@ export function createMockQueryController(
 			getAsPropertyId: (key: string): BasesPropertyId | null => {
 				return null;
 			},
+			getOrder: (): string[] => [],
+			getDisplayName: (propertyId: string): string => propertyId,
 		},
 	} as unknown as QueryController;
 	return controller;

@@ -160,6 +160,20 @@ export class KanbanView extends BasesView {
 		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
 		titleEl.textContent = entry.file.basename;
 
+		// Card properties
+		const order = this.config?.getOrder() ?? [];
+		for (const propertyId of order) {
+			if (propertyId === this.groupByPropertyId) continue;
+			const value = entry.getValue(propertyId);
+			if (value === null) continue;
+			const valueStr = value.toString().trim();
+			if (!valueStr || valueStr === 'null') continue;
+			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
+			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
+			propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
+			propertyEl.createSpan({ text: valueStr, cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
+		}
+
 		// Make card clickable to open the note
 		const clickHandler = () => {
 			if (this.app?.workspace) {

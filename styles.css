@@ -203,6 +203,26 @@
 	text-overflow: ellipsis;
 }
 
+.obk-card-property {
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	display: flex;
+	gap: 6px;
+	margin-top: 4px;
+}
+
+.obk-card-property-label {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.obk-card-property-value {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 /* Drag and Drop States */
 .obk-card-dragging {
 	opacity: 0.5;

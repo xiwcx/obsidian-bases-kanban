@@ -44,6 +44,9 @@ export const CSS_CLASSES = {
 	CARD_DRAGGING: 'obk-card-dragging',
 	CARD_GHOST: 'obk-card-ghost',
 	CARD_CHOSEN: 'obk-card-chosen',
+	CARD_PROPERTY: 'obk-card-property',
+	CARD_PROPERTY_LABEL: 'obk-card-property-label',
+	CARD_PROPERTY_VALUE: 'obk-card-property-value',
 	
 	// Empty state
 	EMPTY_STATE: 'obk-empty-state',

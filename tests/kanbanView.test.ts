@@ -11,6 +11,8 @@ import {
 	addClosestPolyfill,
 	setupKanbanViewWithApp,
 	createMockPlugin,
+	createMockBasesEntry,
+	createMockTFile,
 } from './helpers.ts';
 import {
 	createEntriesWithStatus,
@@ -19,6 +21,7 @@ import {
 	createEntriesWithMixedProperties,
 	PROPERTY_STATUS,
 	PROPERTY_PRIORITY,
+	PROPERTY_CATEGORY,
 	TEST_PROPERTIES,
 } from './fixtures.ts';
 
@@ -1292,6 +1295,107 @@ describe('Column Order Normalization', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');
+	});
+});
+
+describe('Data Rendering - Card Properties', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('renders properties listed in getOrder() on each card', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+		controller.config.getDisplayName = (id: string): string => id;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		// Find the card for "Task A" specifically (status: "To Do", priority: "High")
+		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card'));
+		const taskACard = cards.find((c) => c.getAttribute('data-entry-path') === 'Task A.md') as HTMLElement;
+		assert.ok(taskACard, 'Card for Task A should exist');
+
+		const propertyEls = taskACard.querySelectorAll('.obk-card-property');
+		assert.strictEqual(propertyEls.length, 1, 'Card should show one non-group-by property');
+
+		assert.strictEqual(
+			propertyEls[0].querySelector('.obk-card-property-label')?.textContent,
+			PROPERTY_PRIORITY,
+			'Label should show property id'
+		);
+		assert.strictEqual(
+			propertyEls[0].querySelector('.obk-card-property-value')?.textContent,
+			'High',
+			'Value should show property value'
+		);
+	});
+
+	test('does not render the group-by property as a card property', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+		controller.config.getDisplayName = (id: string): string => id;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const propertyLabels = Array.from(card.querySelectorAll('.obk-card-property-label')).map(
+			(el) => el.textContent
+		);
+		assert.ok(!propertyLabels.includes(PROPERTY_STATUS), 'Group-by property should not appear as a card property');
+	});
+
+	test('does not render properties with null or empty values', () => {
+		const entries = [
+			createMockBasesEntry(createMockTFile('Task 1.md'), {
+				[PROPERTY_STATUS]: 'To Do',
+				[PROPERTY_PRIORITY]: null,
+				[PROPERTY_CATEGORY]: '',
+			}),
+		];
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY, PROPERTY_CATEGORY];
+		controller.config.getDisplayName = (id: string): string => id;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const propertyEls = card.querySelectorAll('.obk-card-property');
+		assert.strictEqual(propertyEls.length, 0, 'No property elements should be rendered for null/empty values');
+	});
+
+	test('renders no property elements when getOrder() returns empty array', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		// getOrder already returns [] by default in createMockQueryController
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		view.onDataUpdated();
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const propertyEls = card.querySelectorAll('.obk-card-property');
+		assert.strictEqual(propertyEls.length, 0, 'No property elements should be rendered when getOrder is empty');
 	});
 });
 

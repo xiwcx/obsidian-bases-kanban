@@ -15,6 +15,8 @@ export default defineConfig([
 			globals: {
 				console: 'readonly',
 				document: 'readonly',
+				setTimeout: 'readonly',
+				clearTimeout: 'readonly',
 			},
 		},
 	},

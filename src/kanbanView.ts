@@ -8,8 +8,11 @@ import {
 	CSS_CLASSES,
 	SORTABLE_CONFIG,
 	EMPTY_STATE_MESSAGES,
+	DEBOUNCE_DELAY,
 } from './constants.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
+import { debounce } from './utils/debounce.ts';
+import type { DebouncedFn } from './utils/debounce.ts';
 
 interface KanbanPlugin {
 	getColumnOrder(propertyId: BasesPropertyId): string[] | null;
@@ -25,21 +28,25 @@ export class KanbanView extends BasesView {
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
 	private columnSortable: Sortable | null = null;
+	private _debouncedRender: DebouncedFn<() => void>;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: KanbanPlugin) {
 		super(controller);
 		this.scrollEl = scrollEl;
 		this.containerEl = scrollEl.createDiv({ cls: CSS_CLASSES.VIEW_CONTAINER });
 		this.plugin = plugin;
+		this._debouncedRender = debounce(() => {
+			try {
+				this.loadConfig();
+				this.render();
+			} catch (error) {
+				console.error('KanbanView error:', error);
+			}
+		}, DEBOUNCE_DELAY);
 	}
 
 	onDataUpdated(): void {
-		try {
-			this.loadConfig();
-			this.render();
-		} catch (error) {
-			console.error('KanbanView error:', error);
-		}
+		this._debouncedRender();
 	}
 
 	private loadConfig(): void {
@@ -357,6 +364,8 @@ export class KanbanView extends BasesView {
 	}
 
 	onClose(): void {
+		this._debouncedRender.cancel();
+
 		// Clean up Sortable instances
 		this.sortableInstances.forEach((instance) => {
 			instance.destroy();

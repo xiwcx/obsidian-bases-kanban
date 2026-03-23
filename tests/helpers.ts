@@ -1,6 +1,8 @@
 import { JSDOM } from 'jsdom';
+import { mock } from 'node:test';
 import type { BasesEntry, BasesPropertyId, TFile, App, QueryController } from 'obsidian';
 import type Sortable from 'sortablejs';
+import { DEBOUNCE_DELAY } from '../src/constants.ts';
 
 // Setup jsdom environment
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
@@ -296,4 +298,15 @@ export function createKanbanViewWithApp(
 	const view = new KanbanView(controller, scrollEl, plugin ?? createMockPlugin());
 	setupKanbanViewWithApp(view, app);
 	return view;
+}
+
+/**
+ * Triggers a data update on a KanbanView and synchronously flushes the debounce
+ * timer so tests can assert on DOM state immediately.
+ */
+export function triggerDataUpdate(view: any): void {
+	mock.timers.enable({ apis: ['setTimeout'] });
+	view.onDataUpdated();
+	mock.timers.tick(DEBOUNCE_DELAY);
+	mock.timers.reset();
 }

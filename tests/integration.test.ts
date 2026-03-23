@@ -12,6 +12,7 @@ import {
 	createMockTFile,
 	setupKanbanViewWithApp,
 	createMockPlugin,
+	triggerDataUpdate,
 } from './helpers.ts';
 import {
 	createEntriesWithStatus,
@@ -46,7 +47,7 @@ describe('Integration Tests - Full Workflow', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify board is rendered with multiple columns
 		const board = view.containerEl.querySelector('.obk-board');
@@ -103,7 +104,7 @@ describe('Integration Tests - Full Workflow', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Get initial state
 		const initialColumns = view.containerEl.querySelectorAll('.obk-column');
@@ -122,7 +123,7 @@ describe('Integration Tests - Full Workflow', () => {
 		};
 
 		// Trigger data update
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify view re-rendered
 		const updatedColumns = view.containerEl.querySelectorAll('.obk-column');
@@ -158,7 +159,7 @@ describe('Integration Tests - Property Selection', () => {
 
 		// First, use STATUS property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const statusColumns = view.containerEl.querySelectorAll('.obk-column');
 		const statusColumnValues = Array.from(statusColumns).map((col) => col.getAttribute('data-column-value'));
@@ -175,7 +176,7 @@ describe('Integration Tests - Property Selection', () => {
 
 		// Now change to PRIORITY property
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const priorityColumns = view.containerEl.querySelectorAll('.obk-column');
 		const priorityColumnValues = Array.from(priorityColumns).map((col) => col.getAttribute('data-column-value'));
@@ -208,14 +209,14 @@ describe('Integration Tests - Property Selection', () => {
 
 		// Use STATUS property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const statusCards = view.containerEl.querySelectorAll('.obk-card');
 		const statusCardCount = statusCards.length;
 
 		// Change to PRIORITY property
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const priorityCards = view.containerEl.querySelectorAll('.obk-card');
 		const priorityCardCount = priorityCards.length;
@@ -256,8 +257,8 @@ describe('Integration Tests - Multiple Views', () => {
 		setupKanbanViewWithApp(view1, app);
 		setupKanbanViewWithApp(view2, app);
 
-		view1.onDataUpdated();
-		view2.onDataUpdated();
+		triggerDataUpdate(view1);
+		triggerDataUpdate(view2);
 
 		// Verify each view maintains its own state
 		assert.notStrictEqual(view1.containerEl, view2.containerEl, 'Views should have different containers');
@@ -298,8 +299,8 @@ describe('Integration Tests - Multiple Views', () => {
 		setupKanbanViewWithApp(view1, app);
 		setupKanbanViewWithApp(view2, app);
 
-		view1.onDataUpdated();
-		view2.onDataUpdated();
+		triggerDataUpdate(view1);
+		triggerDataUpdate(view2);
 
 		const instancesBeforeClose = sortableMock.instances.length;
 
@@ -313,7 +314,7 @@ describe('Integration Tests - Multiple Views', () => {
 		// Verify view2's Sortable instances are still active
 		// (In real scenario, each view would have its own instances, but our mock shares them)
 		// For this test, we verify that view2 can still render
-		view2.onDataUpdated();
+		triggerDataUpdate(view2);
 		const board2After = view2.containerEl.querySelector('.obk-board');
 		assert.ok(board2After, 'View2 should still render after view1 cleanup');
 	});
@@ -342,13 +343,13 @@ describe('Integration Tests - Edge Cases', () => {
 
 		// Rapidly change properties
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Should not crash and should render correctly
 		const board = view.containerEl.querySelector('.obk-board');
@@ -368,7 +369,7 @@ describe('Integration Tests - Edge Cases', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Should render without errors
 		const board = view.containerEl.querySelector('.obk-board');

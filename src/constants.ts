@@ -60,6 +60,9 @@ export const SORTABLE_CONFIG = {
 	ANIMATION_DURATION: 150,
 } as const;
 
+/** Debounce delay in ms for onDataUpdated renders */
+export const DEBOUNCE_DELAY = 50;
+
 /** Empty state messages */
 export const EMPTY_STATE_MESSAGES = {
 	NO_ENTRIES: 'No entries found. Add some notes to your base.',

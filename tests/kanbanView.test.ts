@@ -13,6 +13,7 @@ import {
 	createMockPlugin,
 	createMockBasesEntry,
 	createMockTFile,
+	triggerDataUpdate,
 } from './helpers.ts';
 import {
 	createEntriesWithStatus,
@@ -64,7 +65,7 @@ describe('KanbanView Initialization', () => {
 		};
 
 		// Call loadConfig via onDataUpdated
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		assert.strictEqual((view as any).groupByPropertyId, testPropertyId, 'groupByPropertyId should be set from config');
 	});
@@ -76,7 +77,7 @@ describe('KanbanView Initialization', () => {
 		// Mock config.getAsPropertyId to return null
 		controller.config.getAsPropertyId = (): BasesPropertyId | null => null;
 
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		assert.strictEqual(
 			(view as any).groupByPropertyId,
@@ -101,7 +102,7 @@ describe('Data Rendering - Empty States', () => {
 	test('Renders empty state when no entries', () => {
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const emptyState = view.containerEl.querySelector('.obk-empty-state');
 		assert.ok(emptyState, 'Empty state element should exist');
@@ -119,7 +120,7 @@ describe('Data Rendering - Empty States', () => {
 
 		// Set a property ID that doesn't exist in the empty properties list
 		controllerNoProps.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const emptyState = view.containerEl.querySelector('.obk-empty-state');
 		assert.ok(emptyState, 'Empty state element should exist');
@@ -150,7 +151,7 @@ describe('Data Rendering - Entry Grouping', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Check that columns were created
 		const columns = view.containerEl.querySelectorAll('.obk-column');
@@ -171,7 +172,7 @@ describe('Data Rendering - Entry Grouping', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Check for Uncategorized column
 		const columns = view.containerEl.querySelectorAll('.obk-column');
@@ -189,7 +190,7 @@ describe('Data Rendering - Entry Grouping', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const uncategorizedColumn = Array.from(columns).find((col) =>
@@ -217,7 +218,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be created');
@@ -258,7 +259,7 @@ describe('Data Rendering - Card Rendering', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const cards = view.containerEl.querySelectorAll('.obk-card');
 		assert.ok(cards.length > 0, 'Cards should be created');
@@ -279,7 +280,7 @@ describe('Data Rendering - Card Rendering', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		assert.ok(card, 'Card should exist');
@@ -315,7 +316,7 @@ describe('Data Rendering - Board Rendering', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const board = view.containerEl.querySelector('.obk-board');
 		assert.ok(board, 'Board container should be created');
@@ -354,7 +355,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify Sortable instances were created
 		// The view stores instances in sortableInstances array
@@ -389,14 +390,14 @@ describe('Drag and Drop - Sortable Initialization', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const instances = sortableMock.getInstances ? sortableMock.getInstances() : sortableMock.instances;
 		const firstCallCount = instances.length;
 		const firstInstances = [...instances];
 
 		// Call onDataUpdated again
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify old instances were destroyed
 		firstInstances.forEach((instance) => {
@@ -427,7 +428,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Find a card in "To Do" column
 		const columns = view.containerEl.querySelectorAll('.obk-column');
@@ -472,7 +473,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
@@ -510,7 +511,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
@@ -570,7 +571,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = document.createElement('div');
 		card.className = 'obk-card';
@@ -599,7 +600,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = document.createElement('div');
 		card.className = 'obk-card';
@@ -654,7 +655,7 @@ describe('Data Updates', () => {
 			return originalRender();
 		};
 
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		assert.strictEqual(loadConfigCalled, true, 'loadConfig should be called');
 		assert.strictEqual(renderCalled, true, 'render should be called');
@@ -682,7 +683,7 @@ describe('Cleanup', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify instances exist - check view's internal array
 		const viewInstancesBefore = (view as any).sortableInstances || [];
@@ -725,7 +726,7 @@ describe('Column Reordering - Drag Handle', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should exist');
@@ -747,7 +748,7 @@ describe('Column Reordering - Drag Handle', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const dragHandle = view.containerEl.querySelector('.obk-column-drag-handle');
 		assert.ok(dragHandle, 'Drag handle should exist');
@@ -776,7 +777,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columnSortable = (view as any).columnSortable;
 		assert.ok(columnSortable, 'Column Sortable instance should be created');
@@ -791,7 +792,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columnSortable = (view as any).columnSortable;
 		assert.ok(columnSortable, 'Column Sortable should exist');
@@ -813,7 +814,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columnSortable = (view as any).columnSortable;
 		assert.ok(columnSortable, 'Column Sortable should exist');
@@ -861,7 +862,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const boardEl = view.containerEl.querySelector('.obk-board') as HTMLElement;
@@ -898,7 +899,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -920,7 +921,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -946,7 +947,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify initial order
 		let columns = view.containerEl.querySelectorAll('.obk-column');
@@ -955,11 +956,11 @@ describe('Column Reordering - Order Persistence', () => {
 
 		// Switch to different property
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Switch back to original property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Verify order is preserved
 		columns = view.containerEl.querySelectorAll('.obk-column');
@@ -980,7 +981,7 @@ describe('Column Reordering - Order Persistence', () => {
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		const view1 = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view1, app);
-		view1.onDataUpdated();
+		triggerDataUpdate(view1);
 
 		let columns = view1.containerEl.querySelectorAll('.obk-column');
 		let order1 = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -990,7 +991,7 @@ describe('Column Reordering - Order Persistence', () => {
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
 		const view2 = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view2, app);
-		view2.onDataUpdated();
+		triggerDataUpdate(view2);
 
 		columns = view2.containerEl.querySelectorAll('.obk-column');
 		const order2 = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -1009,7 +1010,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -1030,7 +1031,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should still be rendered');
@@ -1073,7 +1074,7 @@ describe('Column Order Normalization', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -1100,7 +1101,7 @@ describe('Column Order Normalization', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -1123,7 +1124,7 @@ describe('Column Order Normalization', () => {
 
 		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
@@ -1159,7 +1160,7 @@ describe('Column Order Normalization', () => {
 
 		// Should not throw - invalid saved data should be ignored gracefully
 		assert.doesNotThrow(() => {
-			view.onDataUpdated();
+			triggerDataUpdate(view);
 		}, 'Should handle invalid saved data without errors');
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
@@ -1188,7 +1189,7 @@ describe('Column Order Normalization', () => {
 
 		// Should not throw
 		assert.doesNotThrow(() => {
-			view.onDataUpdated();
+			triggerDataUpdate(view);
 		}, 'Should handle invalid JSON gracefully');
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
@@ -1216,7 +1217,7 @@ describe('Data Rendering - Card Properties', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		// Find the card for "Task A" specifically (status: "To Do", priority: "High")
 		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card'));
@@ -1248,7 +1249,7 @@ describe('Data Rendering - Card Properties', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		const propertyLabels = Array.from(card.querySelectorAll('.obk-card-property-label')).map((el) => el.textContent);
@@ -1271,7 +1272,7 @@ describe('Data Rendering - Card Properties', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		const propertyEls = card.querySelectorAll('.obk-card-property');
@@ -1287,7 +1288,7 @@ describe('Data Rendering - Card Properties', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
+		triggerDataUpdate(view);
 
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		const propertyEls = card.querySelectorAll('.obk-card-property');

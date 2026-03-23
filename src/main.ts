@@ -18,7 +18,7 @@ export default class KanbanBasesViewPlugin extends Plugin {
 			name: 'Kanban',
 			icon: 'columns',
 			factory: (controller, scrollEl) => {
-				return new KanbanView(controller, scrollEl);
+				return new KanbanView(controller, scrollEl, this);
 			},
 			options: KanbanView.getViewOptions,
 		});

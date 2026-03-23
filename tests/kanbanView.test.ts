@@ -10,6 +10,7 @@ import {
 	mockSortable,
 	addClosestPolyfill,
 	setupKanbanViewWithApp,
+	createMockPlugin,
 } from './helpers.ts';
 import {
 	createEntriesWithStatus,
@@ -36,7 +37,7 @@ describe('KanbanView Initialization', () => {
 	});
 
 	test('Constructor initializes correctly', () => {
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 
 		assert.ok(view.containerEl, 'containerEl should be created');
@@ -59,7 +60,7 @@ describe('KanbanView Initialization', () => {
 	});
 
 	test('loadConfig loads group by property from config', () => {
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		const testPropertyId = PROPERTY_STATUS;
 
@@ -82,7 +83,7 @@ describe('KanbanView Initialization', () => {
 	});
 
 	test('loadConfig handles null/undefined config values', () => {
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 
 		// Mock config.getAsPropertyId to return null
@@ -111,7 +112,7 @@ describe('Data Rendering - Empty States', () => {
 	});
 
 	test('Renders empty state when no entries', () => {
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -126,7 +127,7 @@ describe('Data Rendering - Empty States', () => {
 	test('Renders empty state when no properties', () => {
 		const controllerNoProps = createMockQueryController([], []) as any; // Empty properties array
 		controllerNoProps.app = app;
-		const view = new KanbanView(controllerNoProps, scrollEl);
+		const view = new KanbanView(controllerNoProps, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 
 		// Set a property ID that doesn't exist in the empty properties list
@@ -161,7 +162,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -184,7 +185,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -202,7 +203,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -230,7 +231,7 @@ describe('Data Rendering - Column Rendering', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -277,7 +278,7 @@ describe('Data Rendering - Card Rendering', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -301,7 +302,7 @@ describe('Data Rendering - Card Rendering', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -337,7 +338,7 @@ describe('Data Rendering - Board Rendering', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -382,7 +383,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -421,7 +422,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -459,7 +460,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -508,7 +509,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -546,7 +547,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -608,7 +609,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -641,7 +642,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -683,7 +684,7 @@ describe('Data Updates', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		
 		let loadConfigCalled = false;
@@ -728,7 +729,7 @@ describe('Cleanup', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -775,7 +776,7 @@ describe('Column Reordering - Drag Handle', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -797,7 +798,7 @@ describe('Column Reordering - Drag Handle', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -829,7 +830,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -844,7 +845,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -866,7 +867,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -906,12 +907,6 @@ describe('Column Reordering - Order Persistence', () => {
 				return this.columnOrders[propertyId] || null;
 			},
 		};
-		// Mock plugin access
-		(app as any).plugins = {
-			plugins: {
-				'kanban-bases-view': mockPlugin,
-			},
-		};
 	});
 
 	test('handleColumnDrop saves order to storage', async () => {
@@ -920,7 +915,7 @@ describe('Column Reordering - Order Persistence', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -957,7 +952,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const savedOrder = ['Done', 'Doing', 'To Do'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -987,7 +982,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const savedOrder = ['Done', 'Doing'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1015,7 +1010,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const savedOrder = ['Done', 'Doing', 'To Do'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1057,7 +1052,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		// Test status property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		const view1 = new KanbanView(controller, scrollEl);
+		const view1 = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view1, app);
 		view1.onDataUpdated();
 
@@ -1069,7 +1064,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		// Test priority property
 		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
-		const view2 = new KanbanView(controller, scrollEl);
+		const view2 = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view2, app);
 		view2.onDataUpdated();
 
@@ -1090,7 +1085,7 @@ describe('Column Reordering - Order Persistence', () => {
 		// No saved order
 		mockPlugin.columnOrders = {};
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1117,7 +1112,7 @@ describe('Column Reordering - Order Persistence', () => {
 		// Mock getColumnOrder to return null
 		mockPlugin.getColumnOrder = (): string[] | null => null;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1136,145 +1131,6 @@ describe('Column Reordering - Order Persistence', () => {
 	});
 });
 
-describe('Plugin Registry Type Guards', () => {
-	let scrollEl: HTMLElement;
-	let controller: any;
-	let app: any;
-
-	beforeEach(() => {
-		scrollEl = createDivWithMethods();
-		app = createMockApp();
-	});
-
-	test('getColumnOrderFromStorage returns null when app has no plugins property', () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		// Remove plugins property
-		delete (app as any).plugins;
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
-
-		// Should not crash and should use alphabetical order
-		const columns = view.containerEl.querySelectorAll('.obk-column');
-		assert.ok(columns.length > 0, 'Columns should still be rendered');
-	});
-
-	test('getColumnOrderFromStorage returns null when plugins.plugins is undefined', () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		// Set plugins but not plugins.plugins
-		(app as any).plugins = {};
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
-
-		// Should not crash
-		const columns = view.containerEl.querySelectorAll('.obk-column');
-		assert.ok(columns.length > 0, 'Columns should still be rendered');
-	});
-
-	test('getColumnOrderFromStorage returns null when plugin not found', () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		// Set plugins registry but without kanban-bases-view plugin
-		(app as any).plugins = {
-			plugins: {
-				'some-other-plugin': {},
-			},
-		};
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
-
-		// Should fallback to alphabetical order
-		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
-		const expectedOrder = [...renderedOrder].sort();
-		assert.deepStrictEqual(
-			renderedOrder,
-			expectedOrder,
-			'Should fallback to alphabetical when plugin not found'
-		);
-	});
-
-	test('saveColumnOrderToStorage handles missing plugin registry gracefully', async () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		// Remove plugins property
-		delete (app as any).plugins;
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
-
-		// Should not throw when trying to save
-		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const boardEl = view.containerEl.querySelector('.obk-board') as HTMLElement;
-		
-		const mockEvent = {
-			item: columns[0] as HTMLElement,
-			from: boardEl,
-			to: boardEl,
-			oldIndex: 0,
-			newIndex: 1,
-		};
-
-		// Should not throw
-		await assert.doesNotReject(
-			async () => await (view as any).handleColumnDrop(mockEvent),
-			'Should handle missing plugin registry gracefully'
-		);
-	});
-
-	test('Plugin access works correctly when registry exists', () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		const mockPlugin = {
-			columnOrders: {},
-			async saveColumnOrder(propertyId: string, order: string[]) {
-				this.columnOrders[propertyId] = order;
-			},
-			getColumnOrder(propertyId: string): string[] | null {
-				return this.columnOrders[propertyId] || null;
-			},
-		};
-
-		(app as any).plugins = {
-			plugins: {
-				'kanban-bases-view': mockPlugin,
-			},
-		};
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		view.onDataUpdated();
-
-		// Should work normally
-		const columns = view.containerEl.querySelectorAll('.obk-column');
-		assert.ok(columns.length > 0, 'Columns should be rendered');
-	});
-});
 
 describe('Column Order Normalization', () => {
 	let scrollEl: HTMLElement;
@@ -1294,11 +1150,6 @@ describe('Column Order Normalization', () => {
 				return this.columnOrders[propertyId] || null;
 			},
 		};
-		(app as any).plugins = {
-			plugins: {
-				'kanban-bases-view': mockPlugin,
-			},
-		};
 	});
 
 	test('Normalizes old JSON strings in saved order', () => {
@@ -1311,7 +1162,7 @@ describe('Column Order Normalization', () => {
 		const savedOrder = ['Done', 'Doing', 'To Do'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1340,7 +1191,7 @@ describe('Column Order Normalization', () => {
 		const savedOrder = ['Done', 'To Do', 'Doing'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1365,7 +1216,7 @@ describe('Column Order Normalization', () => {
 		const savedOrder = ['Done'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -1400,7 +1251,7 @@ describe('Column Order Normalization', () => {
 		];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 
 		// Should not throw - invalid saved data should be ignored gracefully
@@ -1431,7 +1282,7 @@ describe('Column Order Normalization', () => {
 		const savedOrder = ['{invalid json}', 'To Do'];
 		mockPlugin.columnOrders[PROPERTY_STATUS] = savedOrder;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, mockPlugin);
 		setupKanbanViewWithApp(view, app);
 
 		// Should not throw

@@ -11,6 +11,7 @@ import {
 	createMockBasesEntry,
 	createMockTFile,
 	setupKanbanViewWithApp,
+	createMockPlugin,
 } from './helpers.ts';
 import {
 	createEntriesWithStatus,
@@ -43,7 +44,7 @@ describe('Integration Tests - Full Workflow', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -106,7 +107,7 @@ describe('Integration Tests - Full Workflow', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 
@@ -165,7 +166,7 @@ describe('Integration Tests - Property Selection', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 
 		// First, use STATUS property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
@@ -219,7 +220,7 @@ describe('Integration Tests - Property Selection', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 
 		// Use STATUS property
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
@@ -274,8 +275,8 @@ describe('Integration Tests - Multiple Views', () => {
 		const scrollEl1 = createDivWithMethods();
 		const scrollEl2 = createDivWithMethods();
 
-		const view1 = new KanbanView(controller1, scrollEl1);
-		const view2 = new KanbanView(controller2, scrollEl2);
+		const view1 = new KanbanView(controller1, scrollEl1, createMockPlugin());
+		const view2 = new KanbanView(controller2, scrollEl2, createMockPlugin());
 		setupKanbanViewWithApp(view1, app);
 		setupKanbanViewWithApp(view2, app);
 
@@ -324,8 +325,8 @@ describe('Integration Tests - Multiple Views', () => {
 		const scrollEl1 = createDivWithMethods();
 		const scrollEl2 = createDivWithMethods();
 
-		const view1 = new KanbanView(controller1, scrollEl1);
-		const view2 = new KanbanView(controller2, scrollEl2);
+		const view1 = new KanbanView(controller1, scrollEl1, createMockPlugin());
+		const view2 = new KanbanView(controller2, scrollEl2, createMockPlugin());
 		setupKanbanViewWithApp(view1, app);
 		setupKanbanViewWithApp(view2, app);
 
@@ -369,7 +370,7 @@ describe('Integration Tests - Edge Cases', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 
 		// Rapidly change properties
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
@@ -397,7 +398,7 @@ describe('Integration Tests - Edge Cases', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
 		view.onDataUpdated();
 

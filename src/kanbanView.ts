@@ -1,5 +1,5 @@
 import { BasesView, parsePropertyId } from 'obsidian';
-import type { QueryController, BasesEntry, BasesPropertyId, ViewOption, App } from 'obsidian';
+import type { QueryController, BasesEntry, BasesPropertyId, ViewOption } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	UNCATEGORIZED_LABEL,
@@ -16,37 +16,22 @@ interface KanbanPlugin {
 	saveColumnOrder(propertyId: BasesPropertyId, order: string[]): Promise<void>;
 }
 
-// Extend Obsidian's App type to include plugins registry
-// Obsidian's App structure: app.plugins is PluginManager, app.plugins.plugins is the registry
-// Plugins are accessed via app.plugins.plugins[pluginId] where pluginId matches manifest.json id
-// Reference: Obsidian API type definitions - https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts
-// This is an internal but commonly used API pattern in Obsidian plugins
-interface AppWithPluginRegistry extends App {
-	plugins?: {
-		plugins?: {
-			[key: string]: unknown;
-		};
-	};
-}
-
-// Type guard to check if app has plugin registry
-function hasPluginRegistry(app: App | undefined): app is AppWithPluginRegistry {
-	return app !== undefined && 'plugins' in app;
-}
 
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
-	
+
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
+	private plugin: KanbanPlugin;
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private sortableInstances: Sortable[] = [];
 	private columnSortable: Sortable | null = null;
 
-	constructor(controller: QueryController, scrollEl: HTMLElement) {
+	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: KanbanPlugin) {
 		super(controller);
 		this.scrollEl = scrollEl;
 		this.containerEl = scrollEl.createDiv({ cls: CSS_CLASSES.VIEW_CONTAINER });
+		this.plugin = plugin;
 	}
 
 	onDataUpdated(): void {
@@ -319,7 +304,7 @@ export class KanbanView extends BasesView {
 	private getOrderedColumnValues(values: string[]): string[] {
 		if (!this.groupByPropertyId) return values.sort();
 		
-		const savedOrder = this.getColumnOrderFromStorage(this.groupByPropertyId);
+		const savedOrder = this.plugin.getColumnOrder(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
 		
 		// Saved order is already normalized strings, use directly
@@ -356,26 +341,7 @@ export class KanbanView extends BasesView {
 			col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
 		).filter((v): v is string => v !== null);
 		
-		await this.saveColumnOrderToStorage(this.groupByPropertyId, order);
-	}
-
-	private getColumnOrderFromStorage(propertyId: BasesPropertyId): string[] | null {
-		// Access plugin data via this.app
-		if (!hasPluginRegistry(this.app)) {
-			return null;
-		}
-		const plugin = this.app.plugins?.plugins?.['kanban-bases-view'] as KanbanPlugin | undefined;
-		return plugin?.getColumnOrder?.(propertyId) || null;
-	}
-
-	private async saveColumnOrderToStorage(propertyId: BasesPropertyId, order: string[]): Promise<void> {
-		if (!hasPluginRegistry(this.app)) {
-			return;
-		}
-		const plugin = this.app.plugins?.plugins?.['kanban-bases-view'] as KanbanPlugin | undefined;
-		if (plugin?.saveColumnOrder) {
-			await plugin.saveColumnOrder(propertyId, order);
-		}
+		await this.plugin.saveColumnOrder(this.groupByPropertyId, order);
 	}
 
 	onClose(): void {

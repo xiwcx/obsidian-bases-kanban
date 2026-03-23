@@ -207,6 +207,19 @@ export function mockSortable() {
 	};
 }
 
+// Mock Plugin
+export function createMockPlugin() {
+	const columnOrders: Record<string, string[]> = {};
+	return {
+		getColumnOrder(propertyId: string): string[] | null {
+			return columnOrders[propertyId] || null;
+		},
+		async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
+			columnOrders[propertyId] = order;
+		},
+	};
+}
+
 // Helper to create DOM element (Obsidian methods are now on prototype)
 export function createDivWithMethods(parent?: HTMLElement): HTMLElement {
 	const div = document.createElement('div');
@@ -272,9 +285,10 @@ export function createKanbanViewWithApp(
 	KanbanView: any,
 	controller: QueryController,
 	scrollEl: HTMLElement,
-	app: App
+	app: App,
+	plugin?: any
 ): any {
-	const view = new KanbanView(controller, scrollEl);
+	const view = new KanbanView(controller, scrollEl, plugin ?? createMockPlugin());
 	setupKanbanViewWithApp(view, app);
 	return view;
 }

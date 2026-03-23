@@ -26,7 +26,8 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private plugin: KanbanPlugin;
 	private groupByPropertyId: BasesPropertyId | null = null;
-	private sortableInstances: Sortable[] = [];
+	private _renderedGroupByPropertyId: BasesPropertyId | null = null;
+	private _columnSortables: Map<string, Sortable> = new Map();
 	private columnSortable: Sortable | null = null;
 	private _debouncedRender: DebouncedFn<() => void>;
 
@@ -55,13 +56,11 @@ export class KanbanView extends BasesView {
 	}
 
 	private render(): void {
-		// Clear existing content
-		this.containerEl.empty();
-
 		try {
 			// Get all entries from the data
 			const entries = this.data?.data || [];
 			if (!entries || entries.length === 0) {
+				this.fullReset();
 				this.containerEl.createDiv({
 					text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
 					cls: CSS_CLASSES.EMPTY_STATE,
@@ -77,6 +76,7 @@ export class KanbanView extends BasesView {
 				if (availablePropertyIds.length > 0) {
 					this.groupByPropertyId = availablePropertyIds[0];
 				} else {
+					this.fullReset();
 					this.containerEl.createDiv({
 						text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
 						cls: CSS_CLASSES.EMPTY_STATE,
@@ -87,25 +87,146 @@ export class KanbanView extends BasesView {
 
 			// Group entries by group by property value
 			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
-
-			// Create kanban board
-			const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
-
-			// Create columns for each unique property value
 			const propertyValues = Array.from(groupedEntries.keys());
 			const orderedValues = this.getOrderedColumnValues(propertyValues);
 
-			orderedValues.forEach((value) => {
-				const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
-				boardEl.appendChild(columnEl);
-			});
-
-			// Initialize drag and drop
-			this.initializeSortable();
-			this.initializeColumnSortable();
+			const existingBoard = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+			if (
+				!existingBoard ||
+				!(existingBoard instanceof HTMLElement) ||
+				this._renderedGroupByPropertyId !== this.groupByPropertyId
+			) {
+				this.fullRebuild(orderedValues, groupedEntries);
+			} else {
+				this.patchBoard(existingBoard, orderedValues, groupedEntries);
+			}
+			this._renderedGroupByPropertyId = this.groupByPropertyId;
 		} catch (error) {
 			console.error('KanbanView error:', error);
 		}
+	}
+
+	private fullReset(): void {
+		this.containerEl.empty();
+		this._columnSortables.forEach((s) => s.destroy());
+		this._columnSortables.clear();
+		if (this.columnSortable) {
+			this.columnSortable.destroy();
+			this.columnSortable = null;
+		}
+		this._renderedGroupByPropertyId = null;
+	}
+
+	private fullRebuild(orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
+		this.containerEl.empty();
+		this._columnSortables.forEach((s) => s.destroy());
+		this._columnSortables.clear();
+		if (this.columnSortable) {
+			this.columnSortable.destroy();
+			this.columnSortable = null;
+		}
+
+		const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
+		orderedValues.forEach((value) => {
+			const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
+			boardEl.appendChild(columnEl);
+		});
+
+		this.initializeSortable();
+		this.initializeColumnSortable();
+	}
+
+	private patchBoard(boardEl: HTMLElement, orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
+		// Index existing column elements by their value
+		const existingColumns = new Map<string, HTMLElement>();
+		boardEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
+			if (col instanceof HTMLElement) {
+				const val = col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+				if (val !== null) existingColumns.set(val, col);
+			}
+		});
+
+		const newValueSet = new Set(orderedValues);
+
+		// Remove columns that no longer exist in data
+		existingColumns.forEach((colEl, value) => {
+			if (!newValueSet.has(value)) {
+				const sortable = this._columnSortables.get(value);
+				if (sortable) {
+					sortable.destroy();
+					this._columnSortables.delete(value);
+				}
+				colEl.remove();
+				existingColumns.delete(value);
+			}
+		});
+
+		// Add new columns; patch cards in existing columns
+		orderedValues.forEach((value) => {
+			const newEntries = groupedEntries.get(value) || [];
+			if (!existingColumns.has(value)) {
+				const columnEl = this.createColumn(value, newEntries);
+				boardEl.appendChild(columnEl);
+				existingColumns.set(value, columnEl);
+				// Attach Sortable to the new column body
+				const body = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`);
+				if (body instanceof HTMLElement) {
+					const sortable = new Sortable(body, {
+						group: SORTABLE_GROUP,
+						animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+						dragClass: CSS_CLASSES.CARD_DRAGGING,
+						ghostClass: CSS_CLASSES.CARD_GHOST,
+						chosenClass: CSS_CLASSES.CARD_CHOSEN,
+						onEnd: (evt: Sortable.SortableEvent) => {
+							void this.handleCardDrop(evt);
+						},
+					});
+					this._columnSortables.set(value, sortable);
+				}
+			} else {
+				const colEl = existingColumns.get(value);
+				if (colEl) this.patchColumnCards(colEl, newEntries);
+			}
+		});
+
+		// Re-order columns in the DOM to match orderedValues
+		// appendChild on an already-attached child moves it — no cloning needed
+		orderedValues.forEach((value) => {
+			const colEl = existingColumns.get(value);
+			if (colEl) boardEl.appendChild(colEl);
+		});
+	}
+
+	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
+		const body = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
+		if (!body) return;
+
+		// Update column count
+		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
+		if (countEl) countEl.textContent = `(${newEntries.length})`;
+
+		// Remove cards whose entry is no longer in this column
+		const newPaths = new Set(newEntries.map((e) => e.file.path));
+		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+			if (card instanceof HTMLElement) {
+				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
+				if (path && !newPaths.has(path)) card.remove();
+			}
+		});
+
+		// Add cards for entries not yet in the DOM
+		const existingPaths = new Set<string>();
+		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+			if (card instanceof HTMLElement) {
+				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
+				if (path) existingPaths.add(path);
+			}
+		});
+		newEntries.forEach((entry) => {
+			if (!existingPaths.has(entry.file.path)) {
+				body.appendChild(this.createCard(entry));
+			}
+		});
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -192,22 +313,13 @@ export class KanbanView extends BasesView {
 	}
 
 	private initializeSortable(): void {
-		// Clean up existing Sortable instances
-		this.sortableInstances.forEach((instance) => {
-			instance.destroy();
-		});
-		this.sortableInstances = [];
-
-		// Get all column bodies
 		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
-		const columnBodies = this.containerEl.querySelectorAll(selector);
+		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
+			if (!(columnBody instanceof HTMLElement)) return;
 
-		columnBodies.forEach((columnBody) => {
-			// Type guard to ensure we have an HTMLElement
-			if (!(columnBody instanceof HTMLElement)) {
-				console.warn('Column body is not an HTMLElement:', columnBody);
-				return;
-			}
+			const colEl = columnBody.closest(`.${CSS_CLASSES.COLUMN}`);
+			const value = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
+			if (!value) return;
 
 			const sortable = new Sortable(columnBody, {
 				group: SORTABLE_GROUP,
@@ -220,7 +332,7 @@ export class KanbanView extends BasesView {
 				},
 			});
 
-			this.sortableInstances.push(sortable);
+			this._columnSortables.set(value, sortable);
 		});
 	}
 
@@ -365,22 +477,12 @@ export class KanbanView extends BasesView {
 
 	onClose(): void {
 		this._debouncedRender.cancel();
-
-		// Clean up Sortable instances
-		this.sortableInstances.forEach((instance) => {
-			instance.destroy();
-		});
-		this.sortableInstances = [];
-
-		// Clean up column Sortable instance
+		this._columnSortables.forEach((instance) => instance.destroy());
+		this._columnSortables.clear();
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
 		}
-
-		// Note: DOM event listeners attached to elements within containerEl
-		// are automatically cleaned up when containerEl is cleared (via empty()).
-		// No manual cleanup needed for listeners on child elements.
 	}
 
 	static getViewOptions(this: void): ViewOption[] {

@@ -48,7 +48,7 @@ describe('KanbanView Initialization', () => {
 		assert.strictEqual(view.containerEl.className, 'obk-view-container', 'containerEl should have correct class');
 		assert.strictEqual(view.scrollEl, scrollEl, 'scrollEl reference should be stored');
 		assert.strictEqual((view as any).groupByPropertyId, null, 'groupByPropertyId should be null initially');
-		assert.strictEqual((view as any).sortableInstances.length, 0, 'sortableInstances array should be empty');
+		assert.strictEqual((view as any)._columnSortables.size, 0, '_columnSortables map should be empty');
 	});
 
 	test('loadConfig loads group by property from config', () => {
@@ -358,20 +358,14 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		triggerDataUpdate(view);
 
 		// Verify Sortable instances were created
-		// The view stores instances in sortableInstances array
-		const viewInstances = (view as any).sortableInstances || [];
+		const viewInstances = Array.from((view as any)._columnSortables.values());
 		assert.ok(viewInstances.length > 0, 'Sortable instances should be created in view');
-
-		// Verify that initializeSortable was called by checking we have instances
-		// The fact that instances exist means Sortable constructor was called
-		// which means initializeSortable set up drag-and-drop correctly
 
 		// Verify the instance structure
 		const firstInstance = viewInstances[0];
 		assert.ok(firstInstance, 'Sortable instance should exist');
 
 		// Verify that initializeSortable found column bodies to attach to
-		// This is the key functionality - it should find all .obk-column-body elements
 		const columnBodies = view.containerEl.querySelectorAll('.obk-column-body[data-sortable-container]');
 		assert.ok(columnBodies.length > 0, 'Should have column bodies for Sortable');
 		assert.strictEqual(viewInstances.length, columnBodies.length, 'Should have one Sortable instance per column body');
@@ -685,26 +679,21 @@ describe('Cleanup', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
-		// Verify instances exist - check view's internal array
-		const viewInstancesBefore = (view as any).sortableInstances || [];
+		// Verify instances exist before close
+		const viewInstancesBefore = Array.from((view as any)._columnSortables.values());
 		assert.ok(viewInstancesBefore.length > 0, 'Sortable instances should exist');
 
 		// Call onClose
 		view.onClose();
 
-		// Verify instances were destroyed - check view's internal array
-		const viewInstancesAfter = (view as any).sortableInstances || [];
-		assert.strictEqual(viewInstancesAfter.length, 0, 'All instances should be cleaned up');
+		// Verify instances were destroyed
+		assert.strictEqual((view as any)._columnSortables.size, 0, 'All instances should be cleaned up');
 
-		// Also verify they were destroyed if we can access them
 		viewInstancesBefore.forEach((instance: any) => {
 			if (instance && typeof instance.destroyed !== 'undefined') {
 				assert.strictEqual(instance.destroyed, true, 'Instance should be destroyed');
 			}
 		});
-
-		// Verify array is cleared
-		assert.strictEqual((view as any).sortableInstances.length, 0, 'sortableInstances array should be cleared');
 	});
 });
 

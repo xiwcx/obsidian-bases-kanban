@@ -26,20 +26,21 @@ export function ensureGroupExists(grouped: Map<string, BasesEntry[]>, key: strin
  * @param value - The property value to normalize (typically a Value object from Obsidian Bases)
  * @returns Normalized string value
  */
-export function normalizePropertyValue(value: unknown): string {
+export function normalizePropertyValue(
+	value: string | number | boolean | { toString(): string } | null | undefined,
+): string {
 	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return UNCATEGORIZED_LABEL;
 	}
 
 	// Value objects from Obsidian Bases have toString()
-	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
-		// eslint-disable-next-line @typescript-eslint/no-base-to-string
+	if (typeof value === 'object') {
 		const stringValue = value.toString().trim();
 		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 	}
 
-	// Fallback for primitives (shouldn't happen in production, but keeps tests simple)
-	const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+	// Primitives
+	const stringValue = typeof value === 'string' ? value : String(value);
 	return stringValue.trim() === '' ? UNCATEGORIZED_LABEL : stringValue.trim();
 }

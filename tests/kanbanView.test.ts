@@ -1,30 +1,30 @@
-import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
+import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
 import { KanbanView } from '../src/kanbanView.ts';
 import {
-	setupTestEnvironment,
-	createDivWithMethods,
-	createMockQueryController,
-	createMockApp,
-	mockSortable,
-	addClosestPolyfill,
-	setupKanbanViewWithApp,
-	createMockPlugin,
-	createMockBasesEntry,
-	createMockTFile,
-	triggerDataUpdate,
-} from './helpers.ts';
-import {
-	createEntriesWithStatus,
-	createEntriesWithEmptyValues,
 	createEmptyEntries,
+	createEntriesWithEmptyValues,
 	createEntriesWithMixedProperties,
-	PROPERTY_STATUS,
-	PROPERTY_PRIORITY,
+	createEntriesWithStatus,
 	PROPERTY_CATEGORY,
+	PROPERTY_PRIORITY,
+	PROPERTY_STATUS,
 	TEST_PROPERTIES,
 } from './fixtures.ts';
+import {
+	addClosestPolyfill,
+	createDivWithMethods,
+	createMockApp,
+	createMockBasesEntry,
+	createMockPlugin,
+	createMockQueryController,
+	createMockTFile,
+	mockSortable,
+	setupKanbanViewWithApp,
+	setupTestEnvironment,
+	triggerDataUpdate,
+} from './helpers.ts';
 
 setupTestEnvironment();
 
@@ -840,6 +840,10 @@ describe('Column Reordering - Order Persistence', () => {
 			getColumnOrder(propertyId: string): string[] | null {
 				return this.columnOrders[propertyId] || null;
 			},
+			getColumnColor(_propertyId: string, _columnValue: string): string | null {
+				return null;
+			},
+			async saveColumnColor(_propertyId: string, _columnValue: string, _colorName: string | null): Promise<void> {},
 		};
 	});
 
@@ -1048,6 +1052,10 @@ describe('Column Order Normalization', () => {
 			getColumnOrder(propertyId: string): string[] | null {
 				return this.columnOrders[propertyId] || null;
 			},
+			getColumnColor(_propertyId: string, _columnValue: string): string | null {
+				return null;
+			},
+			async saveColumnColor(_propertyId: string, _columnValue: string, _colorName: string | null): Promise<void> {},
 		};
 	});
 
@@ -1282,5 +1290,205 @@ describe('Data Rendering - Card Properties', () => {
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		const propertyEls = card.querySelectorAll('.obk-card-property');
 		assert.strictEqual(propertyEls.length, 0, 'No property elements should be rendered when getOrder is empty');
+	});
+});
+
+describe('Column Colors', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		controller = createMockQueryController();
+		app = createMockApp();
+		controller.app = app;
+	});
+
+	test('color picker button is rendered in each column header', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const headers = view.containerEl.querySelectorAll('.obk-column-header');
+		assert.ok(headers.length > 0, 'Columns should be rendered');
+		headers.forEach((header) => {
+			const colorBtn = header.querySelector('.obk-column-color-btn');
+			assert.ok(colorBtn, 'Each column header should contain a color picker button');
+		});
+	});
+
+	test('column renders with accent color CSS variable when color is set', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const plugin = createMockPlugin();
+		(plugin as any).getColumnColor = (propertyId: string, columnValue: string) => {
+			return columnValue === 'To Do' ? 'red' : null;
+		};
+
+		const view = new KanbanView(controller, scrollEl, plugin);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column') as NodeListOf<HTMLElement>;
+		let toDoColumn: HTMLElement | null = null;
+		columns.forEach((col) => {
+			if (col.getAttribute('data-column-value') === 'To Do') toDoColumn = col;
+		});
+
+		assert.ok(toDoColumn, 'To Do column should exist');
+		assert.strictEqual(
+			(toDoColumn as HTMLElement).style.getPropertyValue('--obk-column-accent-color'),
+			'var(--color-red)',
+			'Column should have red accent color variable set',
+		);
+		assert.strictEqual(
+			(toDoColumn as HTMLElement).getAttribute('data-column-color'),
+			'red',
+			'Column should have data-column-color attribute set',
+		);
+	});
+
+	test('column does not set accent color when no color is stored', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column') as NodeListOf<HTMLElement>;
+		columns.forEach((col) => {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				'',
+				'Column should not have accent color variable when no color stored',
+			);
+			assert.strictEqual(
+				col.getAttribute('data-column-color'),
+				null,
+				'Column should not have data-column-color attribute',
+			);
+		});
+	});
+
+	test('color picker button has accessible aria-label', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl, createMockPlugin());
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		columns.forEach((col) => {
+			const colorBtn = col.querySelector('.obk-column-color-btn');
+			assert.ok(colorBtn, 'Color button should exist');
+			const label = colorBtn!.getAttribute('aria-label');
+			assert.ok(label && label.length > 0, 'Color button should have a non-empty aria-label');
+			const colValue = col.getAttribute('data-column-value');
+			assert.ok(label!.includes(colValue!), 'aria-label should include the column value');
+		});
+	});
+
+	test('clicking a color swatch applies color and calls saveColumnColor', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const plugin = createMockPlugin();
+		const view = new KanbanView(controller, scrollEl, plugin);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Find the "To Do" column and its color button
+		const columns = view.containerEl.querySelectorAll('.obk-column') as NodeListOf<HTMLElement>;
+		let toDoColumn: HTMLElement | null = null;
+		columns.forEach((col) => {
+			if (col.getAttribute('data-column-value') === 'To Do') toDoColumn = col;
+		});
+		assert.ok(toDoColumn, 'To Do column should exist');
+
+		const colorBtn = toDoColumn!.querySelector('.obk-column-color-btn') as HTMLElement;
+		assert.ok(colorBtn, 'Color button should exist');
+
+		// Open the popover
+		colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const popover = document.querySelector('.obk-column-color-popover') as HTMLElement;
+		assert.ok(popover, 'Popover should appear after clicking color button');
+
+		// Click the first colored swatch (index 1, skipping the "none" swatch at index 0)
+		const swatches = popover.querySelectorAll('.obk-column-color-swatch') as NodeListOf<HTMLElement>;
+		assert.ok(swatches.length > 1, 'Popover should have color swatches');
+		const firstColorSwatch = swatches[1]; // index 0 is "none"
+		const swatchTitle = firstColorSwatch.title; // e.g. "red"
+		firstColorSwatch.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		// Popover should be gone
+		assert.strictEqual(
+			document.querySelector('.obk-column-color-popover'),
+			null,
+			'Popover should close after swatch click',
+		);
+
+		// Column should have the color applied
+		assert.strictEqual(
+			toDoColumn!.style.getPropertyValue('--obk-column-accent-color'),
+			`var(--color-${swatchTitle})`,
+			'Column should have accent color applied',
+		);
+		assert.strictEqual(toDoColumn!.getAttribute('data-column-color'), swatchTitle, 'Column data attribute should be set');
+
+		// Plugin should have been called to persist
+		assert.strictEqual(
+			plugin.getColumnColor(PROPERTY_STATUS, 'To Do'),
+			swatchTitle,
+			'saveColumnColor should have been called',
+		);
+	});
+
+	test('color picker button reflects current column color via inline style', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const plugin = createMockPlugin();
+		(plugin as any).getColumnColor = (propertyId: string, columnValue: string) => {
+			return columnValue === 'To Do' ? 'blue' : null;
+		};
+
+		const view = new KanbanView(controller, scrollEl, plugin);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column') as NodeListOf<HTMLElement>;
+		let toDoColumn: HTMLElement | null = null;
+		columns.forEach((col) => {
+			if (col.getAttribute('data-column-value') === 'To Do') toDoColumn = col;
+		});
+		assert.ok(toDoColumn, 'To Do column should exist');
+
+		// The color button inherits --obk-column-accent-color from the column via CSS,
+		// so we verify the column itself has the variable set correctly
+		assert.strictEqual(
+			(toDoColumn as HTMLElement).style.getPropertyValue('--obk-column-accent-color'),
+			'var(--color-blue)',
+			'Column CSS variable should reflect stored color',
+		);
 	});
 });

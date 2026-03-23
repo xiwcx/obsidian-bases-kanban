@@ -16,6 +16,7 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).document = dom.window.document;
 (global as any).HTMLElement = dom.window.HTMLElement;
 (global as any).HTMLDivElement = dom.window.HTMLDivElement;
+(global as any).MouseEvent = dom.window.MouseEvent;
 
 // Extend HTMLElement prototype with Obsidian-like methods
 const HTMLElementProto = dom.window.HTMLElement.prototype as any;
@@ -217,12 +218,24 @@ export function mockSortable() {
 // Mock Plugin
 export function createMockPlugin() {
 	const columnOrders: Record<string, string[]> = {};
+	const columnColors: Record<string, Record<string, string>> = {};
 	return {
 		getColumnOrder(propertyId: string): string[] | null {
 			return columnOrders[propertyId] || null;
 		},
 		async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
 			columnOrders[propertyId] = order;
+		},
+		getColumnColor(propertyId: string, columnValue: string): string | null {
+			return columnColors[propertyId]?.[columnValue] ?? null;
+		},
+		async saveColumnColor(propertyId: string, columnValue: string, colorName: string | null): Promise<void> {
+			if (!columnColors[propertyId]) columnColors[propertyId] = {};
+			if (colorName === null) {
+				delete columnColors[propertyId][columnValue];
+			} else {
+				columnColors[propertyId][columnValue] = colorName;
+			}
 		},
 	};
 }

@@ -5,6 +5,20 @@
 /** Label used for entries without a property value */
 export const UNCATEGORIZED_LABEL = 'Uncategorized';
 
+/** Color palette for column accents, using Obsidian design system variables */
+export const COLOR_PALETTE = [
+	{ name: 'red', cssVar: 'var(--color-red)' },
+	{ name: 'orange', cssVar: 'var(--color-orange)' },
+	{ name: 'yellow', cssVar: 'var(--color-yellow)' },
+	{ name: 'green', cssVar: 'var(--color-green)' },
+	{ name: 'cyan', cssVar: 'var(--color-cyan)' },
+	{ name: 'blue', cssVar: 'var(--color-blue)' },
+	{ name: 'purple', cssVar: 'var(--color-purple)' },
+	{ name: 'pink', cssVar: 'var(--color-pink)' },
+] as const;
+
+export type ColorName = (typeof COLOR_PALETTE)[number]['name'];
+
 /** Sortable.js group name for kanban columns */
 export const SORTABLE_GROUP = 'obk-columns';
 
@@ -14,6 +28,7 @@ export const DATA_ATTRIBUTES = {
 	ENTRY_PATH: 'data-entry-path',
 	SORTABLE_CONTAINER: 'data-sortable-container',
 	COLUMN_POSITION: 'data-column-position',
+	COLUMN_COLOR: 'data-column-color',
 } as const;
 
 /** CSS class names */
@@ -53,6 +68,13 @@ export const CSS_CLASSES = {
 
 	// Sortable placeholder (fallback / shared ghost style)
 	SORTABLE_GHOST: 'obk-sortable-ghost',
+
+	// Color picker
+	COLUMN_COLOR_BTN: 'obk-column-color-btn',
+	COLUMN_COLOR_POPOVER: 'obk-column-color-popover',
+	COLUMN_COLOR_SWATCH: 'obk-column-color-swatch',
+	COLUMN_COLOR_SWATCH_ACTIVE: 'obk-column-color-swatch--active',
+	COLUMN_COLOR_NONE: 'obk-column-color-none',
 } as const;
 
 /** Sortable.js configuration constants */

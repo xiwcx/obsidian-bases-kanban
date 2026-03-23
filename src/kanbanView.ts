@@ -1,22 +1,25 @@
+import type { BasesEntry, BasesPropertyId, QueryController, ViewOption } from 'obsidian';
 import { BasesView, parsePropertyId } from 'obsidian';
-import type { QueryController, BasesEntry, BasesPropertyId, ViewOption } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
-	UNCATEGORIZED_LABEL,
-	SORTABLE_GROUP,
-	DATA_ATTRIBUTES,
+	COLOR_PALETTE,
 	CSS_CLASSES,
-	SORTABLE_CONFIG,
-	EMPTY_STATE_MESSAGES,
+	DATA_ATTRIBUTES,
 	DEBOUNCE_DELAY,
+	EMPTY_STATE_MESSAGES,
+	SORTABLE_CONFIG,
+	SORTABLE_GROUP,
+	UNCATEGORIZED_LABEL,
 } from './constants.ts';
-import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
-import { debounce } from './utils/debounce.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
+import { debounce } from './utils/debounce.ts';
+import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 
 interface KanbanPlugin {
 	getColumnOrder(propertyId: BasesPropertyId): string[] | null;
 	saveColumnOrder(propertyId: BasesPropertyId, order: string[]): Promise<void>;
+	getColumnColor(propertyId: BasesPropertyId, columnValue: string): string | null;
+	saveColumnColor(propertyId: BasesPropertyId, columnValue: string, colorName: string | null): Promise<void>;
 }
 
 export class KanbanView extends BasesView {
@@ -31,6 +34,7 @@ export class KanbanView extends BasesView {
 	private _entryMap: Map<string, BasesEntry> = new Map();
 	private columnSortable: Sortable | null = null;
 	private _debouncedRender: DebouncedFn<() => void>;
+	private activeColorPicker: HTMLElement | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: KanbanPlugin) {
 		super(controller);
@@ -259,12 +263,27 @@ export class KanbanView extends BasesView {
 		columnEl.className = CSS_CLASSES.COLUMN;
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
+		// Apply stored color accent
+		if (this.groupByPropertyId) {
+			const colorName = this.plugin.getColumnColor(this.groupByPropertyId, value);
+			this.applyColumnColor(columnEl, colorName);
+		}
+
 		// Column header
 		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
 
 		// Add drag handle
 		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
 		dragHandle.textContent = '⋮⋮';
+
+		// Color picker button
+		const colorBtn = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_COLOR_BTN });
+		colorBtn.setAttribute('aria-label', `Set color for column: ${value}`);
+		colorBtn.setAttribute('role', 'button');
+		colorBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.openColorPicker(colorBtn, columnEl, value);
+		});
 
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
@@ -315,6 +334,82 @@ export class KanbanView extends BasesView {
 		cardEl.addEventListener('click', clickHandler);
 
 		return cardEl;
+	}
+
+	private applyColumnColor(columnEl: HTMLElement, colorName: string | null): void {
+		if (colorName) {
+			const cssVar = COLOR_PALETTE.find((c) => c.name === colorName)?.cssVar ?? null;
+			if (cssVar) {
+				columnEl.style.setProperty('--obk-column-accent-color', cssVar);
+				columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
+				return;
+			}
+		}
+		columnEl.style.removeProperty('--obk-column-accent-color');
+		columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
+	}
+
+	private openColorPicker(anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string): void {
+		// Remove any existing popover for this view
+		this.activeColorPicker?.remove();
+		this.activeColorPicker = null;
+
+		const popover = document.createElement('div');
+		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
+
+		// Current color (if any)
+		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
+
+		// "None" swatch
+		const noneSwatch = document.createElement('div');
+		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
+		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
+		noneSwatch.title = 'No color';
+		noneSwatch.addEventListener('click', () => {
+			this.applyColumnColor(columnEl, null);
+			if (this.groupByPropertyId) {
+				void this.plugin.saveColumnColor(this.groupByPropertyId, columnValue, null);
+			}
+			popover.remove();
+			this.activeColorPicker = null;
+		});
+		popover.appendChild(noneSwatch);
+
+		// Color swatches
+		for (const color of COLOR_PALETTE) {
+			const swatch = document.createElement('div');
+			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
+			swatch.style.background = color.cssVar;
+			swatch.title = color.name;
+			if (currentColor === color.name) swatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
+			swatch.addEventListener('click', () => {
+				this.applyColumnColor(columnEl, color.name);
+				if (this.groupByPropertyId) {
+					void this.plugin.saveColumnColor(this.groupByPropertyId, columnValue, color.name);
+				}
+				popover.remove();
+				this.activeColorPicker = null;
+			});
+			popover.appendChild(swatch);
+		}
+
+		// Position below anchor
+		const rect = anchorEl.getBoundingClientRect();
+		popover.style.top = `${rect.bottom + 4}px`;
+		popover.style.left = `${rect.left}px`;
+		document.body.appendChild(popover);
+		this.activeColorPicker = popover;
+
+		// Dismiss on outside click. stopPropagation() on the button prevents the
+		// opening click from reaching this listener, so no setTimeout is needed.
+		const dismiss = (e: MouseEvent) => {
+			if (e.target instanceof Node && !popover.contains(e.target) && e.target !== anchorEl) {
+				popover.remove();
+				this.activeColorPicker = null;
+				document.removeEventListener('click', dismiss);
+			}
+		};
+		document.addEventListener('click', dismiss);
 	}
 
 	private initializeSortable(): void {
@@ -474,6 +569,11 @@ export class KanbanView extends BasesView {
 		this._debouncedRender.cancel();
 		this._columnSortables.forEach((instance) => instance.destroy());
 		this._columnSortables.clear();
+		// Clean up any open color picker
+		this.activeColorPicker?.remove();
+		this.activeColorPicker = null;
+
+		// Clean up column Sortable instance
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 			this.columnSortable = null;

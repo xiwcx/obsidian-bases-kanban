@@ -34,7 +34,8 @@ export function normalizePropertyValue(value: unknown): string {
 
 	// Value objects from Obsidian Bases have toString()
 	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
-		const stringValue = (value.toString as () => string)().trim();
+		// eslint-disable-next-line @typescript-eslint/no-base-to-string
+		const stringValue = value.toString().trim();
 		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 	}
 

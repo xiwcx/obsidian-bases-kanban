@@ -80,6 +80,7 @@
 
 /* Kanban Column */
 .obk-column {
+	--obk-column-accent-color: transparent;
 	flex: 0 0 280px;
 	display: flex;
 	flex-direction: column;
@@ -93,13 +94,92 @@
 
 .obk-column-header {
 	padding: 12px 16px;
-	background: var(--background-primary-alt);
+	background: color-mix(in srgb, var(--obk-column-accent-color, transparent) 15%, var(--background-primary-alt));
 	border-bottom: 1px solid var(--background-modifier-border);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	flex-shrink: 0;
 	gap: 8px;
+}
+
+/* Column color picker button */
+.obk-column-color-btn {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid var(--background-modifier-border);
+	background: var(--obk-column-accent-color, transparent);
+	cursor: pointer;
+	flex-shrink: 0;
+	transition:
+		transform 0.1s ease,
+		border-color 0.1s ease;
+}
+
+.obk-column-color-btn:hover {
+	border-color: var(--text-muted);
+	transform: scale(1.15);
+}
+
+/* Color picker popover */
+.obk-column-color-popover {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 8px;
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	width: 164px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 100;
+}
+
+.obk-column-color-swatch {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	cursor: pointer;
+	border: 2px solid transparent;
+	transition:
+		transform 0.1s ease,
+		border-color 0.1s ease;
+}
+
+.obk-column-color-swatch:hover {
+	transform: scale(1.2);
+}
+
+.obk-column-color-swatch--active {
+	border-color: var(--text-normal);
+}
+
+.obk-column-color-none {
+	background: var(--background-modifier-border);
+	position: relative;
+}
+
+.obk-column-color-none::before,
+.obk-column-color-none::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 1.5px;
+	background: var(--text-muted);
+	border-radius: 1px;
+	transform-origin: center;
+}
+
+.obk-column-color-none::before {
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.obk-column-color-none::after {
+	transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .obk-column-drag-handle {
@@ -124,6 +204,7 @@
 }
 
 .obk-column-title {
+	flex: 1;
 	font-weight: 600;
 	font-size: 14px;
 	color: var(--text-normal);
@@ -133,7 +214,7 @@
 .obk-column-count {
 	font-size: 12px;
 	color: var(--text-muted);
-	background: var(--background-modifier-border);
+	background: color-mix(in srgb, var(--obk-column-accent-color, transparent) 15%, var(--background-modifier-border));
 	padding: 2px 8px;
 	border-radius: 12px;
 }
@@ -168,7 +249,8 @@
 /* Kanban Card */
 .obk-card {
 	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
+	border: 1px solid
+		color-mix(in srgb, var(--obk-column-accent-color, transparent) 15%, var(--background-modifier-border));
 	border-radius: 6px;
 	padding: 12px;
 	cursor: pointer;

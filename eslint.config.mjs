@@ -1,4 +1,5 @@
 import tsparser from '@typescript-eslint/parser';
+import tseslint from '@typescript-eslint/eslint-plugin';
 import { defineConfig } from 'eslint/config';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 
@@ -7,6 +8,9 @@ export default defineConfig([
 
 	{
 		files: ['**/*.ts'],
+		plugins: {
+			'@typescript-eslint': tseslint,
+		},
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
@@ -18,6 +22,9 @@ export default defineConfig([
 				setTimeout: 'readonly',
 				clearTimeout: 'readonly',
 			},
+		},
+		rules: {
+			'@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
 		},
 	},
 

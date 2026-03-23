@@ -11,22 +11,25 @@ export interface DebouncedFn<T extends (...args: unknown[]) => void> {
 export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): DebouncedFn<T> {
 	let timer: ReturnType<typeof setTimeout> | null = null;
 
-	const debounced = function (...args: Parameters<T>): void {
-		if (timer !== null) {
-			clearTimeout(timer);
-		}
-		timer = setTimeout(() => {
-			timer = null;
-			fn(...args);
-		}, delay);
-	} as DebouncedFn<T>;
-
-	debounced.cancel = function (): void {
-		if (timer !== null) {
-			clearTimeout(timer);
-			timer = null;
-		}
-	};
+	const debounced = Object.assign(
+		function (...args: Parameters<T>): void {
+			if (timer !== null) {
+				clearTimeout(timer);
+			}
+			timer = setTimeout(() => {
+				timer = null;
+				fn(...args);
+			}, delay);
+		},
+		{
+			cancel(): void {
+				if (timer !== null) {
+					clearTimeout(timer);
+					timer = null;
+				}
+			},
+		},
+	);
 
 	return debounced;
 }

@@ -4,13 +4,14 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 ## Demo
 
-<video src="https://github.com/user-attachments/assets/933e075a-041d-40ea-b65a-13944173c95f" controls width="100%" title="Kanban Bases View Demo - Drag and drop tasks between columns"></video>
+<video src="https://github.com/user-attachments/assets/fa75825a-3e8e-4b92-97b9-0216cabde08d" controls width="100%" title="Kanban Bases View Demo - Drag and drop with color themes"></video>
 
 ## Features
 
 - **Dynamic Column Generation**: Select any property from your base to generate kanban columns automatically
 - **Drag and Drop**: Move cards between columns with smooth animations
 - **Column Reordering**: Drag columns by their handle (⋮⋮) to reorder them to your preference
+- **Column Color Themes**: Assign colors to columns using the color picker button for visual categorization
 - **Column Order Persistence**: Your column order is saved per property and persists across sessions
 - **Property Selection**: Choose which property determines your columns (e.g., "Status", "Priority", "Category")
 - **Uncategorized Entries**: Notes without a value for the selected property are automatically grouped in an "Uncategorized" column

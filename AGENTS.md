@@ -62,17 +62,11 @@ A pre-commit hook (`.githooks/pre-commit`) runs `format:check` then `lint` autom
   ```
   src/
     main.ts           # Plugin entry point, lifecycle management
-    settings.ts       # Settings interface and defaults
-    commands/         # Command implementations
-      command1.ts
-      command2.ts
-    ui/              # UI components, modals, views
-      modal.ts
-      view.ts
-    utils/           # Utility functions, helpers
-      helpers.ts
-      constants.ts
-    types.ts         # TypeScript interfaces and types
+    kanbanView.ts     # Kanban view implementation
+    constants.ts      # CSS classes, configuration constants
+    utils/
+      grouping.ts    # Grouping logic for markers
+      debounce.ts    # Debounce utility for performance
   ```
 - **Do not commit build artifacts**: Never commit `node_modules/`, `main.js`, or other generated files to version control.
 - Keep the plugin small. Avoid large dependencies. Prefer browser-compatible packages.
@@ -109,7 +103,7 @@ A pre-commit hook (`.githooks/pre-commit`) runs `format:check` then `lint` autom
 
 ## Versioning & releases
 
-- Bump `version` in `manifest.json` (SemVer) and update `versions.json` to map plugin version → minimum app version.
+- Bump `version` in `manifest.json` and `package.json` (SemVer) and update `versions.json` to map plugin version → minimum app version.
 - Create a GitHub release whose tag exactly matches `manifest.json`'s `version`. Do not use a leading `v`.
 - Attach `manifest.json`, `main.js`, and `styles.css` (if present) to the release as individual assets.
 - After the initial release, follow the process to add/update your plugin in the community catalog as required.

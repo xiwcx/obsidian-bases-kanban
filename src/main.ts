@@ -1,11 +1,7 @@
 import { Plugin } from 'obsidian';
-import { KanbanView, type LegacyData, isColumnOrders, isColumnColors } from './kanbanView.ts';
+import { KanbanView, type LegacyData, isRecord, isColumnOrders, isColumnColors } from './kanbanView.ts';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
 
 /**
  * Reads column order and color data previously stored in plugin.data.json

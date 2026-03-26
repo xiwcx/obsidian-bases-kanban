@@ -20,7 +20,7 @@ export interface LegacyData {
 	columnColors: Record<string, Record<string, string>>;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
@@ -610,6 +610,10 @@ export class KanbanView extends BasesView {
 	 * render after upgrade, the legacy value is written into the base config via
 	 * set() and subsequent get() calls return it directly — so this fallback path
 	 * is exercised at most once per base.
+	 *
+	 * plugin.data.json is intentionally left in place after migration rather than
+	 * deleted: removing it would be destructive if something went wrong mid-upgrade,
+	 * and the file simply becomes stale once each base has migrated its own state.
 	 */
 
 	private getColumnOrder(propertyId: BasesPropertyId): string[] | null {
@@ -638,6 +642,9 @@ export class KanbanView extends BasesView {
 		// Primary source: base config (persisted via BasesViewConfig.set)
 		const rawColors = this.config?.get('columnColors');
 		const colors = isColumnColors(rawColors) ? rawColors : null;
+		// Strict undefined check (not falsy): an empty object {} means migration
+		// already ran for this property, so we must not fall through to legacyData
+		// even when no colors are currently set for it.
 		if (colors?.[propertyId] !== undefined) return colors[propertyId][columnValue] ?? null;
 
 		// Migration: data previously written to plugin.data.json — write all

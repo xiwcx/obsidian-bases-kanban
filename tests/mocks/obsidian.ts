@@ -86,6 +86,30 @@ export class Plugin {
 	}
 }
 
+export class MarkdownRenderer {
+	static render(
+		_app: unknown,
+		markdown: string,
+		el: HTMLElement,
+		_sourcePath: string,
+		_component: unknown,
+	): Promise<void> {
+		const p = document.createElement('p');
+		p.innerHTML = markdown.replace(/\[\[([^\]]+)\]\]/g, (_, target: string) => {
+			const escaped = target.replace(/"/g, '&quot;');
+			return `<a class="internal-link" data-href="${escaped}" href="${escaped}">${target}</a>`;
+		});
+		el.appendChild(p);
+		return Promise.resolve();
+	}
+}
+
+export class Keymap {
+	static isModEvent(evt?: { ctrlKey?: boolean; metaKey?: boolean } | null): boolean {
+		return !!(evt?.ctrlKey || evt?.metaKey);
+	}
+}
+
 export function parsePropertyId(propertyId: BasesPropertyId): { name: string; source?: string } {
 	const parts = propertyId.split('.');
 	if (parts.length > 1) {

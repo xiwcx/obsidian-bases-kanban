@@ -1,5 +1,5 @@
 import type { BasesEntry, BasesPropertyId, QueryController, ViewOption } from 'obsidian';
-import { BasesView, parsePropertyId } from 'obsidian';
+import { BasesView, Keymap, MarkdownRenderer, parsePropertyId } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	COLOR_PALETTE,
@@ -54,6 +54,23 @@ export class KanbanView extends BasesView {
 		this.scrollEl = scrollEl;
 		this.containerEl = scrollEl.createDiv({ cls: CSS_CLASSES.VIEW_CONTAINER });
 		this.legacyData = legacyData;
+
+		// Delegated handler for internal links rendered inside property values.
+		// Obsidian's global click handler only covers MarkdownView/TextFileView
+		// containers; BasesView does not inherit that, so we wire it up explicitly.
+		this.containerEl.on('click', 'a.internal-link', (evt, linkEl) => {
+			evt.preventDefault();
+			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
+			if (href && this.app) {
+				const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
+				const sourcePath =
+					cardEl instanceof HTMLElement
+						? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '')
+						: '';
+				void this.app.workspace.openLinkText(href, sourcePath, Keymap.isModEvent(evt));
+			}
+		});
+
 		this._debouncedRender = debounce(() => {
 			try {
 				this.loadConfig();
@@ -335,11 +352,17 @@ export class KanbanView extends BasesView {
 			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
 			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
 			propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
-			propertyEl.createSpan({ text: valueStr, cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
+			const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
+			if (this.app && valueStr.includes('[[')) {
+				void MarkdownRenderer.render(this.app, valueStr, valueEl, filePath, this);
+			} else {
+				valueEl.textContent = valueStr;
+			}
 		}
 
-		// Make card clickable to open the note
-		const clickHandler = () => {
+		// Make card clickable to open the note, but not when clicking an internal link
+		const clickHandler = (e: MouseEvent) => {
+			if (e.target instanceof Element && e.target.closest('a')) return;
 			if (this.app?.workspace) {
 				void this.app.workspace.openLinkText(filePath, '', false);
 			}

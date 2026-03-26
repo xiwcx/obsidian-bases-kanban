@@ -16,6 +16,8 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).document = dom.window.document;
 (global as any).HTMLElement = dom.window.HTMLElement;
 (global as any).HTMLDivElement = dom.window.HTMLDivElement;
+(global as any).HTMLAnchorElement = dom.window.HTMLAnchorElement;
+(global as any).Element = dom.window.Element;
 (global as any).MouseEvent = dom.window.MouseEvent;
 
 // Extend HTMLElement prototype with Obsidian-like methods
@@ -60,6 +62,27 @@ if (!HTMLElementProto.createEl) {
 		}
 		this.appendChild(el);
 		return el;
+	};
+}
+
+// Obsidian adds a delegated event helper: element.on(event, selector, callback)
+if (!HTMLElementProto.on) {
+	HTMLElementProto.on = function (
+		event: string,
+		selector: string,
+		callback: (evt: Event, delegateTarget: HTMLElement) => void,
+	): void {
+		const container = this as HTMLElement;
+		container.addEventListener(event, (evt: Event) => {
+			let target = evt.target as HTMLElement | null;
+			while (target && target !== container) {
+				if (target.matches && target.matches(selector)) {
+					callback(evt, target);
+					return;
+				}
+				target = target.parentElement;
+			}
+		});
 	};
 }
 

@@ -305,6 +305,11 @@
 	text-overflow: ellipsis;
 }
 
+.obk-card-property-value p {
+	display: inline;
+	margin: 0;
+}
+
 /* Drag and Drop States */
 .obk-card-dragging {
 	opacity: 0.5;

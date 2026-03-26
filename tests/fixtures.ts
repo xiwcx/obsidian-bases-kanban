@@ -4,6 +4,7 @@ import type { BasesEntry, BasesPropertyId } from 'obsidian';
 export const PROPERTY_STATUS = 'note.status' as BasesPropertyId;
 export const PROPERTY_PRIORITY = 'note.priority' as BasesPropertyId;
 export const PROPERTY_CATEGORY = 'note.category' as BasesPropertyId;
+export const PROPERTY_RELATED = 'note.related' as BasesPropertyId;
 
 // Sample entries with status property
 export function createEntriesWithStatus(): BasesEntry[] {
@@ -69,6 +70,20 @@ export function createEntriesWithNumericValues(): BasesEntry[] {
 		createMockBasesEntry(createMockTFile('Task 1.md'), { [PROPERTY_STATUS]: '1' }),
 		createMockBasesEntry(createMockTFile('Task 2.md'), { [PROPERTY_STATUS]: '2' }),
 		createMockBasesEntry(createMockTFile('Task 3.md'), { [PROPERTY_STATUS]: '3' }),
+	];
+}
+
+// Entries with wiki link property values
+export function createEntriesWithLinks(): BasesEntry[] {
+	return [
+		createMockBasesEntry(createMockTFile('notes/Task A.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_RELATED]: '[[Meeting Notes]]',
+		}),
+		createMockBasesEntry(createMockTFile('notes/Task B.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_RELATED]: 'plain text value',
+		}),
 	];
 }
 

@@ -15,11 +15,24 @@ import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 
-interface KanbanPlugin {
-	getColumnOrder(propertyId: BasesPropertyId): string[] | null;
-	saveColumnOrder(propertyId: BasesPropertyId, order: string[]): Promise<void>;
-	getColumnColor(propertyId: BasesPropertyId, columnValue: string): string | null;
-	saveColumnColor(propertyId: BasesPropertyId, columnValue: string, colorName: string | null): Promise<void>;
+export interface LegacyData {
+	columnOrders: Record<string, string[]>;
+	columnColors: Record<string, Record<string, string>>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+export function isColumnOrders(value: unknown): value is Record<string, string[]> {
+	return isRecord(value) && Object.values(value).every((v) => Array.isArray(v));
+}
+
+export function isColumnColors(value: unknown): value is Record<string, Record<string, string>> {
+	return (
+		isRecord(value) &&
+		Object.values(value).every((v) => isRecord(v) && Object.values(v).every((c) => typeof c === 'string'))
+	);
 }
 
 export class KanbanView extends BasesView {
@@ -27,7 +40,7 @@ export class KanbanView extends BasesView {
 
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
-	private plugin: KanbanPlugin;
+	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private _renderedGroupByPropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
@@ -36,11 +49,11 @@ export class KanbanView extends BasesView {
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
 
-	constructor(controller: QueryController, scrollEl: HTMLElement, plugin: KanbanPlugin) {
+	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
 		this.scrollEl = scrollEl;
 		this.containerEl = scrollEl.createDiv({ cls: CSS_CLASSES.VIEW_CONTAINER });
-		this.plugin = plugin;
+		this.legacyData = legacyData;
 		this._debouncedRender = debounce(() => {
 			try {
 				this.loadConfig();
@@ -265,7 +278,7 @@ export class KanbanView extends BasesView {
 
 		// Apply stored color accent
 		if (this.groupByPropertyId) {
-			const colorName = this.plugin.getColumnColor(this.groupByPropertyId, value);
+			const colorName = this.getColumnColor(this.groupByPropertyId, value);
 			this.applyColumnColor(columnEl, colorName);
 		}
 
@@ -368,7 +381,7 @@ export class KanbanView extends BasesView {
 		noneSwatch.addEventListener('click', () => {
 			this.applyColumnColor(columnEl, null);
 			if (this.groupByPropertyId) {
-				void this.plugin.saveColumnColor(this.groupByPropertyId, columnValue, null);
+				this.saveColumnColor(this.groupByPropertyId, columnValue, null);
 			}
 			popover.remove();
 			this.activeColorPicker = null;
@@ -385,7 +398,7 @@ export class KanbanView extends BasesView {
 			swatch.addEventListener('click', () => {
 				this.applyColumnColor(columnEl, color.name);
 				if (this.groupByPropertyId) {
-					void this.plugin.saveColumnColor(this.groupByPropertyId, columnValue, color.name);
+					this.saveColumnColor(this.groupByPropertyId, columnValue, color.name);
 				}
 				popover.remove();
 				this.activeColorPicker = null;
@@ -525,7 +538,7 @@ export class KanbanView extends BasesView {
 	private getOrderedColumnValues(values: string[]): string[] {
 		if (!this.groupByPropertyId) return values.sort();
 
-		const savedOrder = this.plugin.getColumnOrder(this.groupByPropertyId);
+		const savedOrder = this.getColumnOrder(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
 
 		// Saved order is already normalized strings, use directly
@@ -548,12 +561,12 @@ export class KanbanView extends BasesView {
 			ghostClass: CSS_CLASSES.COLUMN_GHOST,
 			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
 			onEnd: (evt: Sortable.SortableEvent) => {
-				void this.handleColumnDrop(evt);
+				this.handleColumnDrop(evt);
 			},
 		});
 	}
 
-	private async handleColumnDrop(evt: Sortable.SortableEvent): Promise<void> {
+	private handleColumnDrop(evt: Sortable.SortableEvent): void {
 		if (!this.groupByPropertyId) return;
 
 		// Extract current column order from DOM
@@ -562,7 +575,7 @@ export class KanbanView extends BasesView {
 			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
 			.filter((v): v is string => v !== null);
 
-		await this.plugin.saveColumnOrder(this.groupByPropertyId, order);
+		this.saveColumnOrder(this.groupByPropertyId, order);
 	}
 
 	onClose(): void {
@@ -578,6 +591,78 @@ export class KanbanView extends BasesView {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
 		}
+	}
+
+	/**
+	 * Column state (order and colors) is persisted using BasesViewConfig.set/get
+	 * (https://docs.obsidian.md/Reference/TypeScript+API/BasesViewConfig#Methods)
+	 * rather than Plugin.saveData/loadData
+	 * (https://docs.obsidian.md/Plugins/User+interface/Settings).
+	 *
+	 * Why: Plugin.saveData writes a single plugin-wide plugin.data.json, so all
+	 * bases shared the same column state keyed only by property ID. Using the
+	 * BasesViewConfig API instead means each .base file carries its own state —
+	 * deleting and re-adding the plugin no longer wipes configuration, and two bases
+	 * that group by the same property can have independent column orders and colors.
+	 *
+	 * Migration: versions prior to 0.3.0 wrote to plugin.data.json. The
+	 * legacyData parameter passed from main.ts holds that data. On the first
+	 * render after upgrade, the legacy value is written into the base config via
+	 * set() and subsequent get() calls return it directly — so this fallback path
+	 * is exercised at most once per base.
+	 */
+
+	private getColumnOrder(propertyId: BasesPropertyId): string[] | null {
+		// Primary source: base config (persisted via BasesViewConfig.set)
+		const raw = this.config?.get('columnOrders');
+		const orders = isColumnOrders(raw) ? raw : null;
+		if (orders?.[propertyId]) return orders[propertyId];
+
+		// Migration: data previously written to plugin.data.json — move it into
+		// the base config so subsequent reads come from get() instead
+		const legacyOrder = this.legacyData?.columnOrders[propertyId] ?? null;
+		if (legacyOrder) this.saveColumnOrder(propertyId, legacyOrder);
+		return legacyOrder;
+	}
+
+	private saveColumnOrder(propertyId: BasesPropertyId, order: string[]): void {
+		// Persist into the base config via BasesViewConfig.set so the order
+		// travels with the .base file rather than living in plugin.data.json
+		const raw = this.config?.get('columnOrders');
+		const orders = isColumnOrders(raw) ? raw : {};
+		orders[propertyId] = order;
+		this.config?.set('columnOrders', orders);
+	}
+
+	private getColumnColor(propertyId: BasesPropertyId, columnValue: string): string | null {
+		// Primary source: base config (persisted via BasesViewConfig.set)
+		const rawColors = this.config?.get('columnColors');
+		const colors = isColumnColors(rawColors) ? rawColors : null;
+		if (colors?.[propertyId] !== undefined) return colors[propertyId][columnValue] ?? null;
+
+		// Migration: data previously written to plugin.data.json — write all
+		// colors for this property into the base config at once so the next
+		// get() call finds them without needing to consult legacyData again
+		const legacyPropertyColors = this.legacyData?.columnColors[propertyId];
+		if (legacyPropertyColors && Object.keys(legacyPropertyColors).length > 0) {
+			this.config?.set('columnColors', { ...(colors ?? {}), [propertyId]: legacyPropertyColors });
+			return legacyPropertyColors[columnValue] ?? null;
+		}
+		return null;
+	}
+
+	private saveColumnColor(propertyId: BasesPropertyId, columnValue: string, colorName: string | null): void {
+		// Persist into the base config via BasesViewConfig.set so colors travel
+		// with the .base file rather than living in plugin.data.json
+		const rawColors = this.config?.get('columnColors');
+		const colors = isColumnColors(rawColors) ? rawColors : {};
+		if (!colors[propertyId]) colors[propertyId] = {};
+		if (colorName === null) {
+			delete colors[propertyId][columnValue];
+		} else {
+			colors[propertyId][columnValue] = colorName;
+		}
+		this.config?.set('columnColors', colors);
 	}
 
 	static getViewOptions(this: void): ViewOption[] {

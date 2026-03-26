@@ -125,17 +125,24 @@ export function createMockQueryController(
 	entries: BasesEntry[] = [],
 	properties: BasesPropertyId[] = [],
 ): QueryController {
+	const configData: Record<string, unknown> = {};
 	const controller = {
 		data: {
 			data: entries,
 		},
 		allProperties: properties,
 		config: {
-			getAsPropertyId: (key: string): BasesPropertyId | null => {
-				return null;
-			},
+			getAsPropertyId: (_key: string): BasesPropertyId | null => null,
 			getOrder: (): string[] => [],
 			getDisplayName: (propertyId: string): string => propertyId,
+			get: (key: string): unknown => configData[key] ?? null,
+			set: (key: string, value: unknown): void => {
+				if (value === null) {
+					delete configData[key];
+				} else {
+					configData[key] = value;
+				}
+			},
 		},
 	} as unknown as QueryController;
 	return controller;
@@ -215,31 +222,6 @@ export function mockSortable() {
 	};
 }
 
-// Mock Plugin
-export function createMockPlugin() {
-	const columnOrders: Record<string, string[]> = {};
-	const columnColors: Record<string, Record<string, string>> = {};
-	return {
-		getColumnOrder(propertyId: string): string[] | null {
-			return columnOrders[propertyId] || null;
-		},
-		async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
-			columnOrders[propertyId] = order;
-		},
-		getColumnColor(propertyId: string, columnValue: string): string | null {
-			return columnColors[propertyId]?.[columnValue] ?? null;
-		},
-		async saveColumnColor(propertyId: string, columnValue: string, colorName: string | null): Promise<void> {
-			if (!columnColors[propertyId]) columnColors[propertyId] = {};
-			if (colorName === null) {
-				delete columnColors[propertyId][columnValue];
-			} else {
-				columnColors[propertyId][columnValue] = colorName;
-			}
-		},
-	};
-}
-
 // Helper to create DOM element (Obsidian methods are now on prototype)
 export function createDivWithMethods(parent?: HTMLElement): HTMLElement {
 	const div = document.createElement('div');
@@ -306,9 +288,8 @@ export function createKanbanViewWithApp(
 	controller: QueryController,
 	scrollEl: HTMLElement,
 	app: App,
-	plugin?: any,
 ): any {
-	const view = new KanbanView(controller, scrollEl, plugin ?? createMockPlugin());
+	const view = new KanbanView(controller, scrollEl);
 	setupKanbanViewWithApp(view, app);
 	return view;
 }

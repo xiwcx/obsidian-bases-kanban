@@ -15,13 +15,9 @@ describe('Plugin Registration', () => {
 		let factoryController: any = null;
 		let factoryScrollEl: HTMLElement | null = null;
 
-		// Create a mock plugin instance with loadData mock
 		const mockApp = {} as any;
 		const plugin = new KanbanBasesViewPlugin(mockApp, {} as any);
-
-		// Mock loadData and saveData
-		plugin.loadData = async () => ({});
-		plugin.saveData = async () => {};
+		plugin.loadData = async () => null;
 
 		// Override registerBasesView to capture calls
 		plugin.registerBasesView = function (
@@ -62,12 +58,8 @@ describe('Plugin Registration', () => {
 		const scrollEl = createDivWithMethods();
 		const controller = createMockQueryController();
 
-		// Get the factory from getViewOptions static method
 		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-
-		// Mock loadData and saveData
-		plugin.loadData = async () => ({});
-		plugin.saveData = async () => {};
+		plugin.loadData = async () => null;
 
 		// Mock registerBasesView to get the factory
 		let factoryFn: ((controller: any, scrollEl: HTMLElement) => any) | null = null;
@@ -94,102 +86,50 @@ describe('Plugin Registration', () => {
 	});
 });
 
-describe('Color Settings', () => {
-	test('getColumnColor returns null for unset column', async () => {
+describe('Legacy Data Parsing', () => {
+	async function getFactoryLegacyData(storedData: unknown): Promise<any> {
 		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin.loadData = async () => ({});
-		plugin.saveData = async () => {};
-		await plugin.onload();
+		plugin.loadData = async () => storedData;
 
-		assert.strictEqual(plugin.getColumnColor('note.status', 'To Do'), null);
-	});
-
-	test('saveColumnColor and getColumnColor persist color', async () => {
-		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin.loadData = async () => ({});
-		plugin.saveData = async () => {};
-		await plugin.onload();
-
-		await plugin.saveColumnColor('note.status', 'To Do', 'red');
-
-		assert.strictEqual(plugin.getColumnColor('note.status', 'To Do'), 'red');
-	});
-
-	test('saveColumnColor with null removes color', async () => {
-		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin.loadData = async () => ({});
-		plugin.saveData = async () => {};
-		await plugin.onload();
-
-		await plugin.saveColumnColor('note.status', 'To Do', 'blue');
-		assert.strictEqual(plugin.getColumnColor('note.status', 'To Do'), 'blue');
-
-		await plugin.saveColumnColor('note.status', 'To Do', null);
-		assert.strictEqual(plugin.getColumnColor('note.status', 'To Do'), null);
-	});
-
-	test('saveColumnColor saves data to storage', async () => {
-		let savedData: any = null;
-		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin.loadData = async () => ({});
-		plugin.saveData = async (data: any) => {
-			savedData = data;
+		let capturedLegacyData: any = undefined;
+		plugin.registerBasesView = function (_viewType: string, options: any) {
+			const scrollEl = createDivWithMethods();
+			const controller = createMockQueryController();
+			// Intercept constructor by monkey-patching — capture via the view instance
+			const view = options.factory(controller, scrollEl);
+			capturedLegacyData = (view as any).legacyData;
+			return null;
 		};
+
 		await plugin.onload();
+		return capturedLegacyData;
+	}
 
-		await plugin.saveColumnColor('note.status', 'Done', 'green');
-
-		assert.ok(savedData, 'saveData should have been called');
-		assert.strictEqual(savedData.columnColors?.['note.status']?.['Done'], 'green');
+	test('passes null legacy data when no stored data', async () => {
+		const legacyData = await getFactoryLegacyData(null);
+		assert.strictEqual(legacyData, null);
 	});
 
-	test('loadSettings migrates legacy column order format', async () => {
-		// Legacy format: data was just ColumnOrderSettings (no columnOrders wrapper)
-		const legacyData = { 'note.status': ['To Do', 'In Progress', 'Done'] };
-		let savedData: any = null;
-		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin.loadData = async () => legacyData;
-		plugin.saveData = async (data: any) => {
-			savedData = data;
+	test('parses current on-disk format', async () => {
+		const stored = {
+			columnOrders: { 'note.status': ['Done', 'Doing', 'To Do'] },
+			columnColors: { 'note.status': { 'To Do': 'red' } },
 		};
-		await plugin.onload();
-
-		// Column orders should still work
-		const order = plugin.getColumnOrder('note.status');
-		assert.deepStrictEqual(order, ['To Do', 'In Progress', 'Done']);
-		// Colors should default to empty
-		assert.strictEqual(plugin.getColumnColor('note.status', 'To Do'), null);
-		// Legacy data should have been written back in the new schema immediately
-		assert.ok(savedData, 'persistSettings should have been called during migration');
-		assert.deepStrictEqual(savedData.columnOrders?.['note.status'], ['To Do', 'In Progress', 'Done']);
-		assert.deepStrictEqual(savedData.columnColors, {});
+		const legacyData = await getFactoryLegacyData(stored);
+		assert.deepStrictEqual(legacyData.columnOrders['note.status'], ['Done', 'Doing', 'To Do']);
+		assert.strictEqual(legacyData.columnColors['note.status']['To Do'], 'red');
 	});
 
-	test('migrated data is recognised as new schema on subsequent load', async () => {
-		// Simulate the first load migrating legacy data and writing it back
-		const legacyData = { 'note.status': ['To Do', 'In Progress', 'Done'] };
-		let storedData: any = legacyData;
+	test('parses pre-migration format (bare columnOrders object)', async () => {
+		const stored = { 'note.status': ['To Do', 'Doing', 'Done'] };
+		const legacyData = await getFactoryLegacyData(stored);
+		assert.deepStrictEqual(legacyData.columnOrders['note.status'], ['To Do', 'Doing', 'Done']);
+		assert.deepStrictEqual(legacyData.columnColors, {});
+	});
 
-		const plugin1 = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin1.loadData = async () => storedData;
-		plugin1.saveData = async (data: any) => {
-			storedData = data;
-		};
-		await plugin1.onload();
-
-		// storedData is now in the new schema — simulate a second plugin load
-		let saveCount = 0;
-		const plugin2 = new KanbanBasesViewPlugin({} as any, {} as any);
-		plugin2.loadData = async () => storedData;
-		plugin2.saveData = async () => {
-			saveCount++;
-		};
-		await plugin2.onload();
-
-		// Should not re-migrate (no write on second load)
-		assert.strictEqual(saveCount, 0, 'persistSettings should not be called when data is already in new schema');
-		// Data should still be intact
-		assert.deepStrictEqual(plugin2.getColumnOrder('note.status'), ['To Do', 'In Progress', 'Done']);
+	test('passes null for unrecognised data shapes', async () => {
+		const legacyData = await getFactoryLegacyData({ unexpected: 'shape' });
+		assert.strictEqual(legacyData, null);
 	});
 });
 

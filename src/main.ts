@@ -1,105 +1,62 @@
 import { Plugin } from 'obsidian';
-import { KanbanView } from './kanbanView.ts';
+import { KanbanView, type LegacyData, isColumnOrders, isColumnColors } from './kanbanView.ts';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
-
-interface ColumnOrderSettings {
-	[propertyId: string]: string[]; // propertyId -> ordered column values
-}
-
-interface ColumnColorSettings {
-	[propertyId: string]: { [columnValue: string]: string }; // propertyId -> columnValue -> color name
-}
-
-interface PluginSettings {
-	columnOrders: ColumnOrderSettings;
-	columnColors: ColumnColorSettings;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
-function isPluginSettings(data: unknown): data is PluginSettings {
-	return (
-		isRecord(data) &&
-		'columnOrders' in data &&
-		isRecord(data.columnOrders) &&
-		'columnColors' in data &&
-		isRecord(data.columnColors)
-	);
-}
+/**
+ * Reads column order and color data previously stored in plugin.data.json
+ * (via Obsidian's Plugin.saveData API) and normalises it into LegacyData.
+ *
+ * Column state is now persisted per-base using BasesViewConfig.set/get, so
+ * plugin.data.json is no longer written to. This function is the bridge that
+ * lets existing users keep their configuration when upgrading.
+ *
+ * Two historical shapes are handled:
+ *   - Current:  { columnOrders: { [propertyId]: string[] }, columnColors: { [propertyId]: { [value]: color } } }
+ *   - Pre-v0.1: { [propertyId]: string[] }  (columnOrders only, no color support)
+ */
+function parseLegacyData(data: unknown): LegacyData | null {
+	if (!isRecord(data)) return null;
 
-function isLegacyColumnOrderSettings(data: unknown): data is ColumnOrderSettings {
-	return (
-		isRecord(data) && Object.values(data).every((v) => Array.isArray(v) && v.every((item) => typeof item === 'string'))
-	);
+	// Current on-disk format: { columnOrders: {...}, columnColors: {...} }
+	if ('columnOrders' in data && isColumnOrders(data.columnOrders)) {
+		return {
+			columnOrders: data.columnOrders,
+			columnColors: isColumnColors(data.columnColors) ? data.columnColors : {},
+		};
+	}
+
+	// Pre-migration format: { 'note.status': ['To Do', ...], ... }
+	if (isColumnOrders(data)) {
+		return {
+			columnOrders: data,
+			columnColors: {},
+		};
+	}
+
+	return null;
 }
 
 export default class KanbanBasesViewPlugin extends Plugin {
-	private columnOrders: ColumnOrderSettings = {};
-	private columnColors: ColumnColorSettings = {};
-
 	async onload() {
-		await this.loadSettings();
+		// Read any data previously saved to plugin.data.json and pass it to each
+		// view instance so it can lazily migrate state into the base config on
+		// first render. Once migrated, plugin.data.json is no longer consulted.
+		const raw: unknown = await this.loadData();
+		const legacyData = parseLegacyData(raw);
 
-		// Register the custom Bases view
 		this.registerBasesView(KANBAN_VIEW_TYPE, {
 			name: 'Kanban',
 			icon: 'columns',
 			factory: (controller, scrollEl) => {
-				return new KanbanView(controller, scrollEl, this);
+				return new KanbanView(controller, scrollEl, legacyData);
 			},
 			options: KanbanView.getViewOptions,
 		});
-	}
-
-	private async loadSettings(): Promise<void> {
-		const raw: unknown = await this.loadData();
-		if (isPluginSettings(raw)) {
-			this.columnOrders = raw.columnOrders;
-			this.columnColors = raw.columnColors;
-		} else if (isLegacyColumnOrderSettings(raw)) {
-			// Legacy format: saved data was just ColumnOrderSettings at the top level
-			this.columnOrders = raw;
-			this.columnColors = {};
-			// Migrate to new schema immediately so the file is always in the current format
-			await this.persistSettings();
-		}
-		// else: null or unrecognised shape — keep class field defaults ({})
-	}
-
-	private async persistSettings(): Promise<void> {
-		const settings: PluginSettings = {
-			columnOrders: this.columnOrders,
-			columnColors: this.columnColors,
-		};
-		await this.saveData(settings);
-	}
-
-	async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
-		this.columnOrders[propertyId] = order;
-		await this.persistSettings();
-	}
-
-	getColumnOrder(propertyId: string): string[] | null {
-		return this.columnOrders[propertyId] || null;
-	}
-
-	async saveColumnColor(propertyId: string, columnValue: string, colorName: string | null): Promise<void> {
-		if (!this.columnColors[propertyId]) {
-			this.columnColors[propertyId] = {};
-		}
-		if (colorName === null) {
-			delete this.columnColors[propertyId][columnValue];
-		} else {
-			this.columnColors[propertyId][columnValue] = colorName;
-		}
-		await this.persistSettings();
-	}
-
-	getColumnColor(propertyId: string, columnValue: string): string | null {
-		return this.columnColors[propertyId]?.[columnValue] ?? null;
 	}
 
 	onunload() {

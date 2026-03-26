@@ -63,10 +63,7 @@ export class KanbanView extends BasesView {
 			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
 			if (href && this.app) {
 				const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
-				const sourcePath =
-					cardEl instanceof HTMLElement
-						? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '')
-						: '';
+				const sourcePath = cardEl instanceof HTMLElement ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
 				void this.app.workspace.openLinkText(href, sourcePath, Keymap.isModEvent(evt));
 			}
 		});

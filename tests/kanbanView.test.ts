@@ -1549,27 +1549,22 @@ describe('Legacy Data Migration', () => {
 });
 
 describe('Property Value Rendering', () => {
-	let scrollEl: HTMLElement;
-	let controller: any;
-	let app: any;
+	let view: KanbanView;
 
 	beforeEach(() => {
-		scrollEl = createDivWithMethods();
-		app = createMockApp();
-	});
-
-	test('Plain text property value is rendered as textContent', () => {
+		const app = createMockApp();
+		const scrollEl = createDivWithMethods();
 		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
+		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
+		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
+	});
 
-		// Task B has a plain text 'related' value — find its card
+	test('Plain text property value is rendered as textContent', () => {
 		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card')) as HTMLElement[];
 		const taskBCard = cards.find((c) => c.getAttribute('data-entry-path') === 'notes/Task B.md');
 		assert.ok(taskBCard, 'Task B card should exist');
@@ -1581,17 +1576,6 @@ describe('Property Value Rendering', () => {
 	});
 
 	test('Property value containing [[wikilink]] renders as an anchor', () => {
-		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
-		// Task A has '[[Meeting Notes]]' as the related value
 		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card')) as HTMLElement[];
 		const taskACard = cards.find((c) => c.getAttribute('data-entry-path') === 'notes/Task A.md');
 		assert.ok(taskACard, 'Task A card should exist');
@@ -1606,26 +1590,23 @@ describe('Property Value Rendering', () => {
 });
 
 describe('Internal Link Click Handling', () => {
-	let scrollEl: HTMLElement;
-	let controller: any;
-	let app: any;
+	let view: KanbanView;
+	let app: ReturnType<typeof createMockApp>;
 
 	beforeEach(() => {
-		scrollEl = createDivWithMethods();
 		app = createMockApp();
-	});
-
-	test('Clicking an internal link calls openLinkText with the link href', () => {
+		const scrollEl = createDivWithMethods();
 		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
+		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
+		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
+	});
 
+	test('Clicking an internal link calls openLinkText with the link href', () => {
 		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
 		assert.ok(link, 'Internal link should exist');
 
@@ -1640,16 +1621,6 @@ describe('Internal Link Click Handling', () => {
 	});
 
 	test('Clicking an internal link uses the card file path as source', () => {
-		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
 		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
 		assert.ok(link, 'Internal link should exist');
 
@@ -1663,16 +1634,6 @@ describe('Internal Link Click Handling', () => {
 	});
 
 	test('Clicking an internal link does not also open the card note', () => {
-		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
 		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
 		assert.ok(link, 'Internal link should exist');
 
@@ -1688,16 +1649,6 @@ describe('Internal Link Click Handling', () => {
 	});
 
 	test('Clicking the card body (not a link) still opens the note', () => {
-		const entries = createEntriesWithLinks();
-		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
 		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card')) as HTMLElement[];
 		const taskACard = cards.find((c) => c.getAttribute('data-entry-path') === 'notes/Task A.md');
 		assert.ok(taskACard, 'Task A card should exist');

@@ -35,6 +35,14 @@ export function isColumnColors(value: unknown): value is Record<string, Record<s
 	);
 }
 
+export function isCardOrders(value: unknown): value is Record<string, Record<string, string[]>> {
+	return (
+		isRecord(value) &&
+		!Array.isArray(value) &&
+		Object.values(value).every((v) => isRecord(v) && !Array.isArray(v) && Object.values(v).every((a) => Array.isArray(a)))
+	);
+}
+
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
 
@@ -122,8 +130,17 @@ export class KanbanView extends BasesView {
 
 			// Group entries by group by property value
 			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
+			// Apply saved card order within each column
+			groupedEntries.forEach((columnEntries, value) => {
+				groupedEntries.set(value, this.applyCardOrder(columnEntries, value));
+			});
 			const propertyValues = Array.from(groupedEntries.keys());
 			const orderedValues = this.getOrderedColumnValues(propertyValues);
+			// Eagerly persist the merged column order so newly-seen columns are
+			// remembered immediately (not only on drag-drop).
+			if (this.groupByPropertyId) {
+				this.saveColumnOrder(this.groupByPropertyId, orderedValues);
+			}
 
 			const existingBoard = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
 			if (
@@ -241,6 +258,18 @@ export class KanbanView extends BasesView {
 		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
 		if (countEl) countEl.textContent = `(${newEntries.length})`;
 
+		// Sync remove button: show only when column has no entries
+		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
+		if (headerEl) {
+			const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+			const existingRemoveBtn = headerEl.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`);
+			if (newEntries.length === 0 && !existingRemoveBtn && columnValue) {
+				headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
+			} else if (newEntries.length > 0 && existingRemoveBtn) {
+				existingRemoveBtn.remove();
+			}
+		}
+
 		// Remove cards whose entry is no longer in this column
 		const newPaths = new Set(newEntries.map((e) => e.file.path));
 		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
@@ -262,6 +291,18 @@ export class KanbanView extends BasesView {
 			if (!existingPaths.has(entry.file.path)) {
 				body.appendChild(this.createCard(entry));
 			}
+		});
+
+		// Reorder cards in the DOM to match newEntries order
+		// appendChild on an already-attached child moves it — no cloning needed
+		const pathToCard = new Map<string, Element>();
+		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+			const path = card instanceof HTMLElement ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
+			if (path) pathToCard.set(path, card);
+		});
+		newEntries.forEach((entry) => {
+			const card = pathToCard.get(entry.file.path);
+			if (card) body.appendChild(card);
 		});
 	}
 
@@ -314,6 +355,11 @@ export class KanbanView extends BasesView {
 
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
+
+		// Remove button — only shown when the column has no entries
+		if (entries.length === 0) {
+			headerEl.appendChild(this.createRemoveButton(value, columnEl));
+		}
 
 		// Column body (cards container)
 		const bodyEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_BODY });
@@ -445,6 +491,38 @@ export class KanbanView extends BasesView {
 		document.addEventListener('click', dismiss);
 	}
 
+	private createRemoveButton(value: string, columnEl: HTMLElement): HTMLElement {
+		const btn = document.createElement('div');
+		btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
+		btn.setAttribute('aria-label', `Remove column: ${value}`);
+		btn.setAttribute('role', 'button');
+		btn.textContent = '×';
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.removeColumn(value, columnEl);
+		});
+		return btn;
+	}
+
+	private removeColumn(value: string, columnEl: HTMLElement): void {
+		if (!this.groupByPropertyId) return;
+
+		// Remove from persisted column order
+		const savedOrder = this.getColumnOrder(this.groupByPropertyId) ?? [];
+		this.saveColumnOrder(
+			this.groupByPropertyId,
+			savedOrder.filter((v) => v !== value),
+		);
+
+		// Tear down sortable and remove from DOM
+		const sortable = this._columnSortables.get(value);
+		if (sortable) {
+			sortable.destroy();
+			this._columnSortables.delete(value);
+		}
+		columnEl.remove();
+	}
+
 	private initializeSortable(): void {
 		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
 		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
@@ -508,19 +586,33 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		// Skip if dropped in the same column
-		if (oldColumnValue === newColumnValue) {
+		if (!this.groupByPropertyId) {
+			console.warn('No group by property ID set');
 			return;
 		}
+
+		// Helper: read card paths from a column body element
+		const getColumnPaths = (bodyEl: Element): string[] =>
+			Array.from(bodyEl.querySelectorAll(`.${CSS_CLASSES.CARD}`))
+				.map((c) => (c instanceof HTMLElement ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
+				.filter((p): p is string => p !== null);
+
+		// Same-column reorder: save new order and return (no property update needed)
+		if (oldColumnValue === newColumnValue) {
+			this.saveCardOrder(this.groupByPropertyId, newColumnValue, getColumnPaths(evt.to));
+			return;
+		}
+
+		// Cross-column drop: capture DOM order for both columns before async work
+		if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
+			const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
+			if (oldBody) this.saveCardOrder(this.groupByPropertyId, oldColumnValue, getColumnPaths(oldBody));
+		}
+		this.saveCardOrder(this.groupByPropertyId, newColumnValue, getColumnPaths(evt.to));
 
 		const entry = this._entryMap.get(entryPath);
 		if (!entry) {
 			console.warn('Entry not found for path:', entryPath);
-			return;
-		}
-
-		if (!this.groupByPropertyId) {
-			console.warn('No group by property ID set');
 			return;
 		}
 
@@ -561,9 +653,10 @@ export class KanbanView extends BasesView {
 		const savedOrder = this.getColumnOrder(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
 
-		// Saved order is already normalized strings, use directly
+		// Include all saved columns (even empty ones) so they persist when their
+		// last entry is removed. Append any live values not yet in the saved list.
 		const newValues = values.filter((v) => !savedOrder.includes(v));
-		return [...savedOrder.filter((v) => values.includes(v)), ...newValues];
+		return [...savedOrder, ...newValues];
 	}
 
 	private initializeColumnSortable(): void {
@@ -690,6 +783,30 @@ export class KanbanView extends BasesView {
 			colors[propertyId][columnValue] = colorName;
 		}
 		this.config?.set('columnColors', colors);
+	}
+
+	private getCardOrder(propertyId: BasesPropertyId, columnValue: string): string[] | null {
+		const raw = this.config?.get('cardOrders');
+		const orders = isCardOrders(raw) ? raw : null;
+		return orders?.[propertyId]?.[columnValue] ?? null;
+	}
+
+	private saveCardOrder(propertyId: BasesPropertyId, columnValue: string, order: string[]): void {
+		const raw = this.config?.get('cardOrders');
+		const orders = isCardOrders(raw) ? raw : {};
+		if (!orders[propertyId]) orders[propertyId] = {};
+		orders[propertyId][columnValue] = order;
+		this.config?.set('cardOrders', orders);
+	}
+
+	private applyCardOrder(entries: BasesEntry[], columnValue: string): BasesEntry[] {
+		if (!this.groupByPropertyId) return entries;
+		const savedOrder = this.getCardOrder(this.groupByPropertyId, columnValue);
+		if (!savedOrder) return entries;
+		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
+		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
+		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
+		return [...ordered, ...unsaved];
 	}
 
 	static getViewOptions(this: void): ViewOption[] {

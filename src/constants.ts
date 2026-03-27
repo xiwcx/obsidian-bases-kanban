@@ -69,6 +69,9 @@ export const CSS_CLASSES = {
 	// Sortable placeholder (fallback / shared ghost style)
 	SORTABLE_GHOST: 'obk-sortable-ghost',
 
+	// Column remove button (shown only when column is empty)
+	COLUMN_REMOVE_BTN: 'obk-column-remove-btn',
+
 	// Color picker
 	COLUMN_COLOR_BTN: 'obk-column-color-btn',
 	COLUMN_COLOR_POPOVER: 'obk-column-color-popover',

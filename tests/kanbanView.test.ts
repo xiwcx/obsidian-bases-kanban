@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { KanbanView } from '../src/kanbanView.ts';
+import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
 import {
 	createEmptyEntries,
 	createEntriesWithEmptyValues,
@@ -1663,6 +1663,592 @@ describe('Internal Link Click Handling', () => {
 			app.workspace.openLinkText.calls[0][0],
 			'notes/Task A.md',
 			'Clicking card body should open the card note',
+		);
+	});
+});
+
+describe('Card Order - isCardOrders type guard', () => {
+	test('accepts valid card orders structure', () => {
+		assert.ok(isCardOrders({ 'note.status': { 'To Do': ['a.md', 'b.md'] } }));
+		assert.ok(isCardOrders({}));
+		assert.ok(isCardOrders({ prop: {} }));
+	});
+
+	test('rejects non-objects', () => {
+		assert.strictEqual(isCardOrders(null), false);
+		assert.strictEqual(isCardOrders('string'), false);
+		assert.strictEqual(isCardOrders(42), false);
+		assert.strictEqual(isCardOrders([]), false);
+	});
+
+	test('rejects when inner value is not an object', () => {
+		assert.strictEqual(isCardOrders({ prop: ['a', 'b'] }), false);
+		assert.strictEqual(isCardOrders({ prop: 'string' }), false);
+	});
+
+	test('rejects when column value is not an array', () => {
+		assert.strictEqual(isCardOrders({ prop: { col: 'not-an-array' } }), false);
+		assert.strictEqual(isCardOrders({ prop: { col: 42 } }), false);
+	});
+});
+
+describe('Card Order - Persistence', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Same-column drop saves card order to config', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const cards = Array.from(toDoBody.querySelectorAll('.obk-card')) as HTMLElement[];
+
+		// Simulate Sortable moving second card before first in the DOM
+		toDoBody.insertBefore(cards[1], cards[0]);
+
+		const mockEvent = { item: cards[1], from: toDoBody, to: toDoBody, oldIndex: 1, newIndex: 0 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.ok(savedOrders, 'cardOrders should be saved');
+		const columnOrder = savedOrders?.[PROPERTY_STATUS]?.['To Do'];
+		assert.ok(Array.isArray(columnOrder), 'To Do card order should be an array');
+		assert.strictEqual(columnOrder[0], cards[1].getAttribute('data-entry-path'), 'Moved card should be first');
+		assert.strictEqual(columnOrder[1], cards[0].getAttribute('data-entry-path'), 'Original first card should be second');
+	});
+
+	test('Same-column drop does not call processFrontMatter', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+
+		app.fileManager.processFrontMatter.calls.length = 0;
+		const mockEvent = { item: card, from: toDoBody, to: toDoBody, oldIndex: 0, newIndex: 1 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 0, 'processFrontMatter should not be called');
+	});
+
+	test('Cross-column drop saves card order for both columns', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'Doing',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+		const movedPath = card.getAttribute('data-entry-path');
+
+		// Simulate Sortable: move card from To Do body to Doing body
+		toDoBody.removeChild(card);
+		doingBody.appendChild(card);
+
+		const mockEvent = { item: card, from: toDoBody, to: doingBody, oldIndex: 0, newIndex: 1 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.ok(savedOrders?.[PROPERTY_STATUS]?.['To Do'], 'To Do order should be saved');
+		assert.ok(savedOrders?.[PROPERTY_STATUS]?.['Doing'], 'Doing order should be saved');
+		assert.ok(
+			!savedOrders[PROPERTY_STATUS]['To Do'].includes(movedPath!),
+			'Moved card should not be in old column saved order',
+		);
+		assert.ok(
+			savedOrders[PROPERTY_STATUS]['Doing'].includes(movedPath!),
+			'Moved card should be in new column saved order',
+		);
+	});
+
+	test('Initial render applies saved card order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Save reversed order: Task 2.md before Task 1.md
+		controller.config.set('cardOrders', { [PROPERTY_STATUS]: { 'To Do': ['Task 2.md', 'Task 1.md'] } });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const cardPaths = Array.from(toDoColumn.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
+
+		assert.strictEqual(cardPaths[0], 'Task 2.md', 'First card should be Task 2 per saved order');
+		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Second card should be Task 1 per saved order');
+	});
+
+	test('Re-render applies saved card order (patch path)', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Save a different order after initial render
+		controller.config.set('cardOrders', { [PROPERTY_STATUS]: { 'To Do': ['Task 2.md', 'Task 1.md'] } });
+
+		// Re-render (patch path, board already exists)
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const cardPaths = Array.from(toDoColumn.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
+
+		assert.strictEqual(cardPaths[0], 'Task 2.md', 'First card should be Task 2 per saved order');
+		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Second card should be Task 1 per saved order');
+	});
+
+	test('Cards not in saved order appear at the end', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		// Saved order only mentions Task 2; Task 1 is new/unknown
+		controller.config.set('cardOrders', { [PROPERTY_STATUS]: { 'To Do': ['Task 2.md'] } });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const cardPaths = Array.from(toDoColumn.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
+
+		assert.strictEqual(cardPaths[0], 'Task 2.md', 'Saved card should be first');
+		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Unsaved card should appear at the end');
+	});
+
+	test('Regression: re-render after same-column drag preserves dragged order', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const cards = Array.from(toDoBody.querySelectorAll('.obk-card')) as HTMLElement[];
+
+		const originalFirst = cards[0].getAttribute('data-entry-path');
+		const originalSecond = cards[1].getAttribute('data-entry-path');
+
+		// Simulate Sortable moving second card before first
+		toDoBody.insertBefore(cards[1], cards[0]);
+
+		const mockEvent = { item: cards[1], from: toDoBody, to: toDoBody, oldIndex: 1, newIndex: 0 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		// Re-render — data hasn't changed, so Bases still returns original order
+		triggerDataUpdate(view);
+
+		const reRenderedToDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const reRenderedPaths = Array.from(reRenderedToDoColumn.querySelectorAll('.obk-card')).map((c) =>
+			c.getAttribute('data-entry-path'),
+		);
+
+		// Should preserve dragged order, not revert to original Bases order
+		assert.strictEqual(reRenderedPaths[0], originalSecond, 'Dragged card should remain first after re-render');
+		assert.strictEqual(reRenderedPaths[1], originalFirst, 'Original first card should remain second after re-render');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Empty Column Persistence
+// ---------------------------------------------------------------------------
+
+describe('Empty Column Persistence - Saved columns restored', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Column in saved order with no live entries is rendered', () => {
+		const entries = createEntriesWithStatus(); // To Do, Doing, Done
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columnValues = Array.from(view.containerEl.querySelectorAll('.obk-column')).map((col) =>
+			col.getAttribute('data-column-value'),
+		);
+		assert.ok(columnValues.includes('In Progress'), 'Empty saved column should be rendered');
+	});
+
+	test('Empty saved column renders with zero cards', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const inProgressCol = view.containerEl.querySelector('[data-column-value="In Progress"]');
+		const cards = inProgressCol?.querySelectorAll('.obk-card');
+		assert.strictEqual(cards?.length, 0, 'Empty saved column should have no cards');
+	});
+
+	test('Empty saved column keeps its position among other columns', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columnValues = Array.from(view.containerEl.querySelectorAll('.obk-column')).map((col) =>
+			col.getAttribute('data-column-value'),
+		);
+		assert.strictEqual(columnValues[3], 'In Progress', 'Empty saved column should appear at its saved position');
+	});
+});
+
+describe('Empty Column Persistence - Eager order save', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('First render persists column order without requiring drag-drop', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		// No saved order
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]> | null;
+		const savedOrder = savedOrders?.[PROPERTY_STATUS];
+		assert.ok(savedOrder, 'Column order should be saved after first render');
+		assert.strictEqual(savedOrder.length, 3, 'All three live columns should be persisted');
+	});
+
+	test('Column that loses all entries remains in persisted order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Remove all Doing entries
+		controller.data.data = entries.filter((e: any) => e.getValue(PROPERTY_STATUS)?.toString() !== 'Doing');
+		triggerDataUpdate(view);
+
+		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]>;
+		const savedOrder = savedOrders?.[PROPERTY_STATUS] ?? [];
+		assert.ok(savedOrder.includes('Doing'), 'Emptied column should remain in persisted order');
+	});
+});
+
+describe('Empty Column Persistence - Remove button visibility', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Remove button not shown on columns with entries', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		columns.forEach((col) => {
+			const removeBtn = col.querySelector('.obk-column-remove-btn');
+			assert.ok(!removeBtn, `Column "${col.getAttribute('data-column-value')}" should not have a remove button`);
+		});
+	});
+
+	test('Remove button shown on empty column from saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const inProgressCol = view.containerEl.querySelector('[data-column-value="In Progress"]');
+		const removeBtn = inProgressCol?.querySelector('.obk-column-remove-btn');
+		assert.ok(removeBtn, 'Empty saved column should show a remove button');
+	});
+
+	test('Remove button has correct aria-label', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const removeBtn = view.containerEl
+			.querySelector('[data-column-value="In Progress"]')
+			?.querySelector('.obk-column-remove-btn');
+		assert.strictEqual(
+			removeBtn?.getAttribute('aria-label'),
+			'Remove column: In Progress',
+			'Remove button should have a descriptive aria-label',
+		);
+	});
+
+	test('Remove button appears when column becomes empty after data update', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			view.containerEl.querySelectorAll('.obk-column-remove-btn').length,
+			0,
+			'No remove buttons should exist when all columns have entries',
+		);
+
+		// Remove all Doing entries so the column becomes empty
+		controller.data.data = entries.filter((e: any) => e.getValue(PROPERTY_STATUS)?.toString() !== 'Doing');
+		triggerDataUpdate(view);
+
+		const doingCol = view.containerEl.querySelector('[data-column-value="Doing"]');
+		assert.ok(doingCol, 'Doing column should still exist in the DOM');
+		assert.ok(doingCol?.querySelector('.obk-column-remove-btn'), 'Remove button should appear on newly-emptied column');
+	});
+
+	test('Remove button disappears when an entry arrives in an empty column', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		assert.ok(
+			view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn'),
+			'Remove button should be visible on empty column before data update',
+		);
+
+		// Add an In Progress entry
+		const newEntry = createMockBasesEntry(createMockTFile('Task 6.md'), { [PROPERTY_STATUS]: 'In Progress' });
+		controller.data.data = [...entries, newEntry];
+		triggerDataUpdate(view);
+
+		const removeBtn = view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn');
+		assert.ok(!removeBtn, 'Remove button should disappear when the column receives an entry');
+	});
+});
+
+describe('Empty Column Persistence - Remove column action', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('Clicking remove button removes the column from the DOM', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const removeBtn = view.containerEl.querySelector(
+			'[data-column-value="In Progress"] .obk-column-remove-btn',
+		) as HTMLElement;
+		assert.ok(removeBtn, 'Precondition: remove button should exist');
+
+		removeBtn.click();
+
+		assert.ok(
+			!view.containerEl.querySelector('[data-column-value="In Progress"]'),
+			'Column should be removed from DOM after clicking remove button',
+		);
+	});
+
+	test('Clicking remove button removes the column from saved order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+
+		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]>;
+		const savedOrder = savedOrders?.[PROPERTY_STATUS] ?? [];
+		assert.ok(!savedOrder.includes('In Progress'), 'Removed column should not appear in saved order');
+	});
+
+	test('Clicking remove button does not affect other columns', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+
+		assert.ok(view.containerEl.querySelector('[data-column-value="To Do"]'), 'To Do column should remain');
+		assert.ok(view.containerEl.querySelector('[data-column-value="Doing"]'), 'Doing column should remain');
+		assert.ok(view.containerEl.querySelector('[data-column-value="Done"]'), 'Done column should remain');
+	});
+
+	test('Clicking remove button tears down the sortable instance for that column', () => {
+		const sortableMock = mockSortable();
+		(global as any).Sortable = sortableMock.Sortable;
+
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		assert.ok(
+			(view as any)._columnSortables.has('In Progress'),
+			'Precondition: empty column should have a sortable instance',
+		);
+
+		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+
+		assert.ok(
+			!(view as any)._columnSortables.has('In Progress'),
+			'Sortable instance should be removed after column is removed',
 		);
 	});
 });

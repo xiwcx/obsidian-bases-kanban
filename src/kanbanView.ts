@@ -50,12 +50,37 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
-	private _renderedGroupByPropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
 	private _entryMap: Map<string, BasesEntry> = new Map();
 	private columnSortable: Sortable | null = null;
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
+
+	/**
+	 * In-memory display preferences — the single source of truth during a session.
+	 *
+	 * Loaded from config once when groupByPropertyId changes. Renders read from
+	 * here exclusively and never call config.set(). Only explicit user actions
+	 * (drag-drop, column remove, color change) update _prefs and then call
+	 * _persistPrefs() to write back to config.
+	 *
+	 * This breaks the config.set() → onDataUpdated() feedback loop that caused
+	 * state thrashing on every render cycle.
+	 */
+	private _prefs = {
+		columnOrder: [] as string[],
+		cardOrders: {} as Record<string, string[]>,
+		columnColors: {} as Record<string, string>, // columnValue → colorName
+	};
+	private _prefsPropertyId: BasesPropertyId | null = null;
+
+	/**
+	 * True while a card or column drag is in flight. When set, patchColumnCards
+	 * skips DOM reordering so Sortable's live drag preview is not disturbed by
+	 * re-renders triggered during the drag.
+	 */
+	private _dragging = false;
+	private _activeCardPath: string | null = null;
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
@@ -91,13 +116,74 @@ export class KanbanView extends BasesView {
 	}
 
 	private loadConfig(): void {
-		// Load group by property from config
 		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
+	}
+
+	/**
+	 * Load display preferences from config for the given propertyId.
+	 * Called once when groupByPropertyId changes; subsequent renders reuse _prefs.
+	 */
+	private _loadPrefs(propertyId: BasesPropertyId): void {
+		this._prefsPropertyId = propertyId;
+
+		// Column order — with legacy migration
+		const rawOrders = this.config?.get('columnOrders');
+		const allOrders = isColumnOrders(rawOrders) ? rawOrders : {};
+		let columnOrder = allOrders[propertyId] ?? null;
+		if (!columnOrder) {
+			const legacyOrder = this.legacyData?.columnOrders[propertyId] ?? null;
+			if (legacyOrder) {
+				columnOrder = legacyOrder;
+				this.config?.set('columnOrders', { ...allOrders, [propertyId]: legacyOrder });
+			}
+		}
+		this._prefs.columnOrder = columnOrder ? [...columnOrder] : [];
+
+		// Card orders
+		const rawCardOrders = this.config?.get('cardOrders');
+		const allCardOrders = isCardOrders(rawCardOrders) ? rawCardOrders : {};
+		const savedCardOrders = allCardOrders[propertyId] ?? {};
+		this._prefs.cardOrders = Object.fromEntries(
+			Object.entries(savedCardOrders).map(([k, v]) => [k, [...v]]),
+		);
+
+		// Column colors — with legacy migration
+		const rawColors = this.config?.get('columnColors');
+		const allColors = isColumnColors(rawColors) ? rawColors : {};
+		let columnColors = allColors[propertyId] ?? null;
+		if (!columnColors) {
+			const legacyColors = this.legacyData?.columnColors[propertyId];
+			if (legacyColors && Object.keys(legacyColors).length > 0) {
+				columnColors = legacyColors;
+				this.config?.set('columnColors', { ...allColors, [propertyId]: legacyColors });
+			}
+		}
+		this._prefs.columnColors = columnColors ? { ...columnColors } : {};
+	}
+
+	/**
+	 * Write _prefs back to config. Called only on user actions (drag-drop,
+	 * column remove, color change) — never during renders.
+	 *
+	 * Change guards skip config.set() when the value hasn't changed, preventing
+	 * spurious onDataUpdated() triggers.
+	 */
+	private _persistConfigKey<T>(key: string, guard: (v: unknown) => v is Record<string, T>, newValue: T): void {
+		if (!this._prefsPropertyId) return;
+		const all: Record<string, T> = guard(this.config?.get(key)) ? (this.config!.get(key) as Record<string, T>) : {};
+		if (JSON.stringify(all[this._prefsPropertyId]) !== JSON.stringify(newValue)) {
+			this.config?.set(key, { ...all, [this._prefsPropertyId]: newValue });
+		}
+	}
+
+	private _persistPrefs(): void {
+		this._persistConfigKey('columnOrders', isColumnOrders, this._prefs.columnOrder);
+		this._persistConfigKey('cardOrders', isCardOrders, this._prefs.cardOrders);
+		this._persistConfigKey('columnColors', isColumnColors, this._prefs.columnColors);
 	}
 
 	private render(): void {
 		try {
-			// Get all entries from the data
 			const entries = this.data?.data || [];
 			if (!entries || entries.length === 0) {
 				this.fullReset();
@@ -108,10 +194,8 @@ export class KanbanView extends BasesView {
 				return;
 			}
 
-			// Get available properties from entries
 			const availablePropertyIds = this.allProperties || [];
 
-			// Validate group by property
 			if (!this.groupByPropertyId || !availablePropertyIds.includes(this.groupByPropertyId)) {
 				if (availablePropertyIds.length > 0) {
 					this.groupByPropertyId = availablePropertyIds[0];
@@ -125,59 +209,76 @@ export class KanbanView extends BasesView {
 				}
 			}
 
+			// Reload prefs when the group-by property changes
+			if (this.groupByPropertyId !== this._prefsPropertyId) {
+				this._loadPrefs(this.groupByPropertyId);
+			}
+
 			// Build path→entry lookup map for O(1) access in handleCardDrop
 			this._entryMap = new Map(entries.map((e: BasesEntry) => [e.file.path, e]));
 
 			// Group entries by group by property value
 			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
+
 			// Apply saved card order within each column
 			groupedEntries.forEach((columnEntries, value) => {
-				groupedEntries.set(value, this.applyCardOrder(columnEntries, value));
+				const savedOrder = this._prefs.cardOrders[value];
+				if (savedOrder) {
+					groupedEntries.set(value, this.applyCardOrder(columnEntries, savedOrder));
+				}
 			});
-			const propertyValues = Array.from(groupedEntries.keys());
-			const orderedValues = this.getOrderedColumnValues(propertyValues);
-			// Eagerly persist the merged column order so newly-seen columns are
-			// remembered immediately (not only on drag-drop).
-			if (this.groupByPropertyId) {
-				this.saveColumnOrder(this.groupByPropertyId, orderedValues);
+
+			// Merge any newly-seen column values into prefs and persist eagerly.
+			// This is the only place render() calls _persistPrefs(), and only when
+			// new columns appear — not on every render pass.
+			const liveValues = Array.from(groupedEntries.keys());
+			const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
+			if (newValues.length > 0) {
+				if (this._prefs.columnOrder.length === 0) {
+					// No prior order — sort alphabetically as the initial ordering
+					this._prefs.columnOrder = [...newValues].sort();
+				} else {
+					this._prefs.columnOrder = [...this._prefs.columnOrder, ...newValues];
+				}
+				this._persistPrefs();
 			}
+
+			const orderedValues = this.getOrderedColumnValues(liveValues);
 
 			const existingBoard = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
 			if (
 				!existingBoard ||
 				!(existingBoard instanceof HTMLElement) ||
-				this._renderedGroupByPropertyId !== this.groupByPropertyId
+				this._prefsPropertyId !== this.groupByPropertyId
 			) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
 				this.patchBoard(existingBoard, orderedValues, groupedEntries);
 			}
-			this._renderedGroupByPropertyId = this.groupByPropertyId;
+			this.reapplyActiveCard();
 		} catch (error) {
 			console.error('KanbanView error:', error);
 		}
 	}
 
-	private fullReset(): void {
-		this.containerEl.empty();
+	private destroySortables(): void {
 		this._columnSortables.forEach((s) => s.destroy());
 		this._columnSortables.clear();
-		this._entryMap.clear();
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
 		}
-		this._renderedGroupByPropertyId = null;
+	}
+
+	private fullReset(): void {
+		this.containerEl.empty();
+		this.destroySortables();
+		this._entryMap.clear();
 	}
 
 	private fullRebuild(orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
 		this.containerEl.empty();
-		this._columnSortables.forEach((s) => s.destroy());
-		this._columnSortables.clear();
-		if (this.columnSortable) {
-			this.columnSortable.destroy();
-			this.columnSortable = null;
-		}
+		this.destroySortables();
 
 		const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
 		orderedValues.forEach((value) => {
@@ -201,15 +302,10 @@ export class KanbanView extends BasesView {
 
 		const newValueSet = new Set(orderedValues);
 
-		// Remove columns that no longer exist in data
+		// Remove columns not in the new ordered set
 		existingColumns.forEach((colEl, value) => {
 			if (!newValueSet.has(value)) {
-				const sortable = this._columnSortables.get(value);
-				if (sortable) {
-					sortable.destroy();
-					this._columnSortables.delete(value);
-				}
-				colEl.remove();
+				this.detachColumn(value, colEl);
 				existingColumns.delete(value);
 			}
 		});
@@ -221,20 +317,9 @@ export class KanbanView extends BasesView {
 				const columnEl = this.createColumn(value, newEntries);
 				boardEl.appendChild(columnEl);
 				existingColumns.set(value, columnEl);
-				// Attach Sortable to the new column body
 				const body = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`);
 				if (body instanceof HTMLElement) {
-					const sortable = new Sortable(body, {
-						group: SORTABLE_GROUP,
-						animation: SORTABLE_CONFIG.ANIMATION_DURATION,
-						dragClass: CSS_CLASSES.CARD_DRAGGING,
-						ghostClass: CSS_CLASSES.CARD_GHOST,
-						chosenClass: CSS_CLASSES.CARD_CHOSEN,
-						onEnd: (evt: Sortable.SortableEvent) => {
-							void this.handleCardDrop(evt);
-						},
-					});
-					this._columnSortables.set(value, sortable);
+					this.attachCardSortable(body, value);
 				}
 			} else {
 				const colEl = existingColumns.get(value);
@@ -243,7 +328,6 @@ export class KanbanView extends BasesView {
 		});
 
 		// Re-order columns in the DOM to match orderedValues
-		// appendChild on an already-attached child moves it — no cloning needed
 		orderedValues.forEach((value) => {
 			const colEl = existingColumns.get(value);
 			if (colEl) boardEl.appendChild(colEl);
@@ -293,17 +377,20 @@ export class KanbanView extends BasesView {
 			}
 		});
 
-		// Reorder cards in the DOM to match newEntries order
-		// appendChild on an already-attached child moves it — no cloning needed
-		const pathToCard = new Map<string, Element>();
-		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			const path = card instanceof HTMLElement ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
-			if (path) pathToCard.set(path, card);
-		});
-		newEntries.forEach((entry) => {
-			const card = pathToCard.get(entry.file.path);
-			if (card) body.appendChild(card);
-		});
+		// Reorder cards in the DOM to match newEntries order.
+		// Skipped during active drags — Sortable owns the DOM during a drag and
+		// reordering here would fight its live preview, causing visual thrashing.
+		if (!this._dragging) {
+			const pathToCard = new Map<string, Element>();
+			body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+				const path = card instanceof HTMLElement ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
+				if (path) pathToCard.set(path, card);
+			});
+			newEntries.forEach((entry) => {
+				const card = pathToCard.get(entry.file.path);
+				if (card) body.appendChild(card);
+			});
+		}
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -317,7 +404,6 @@ export class KanbanView extends BasesView {
 				group.push(entry);
 			} catch (error) {
 				console.warn('Error processing entry:', entry.file.path, error);
-				// Add to Uncategorized on error
 				const uncategorizedGroup = ensureGroupExists(grouped, UNCATEGORIZED_LABEL);
 				uncategorizedGroup.push(entry);
 			}
@@ -331,20 +417,16 @@ export class KanbanView extends BasesView {
 		columnEl.className = CSS_CLASSES.COLUMN;
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
-		// Apply stored color accent
-		if (this.groupByPropertyId) {
-			const colorName = this.getColumnColor(this.groupByPropertyId, value);
-			this.applyColumnColor(columnEl, colorName);
-		}
+		// Apply stored color accent from prefs
+		const colorName = this._prefs.columnColors[value] ?? null;
+		this.applyColumnColor(columnEl, colorName);
 
 		// Column header
 		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
 
-		// Add drag handle
 		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
 		dragHandle.textContent = '⋮⋮';
 
-		// Color picker button
 		const colorBtn = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_COLOR_BTN });
 		colorBtn.setAttribute('aria-label', `Set color for column: ${value}`);
 		colorBtn.setAttribute('role', 'button');
@@ -365,7 +447,6 @@ export class KanbanView extends BasesView {
 		const bodyEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_BODY });
 		bodyEl.setAttribute(DATA_ATTRIBUTES.SORTABLE_CONTAINER, 'true');
 
-		// Create cards for each entry
 		entries.forEach((entry) => {
 			const cardEl = this.createCard(entry);
 			bodyEl.appendChild(cardEl);
@@ -380,11 +461,9 @@ export class KanbanView extends BasesView {
 		const filePath = entry.file.path;
 		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
 
-		// Card title - use file basename
 		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
 		titleEl.textContent = entry.file.basename;
 
-		// Card properties
 		const order = this.config?.getOrder() ?? [];
 		for (const propertyId of order) {
 			if (propertyId === this.groupByPropertyId) continue;
@@ -403,9 +482,15 @@ export class KanbanView extends BasesView {
 			}
 		}
 
-		// Make card clickable to open the note, but not when clicking an internal link
+		// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the
+		// class is never applied when an element slides under a stationary cursor
+		// after a drag reorders the DOM.
+		cardEl.addEventListener('mouseenter', () => cardEl.classList.add(CSS_CLASSES.CARD_HOVER));
+		cardEl.addEventListener('mouseleave', () => cardEl.classList.remove(CSS_CLASSES.CARD_HOVER));
+
 		const clickHandler = (e: MouseEvent) => {
 			if (e.target instanceof Element && e.target.closest('a')) return;
+			this.setActiveCard(filePath);
 			if (this.app?.workspace) {
 				void this.app.workspace.openLinkText(filePath, '', false);
 			}
@@ -429,32 +514,27 @@ export class KanbanView extends BasesView {
 	}
 
 	private openColorPicker(anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string): void {
-		// Remove any existing popover for this view
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
 
 		const popover = document.createElement('div');
 		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
 
-		// Current color (if any)
 		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
 
-		// "None" swatch
 		const noneSwatch = document.createElement('div');
 		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
 		noneSwatch.addEventListener('click', () => {
 			this.applyColumnColor(columnEl, null);
-			if (this.groupByPropertyId) {
-				this.saveColumnColor(this.groupByPropertyId, columnValue, null);
-			}
+			delete this._prefs.columnColors[columnValue];
+			this._persistPrefs();
 			popover.remove();
 			this.activeColorPicker = null;
 		});
 		popover.appendChild(noneSwatch);
 
-		// Color swatches
 		for (const color of COLOR_PALETTE) {
 			const swatch = document.createElement('div');
 			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
@@ -463,24 +543,20 @@ export class KanbanView extends BasesView {
 			if (currentColor === color.name) swatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 			swatch.addEventListener('click', () => {
 				this.applyColumnColor(columnEl, color.name);
-				if (this.groupByPropertyId) {
-					this.saveColumnColor(this.groupByPropertyId, columnValue, color.name);
-				}
+				this._prefs.columnColors[columnValue] = color.name;
+				this._persistPrefs();
 				popover.remove();
 				this.activeColorPicker = null;
 			});
 			popover.appendChild(swatch);
 		}
 
-		// Position below anchor
 		const rect = anchorEl.getBoundingClientRect();
 		popover.style.top = `${rect.bottom + 4}px`;
 		popover.style.left = `${rect.left}px`;
 		document.body.appendChild(popover);
 		this.activeColorPicker = popover;
 
-		// Dismiss on outside click. stopPropagation() on the button prevents the
-		// opening click from reaching this listener, so no setTimeout is needed.
 		const dismiss = (e: MouseEvent) => {
 			if (e.target instanceof Node && !popover.contains(e.target) && e.target !== anchorEl) {
 				popover.remove();
@@ -504,51 +580,54 @@ export class KanbanView extends BasesView {
 		return btn;
 	}
 
-	private removeColumn(value: string, columnEl: HTMLElement): void {
-		if (!this.groupByPropertyId) return;
-
-		// Remove from persisted column order
-		const savedOrder = this.getColumnOrder(this.groupByPropertyId) ?? [];
-		this.saveColumnOrder(
-			this.groupByPropertyId,
-			savedOrder.filter((v) => v !== value),
-		);
-
-		// Tear down sortable and remove from DOM
+	private detachColumn(value: string, colEl: HTMLElement): void {
 		const sortable = this._columnSortables.get(value);
 		if (sortable) {
 			sortable.destroy();
 			this._columnSortables.delete(value);
 		}
-		columnEl.remove();
+		colEl.remove();
+	}
+
+	private removeColumn(value: string, columnEl: HTMLElement): void {
+		if (!this._prefsPropertyId) return;
+		this._prefs.columnOrder = this._prefs.columnOrder.filter((v) => v !== value);
+		this._persistPrefs();
+		this.detachColumn(value, columnEl);
+	}
+
+	private attachCardSortable(body: HTMLElement, value: string): void {
+		const sortable = new Sortable(body, {
+			group: SORTABLE_GROUP,
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			dragClass: CSS_CLASSES.CARD_DRAGGING,
+			ghostClass: CSS_CLASSES.CARD_GHOST,
+			chosenClass: CSS_CLASSES.CARD_CHOSEN,
+			onStart: (evt: Sortable.SortableEvent) => {
+				this._dragging = true;
+				if (evt.item instanceof HTMLElement) evt.item.classList.remove(CSS_CLASSES.CARD_HOVER);
+			},
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
+				this.setActiveCard(null);
+				void this.handleCardDrop(evt);
+			},
+		});
+		this._columnSortables.set(value, sortable);
 	}
 
 	private initializeSortable(): void {
 		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
 		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
 			if (!(columnBody instanceof HTMLElement)) return;
-
 			const colEl = columnBody.closest(`.${CSS_CLASSES.COLUMN}`);
 			const value = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
 			if (!value) return;
-
-			const sortable = new Sortable(columnBody, {
-				group: SORTABLE_GROUP,
-				animation: SORTABLE_CONFIG.ANIMATION_DURATION,
-				dragClass: CSS_CLASSES.CARD_DRAGGING,
-				ghostClass: CSS_CLASSES.CARD_GHOST,
-				chosenClass: CSS_CLASSES.CARD_CHOSEN,
-				onEnd: (evt: Sortable.SortableEvent) => {
-					void this.handleCardDrop(evt);
-				},
-			});
-
-			this._columnSortables.set(value, sortable);
+			this.attachCardSortable(columnBody, value);
 		});
 	}
 
 	private async handleCardDrop(evt: Sortable.SortableEvent): Promise<void> {
-		// Type guard to ensure evt.item is an HTMLElement
 		if (!(evt.item instanceof HTMLElement)) {
 			console.warn('Card element is not an HTMLElement:', evt.item);
 			return;
@@ -562,18 +641,12 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		// Get the old and new column values
 		const columnSelector = `.${CSS_CLASSES.COLUMN}`;
 		const oldColumnEl = evt.from.closest(columnSelector);
 		const newColumnEl = evt.to.closest(columnSelector);
 
-		if (!newColumnEl) {
+		if (!newColumnEl || !(newColumnEl instanceof HTMLElement)) {
 			console.warn('Could not find new column element');
-			return;
-		}
-
-		if (!(newColumnEl instanceof HTMLElement)) {
-			console.warn('New column element is not an HTMLElement');
 			return;
 		}
 
@@ -586,7 +659,7 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		if (!this.groupByPropertyId) {
+		if (!this._prefsPropertyId) {
 			console.warn('No group by property ID set');
 			return;
 		}
@@ -597,18 +670,20 @@ export class KanbanView extends BasesView {
 				.map((c) => (c instanceof HTMLElement ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
 				.filter((p): p is string => p !== null);
 
-		// Same-column reorder: save new order and return (no property update needed)
+		// Same-column reorder: update prefs and persist
 		if (oldColumnValue === newColumnValue) {
-			this.saveCardOrder(this.groupByPropertyId, newColumnValue, getColumnPaths(evt.to));
+			this._prefs.cardOrders[newColumnValue] = getColumnPaths(evt.to);
+			this._persistPrefs();
 			return;
 		}
 
-		// Cross-column drop: capture DOM order for both columns before async work
+		// Cross-column drop: capture DOM order for both columns
 		if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
 			const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-			if (oldBody) this.saveCardOrder(this.groupByPropertyId, oldColumnValue, getColumnPaths(oldBody));
+			if (oldBody) this._prefs.cardOrders[oldColumnValue] = getColumnPaths(oldBody);
 		}
-		this.saveCardOrder(this.groupByPropertyId, newColumnValue, getColumnPaths(evt.to));
+		this._prefs.cardOrders[newColumnValue] = getColumnPaths(evt.to);
+		this._persistPrefs();
 
 		const entry = this._entryMap.get(entryPath);
 		if (!entry) {
@@ -621,42 +696,58 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		// Update the entry's property using fileManager
-		// For "Uncategorized", we'll set it to empty string or null
 		try {
 			const valueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
-
-			// Extract property name from property ID (e.g., "note.status" -> "status")
-			const parsedProperty = parsePropertyId(this.groupByPropertyId);
+			const parsedProperty = parsePropertyId(this._prefsPropertyId);
 			const propertyName = parsedProperty.name;
 
 			await this.app.fileManager.processFrontMatter(entry.file, (frontmatter: Record<string, unknown>) => {
 				if (valueToSet === '') {
-					// Remove the property if setting to empty
 					delete frontmatter[propertyName];
 				} else {
 					frontmatter[propertyName] = valueToSet;
 				}
 			});
-
-			// The view will automatically update via onDataUpdated when the file changes
 		} catch (error) {
 			console.error('Error updating entry property:', error);
-			// Revert the visual change on error
 			this.render();
 		}
 	}
 
-	private getOrderedColumnValues(values: string[]): string[] {
-		if (!this.groupByPropertyId) return values.sort();
+	private findCardEl(path: string): HTMLElement | null {
+		for (const el of this.containerEl.querySelectorAll(`.${CSS_CLASSES.CARD}`)) {
+			if (el instanceof HTMLElement && el.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) === path) return el;
+		}
+		return null;
+	}
 
-		const savedOrder = this.getColumnOrder(this.groupByPropertyId);
-		if (!savedOrder) return values.sort();
+	private setActiveCard(path: string | null): void {
+		if (this._activeCardPath) {
+			this.findCardEl(this._activeCardPath)?.classList.remove(CSS_CLASSES.CARD_ACTIVE);
+		}
+		this._activeCardPath = path;
+		if (path) {
+			this.findCardEl(path)?.classList.add(CSS_CLASSES.CARD_ACTIVE);
+		}
+	}
 
-		// Include all saved columns (even empty ones) so they persist when their
-		// last entry is removed. Append any live values not yet in the saved list.
-		const newValues = values.filter((v) => !savedOrder.includes(v));
-		return [...savedOrder, ...newValues];
+	private reapplyActiveCard(): void {
+		if (!this._activeCardPath) return;
+		this.findCardEl(this._activeCardPath)?.classList.add(CSS_CLASSES.CARD_ACTIVE);
+	}
+
+	private getOrderedColumnValues(liveValues: string[]): string[] {
+		if (!this._prefs.columnOrder.length) return liveValues.sort();
+		// Include all saved columns (even empty ones); append any new live values.
+		const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
+		return [...this._prefs.columnOrder, ...newValues];
+	}
+
+	private applyCardOrder(entries: BasesEntry[], savedOrder: string[]): BasesEntry[] {
+		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
+		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
+		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
+		return [...ordered, ...unsaved];
 	}
 
 	private initializeColumnSortable(): void {
@@ -673,37 +764,33 @@ export class KanbanView extends BasesView {
 			draggable: `.${CSS_CLASSES.COLUMN}`,
 			ghostClass: CSS_CLASSES.COLUMN_GHOST,
 			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
+			onStart: () => {
+				this._dragging = true;
+			},
 			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
 				this.handleColumnDrop(evt);
 			},
 		});
 	}
 
 	private handleColumnDrop(evt: Sortable.SortableEvent): void {
-		if (!this.groupByPropertyId) return;
+		if (!this._prefsPropertyId) return;
 
-		// Extract current column order from DOM
 		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
 		const order = Array.from(columns)
 			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
 			.filter((v): v is string => v !== null);
 
-		this.saveColumnOrder(this.groupByPropertyId, order);
+		this._prefs.columnOrder = order;
+		this._persistPrefs();
 	}
 
 	onClose(): void {
 		this._debouncedRender.cancel();
-		this._columnSortables.forEach((instance) => instance.destroy());
-		this._columnSortables.clear();
-		// Clean up any open color picker
+		this.destroySortables();
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
-
-		// Clean up column Sortable instance
-		if (this.columnSortable) {
-			this.columnSortable.destroy();
-			this.columnSortable = null;
-		}
 	}
 
 	/**
@@ -721,93 +808,13 @@ export class KanbanView extends BasesView {
 	 * Migration: versions prior to 0.3.0 wrote to plugin.data.json. The
 	 * legacyData parameter passed from main.ts holds that data. On the first
 	 * render after upgrade, the legacy value is written into the base config via
-	 * set() and subsequent get() calls return it directly — so this fallback path
-	 * is exercised at most once per base.
+	 * set() and subsequent renders use _prefs which is already populated — so
+	 * this migration path is exercised at most once per base.
 	 *
 	 * plugin.data.json is intentionally left in place after migration rather than
 	 * deleted: removing it would be destructive if something went wrong mid-upgrade,
 	 * and the file simply becomes stale once each base has migrated its own state.
 	 */
-
-	private getColumnOrder(propertyId: BasesPropertyId): string[] | null {
-		// Primary source: base config (persisted via BasesViewConfig.set)
-		const raw = this.config?.get('columnOrders');
-		const orders = isColumnOrders(raw) ? raw : null;
-		if (orders?.[propertyId]) return orders[propertyId];
-
-		// Migration: data previously written to plugin.data.json — move it into
-		// the base config so subsequent reads come from get() instead
-		const legacyOrder = this.legacyData?.columnOrders[propertyId] ?? null;
-		if (legacyOrder) this.saveColumnOrder(propertyId, legacyOrder);
-		return legacyOrder;
-	}
-
-	private saveColumnOrder(propertyId: BasesPropertyId, order: string[]): void {
-		// Persist into the base config via BasesViewConfig.set so the order
-		// travels with the .base file rather than living in plugin.data.json
-		const raw = this.config?.get('columnOrders');
-		const orders = isColumnOrders(raw) ? raw : {};
-		orders[propertyId] = order;
-		this.config?.set('columnOrders', orders);
-	}
-
-	private getColumnColor(propertyId: BasesPropertyId, columnValue: string): string | null {
-		// Primary source: base config (persisted via BasesViewConfig.set)
-		const rawColors = this.config?.get('columnColors');
-		const colors = isColumnColors(rawColors) ? rawColors : null;
-		// Strict undefined check (not falsy): an empty object {} means migration
-		// already ran for this property, so we must not fall through to legacyData
-		// even when no colors are currently set for it.
-		if (colors?.[propertyId] !== undefined) return colors[propertyId][columnValue] ?? null;
-
-		// Migration: data previously written to plugin.data.json — write all
-		// colors for this property into the base config at once so the next
-		// get() call finds them without needing to consult legacyData again
-		const legacyPropertyColors = this.legacyData?.columnColors[propertyId];
-		if (legacyPropertyColors && Object.keys(legacyPropertyColors).length > 0) {
-			this.config?.set('columnColors', { ...(colors ?? {}), [propertyId]: legacyPropertyColors });
-			return legacyPropertyColors[columnValue] ?? null;
-		}
-		return null;
-	}
-
-	private saveColumnColor(propertyId: BasesPropertyId, columnValue: string, colorName: string | null): void {
-		// Persist into the base config via BasesViewConfig.set so colors travel
-		// with the .base file rather than living in plugin.data.json
-		const rawColors = this.config?.get('columnColors');
-		const colors = isColumnColors(rawColors) ? rawColors : {};
-		if (!colors[propertyId]) colors[propertyId] = {};
-		if (colorName === null) {
-			delete colors[propertyId][columnValue];
-		} else {
-			colors[propertyId][columnValue] = colorName;
-		}
-		this.config?.set('columnColors', colors);
-	}
-
-	private getCardOrder(propertyId: BasesPropertyId, columnValue: string): string[] | null {
-		const raw = this.config?.get('cardOrders');
-		const orders = isCardOrders(raw) ? raw : null;
-		return orders?.[propertyId]?.[columnValue] ?? null;
-	}
-
-	private saveCardOrder(propertyId: BasesPropertyId, columnValue: string, order: string[]): void {
-		const raw = this.config?.get('cardOrders');
-		const orders = isCardOrders(raw) ? raw : {};
-		if (!orders[propertyId]) orders[propertyId] = {};
-		orders[propertyId][columnValue] = order;
-		this.config?.set('cardOrders', orders);
-	}
-
-	private applyCardOrder(entries: BasesEntry[], columnValue: string): BasesEntry[] {
-		if (!this.groupByPropertyId) return entries;
-		const savedOrder = this.getCardOrder(this.groupByPropertyId, columnValue);
-		if (!savedOrder) return entries;
-		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
-		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
-		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
-		return [...ordered, ...unsaved];
-	}
 
 	static getViewOptions(this: void): ViewOption[] {
 		return [

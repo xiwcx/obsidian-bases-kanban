@@ -56,6 +56,8 @@ export const CSS_CLASSES = {
 	CARD: 'obk-card',
 	CARD_TITLE: 'obk-card-title',
 	CARD_PREVIEW: 'obk-card-preview',
+	CARD_ACTIVE: 'obk-card--active',
+	CARD_HOVER: 'obk-card--hover',
 	CARD_DRAGGING: 'obk-card-dragging',
 	CARD_GHOST: 'obk-card-ghost',
 	CARD_CHOSEN: 'obk-card-chosen',

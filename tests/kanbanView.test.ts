@@ -1826,14 +1826,14 @@ describe('Card Order - Persistence', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
-		// Save a different order after initial render
+		// Set order before first render so _loadPrefs picks it up
 		controller.config.set('cardOrders', { [PROPERTY_STATUS]: { 'To Do': ['Task 2.md', 'Task 1.md'] } });
 
-		// Re-render (patch path, board already exists)
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view); // first render — full rebuild, prefs loaded from config
+
+		// Second render exercises the patch path (board already exists in DOM)
 		triggerDataUpdate(view);
 
 		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(

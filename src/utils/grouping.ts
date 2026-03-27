@@ -37,10 +37,11 @@ export function normalizePropertyValue(
 	// Value objects from Obsidian Bases have toString()
 	if (typeof value === 'object') {
 		const stringValue = value.toString().trim();
-		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
+		return stringValue === '' || stringValue === 'null' ? UNCATEGORIZED_LABEL : stringValue;
 	}
 
 	// Primitives
 	const stringValue = typeof value === 'string' ? value : String(value);
-	return stringValue.trim() === '' ? UNCATEGORIZED_LABEL : stringValue.trim();
+	const trimmed = stringValue.trim();
+	return trimmed === '' || trimmed === 'null' ? UNCATEGORIZED_LABEL : trimmed;
 }

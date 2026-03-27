@@ -2,6 +2,8 @@ import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
 import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
+import { UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
 	createEmptyEntries,
 	createEntriesWithEmptyValues,
@@ -2250,5 +2252,235 @@ describe('Empty Column Persistence - Remove column action', () => {
 			!(view as any)._columnSortables.has('In Progress'),
 			'Sortable instance should be removed after column is removed',
 		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// normalizePropertyValue – 'null' string edge cases
+// ---------------------------------------------------------------------------
+
+describe("normalizePropertyValue - 'null' string", () => {
+	test("primitive string 'null' maps to Uncategorized", () => {
+		assert.strictEqual(normalizePropertyValue('null'), UNCATEGORIZED_LABEL);
+	});
+
+	test("object whose toString() returns 'null' maps to Uncategorized", () => {
+		assert.strictEqual(normalizePropertyValue({ toString: () => 'null' }), UNCATEGORIZED_LABEL);
+	});
+
+	test("object whose toString() returns '  null  ' maps to Uncategorized", () => {
+		assert.strictEqual(normalizePropertyValue({ toString: () => '  null  ' }), UNCATEGORIZED_LABEL);
+	});
+
+	test("string 'nullable' is NOT treated as Uncategorized", () => {
+		assert.strictEqual(normalizePropertyValue('nullable'), 'nullable');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// applyCardOrder – unit tests (pure function)
+// ---------------------------------------------------------------------------
+
+describe('applyCardOrder', () => {
+	let view: any;
+
+	beforeEach(() => {
+		const scrollEl = createDivWithMethods();
+		const controller = createMockQueryController([], TEST_PROPERTIES) as any;
+		const app = createMockApp();
+		controller.app = app;
+		view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+	});
+
+	test('orders entries to match savedOrder', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), {});
+		const b = createMockBasesEntry(createMockTFile('b.md'), {});
+		const c = createMockBasesEntry(createMockTFile('c.md'), {});
+
+		const result = view.applyCardOrder([c, a, b], ['a.md', 'b.md', 'c.md']);
+
+		assert.strictEqual(result[0].file.path, 'a.md');
+		assert.strictEqual(result[1].file.path, 'b.md');
+		assert.strictEqual(result[2].file.path, 'c.md');
+	});
+
+	test('unsaved entries are appended at the end in original array order', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), {});
+		const b = createMockBasesEntry(createMockTFile('b.md'), {});
+		const c = createMockBasesEntry(createMockTFile('c.md'), {});
+
+		const result = view.applyCardOrder([c, b, a], ['a.md']);
+
+		assert.strictEqual(result[0].file.path, 'a.md');
+		assert.strictEqual(result[1].file.path, 'c.md');
+		assert.strictEqual(result[2].file.path, 'b.md');
+	});
+
+	test('unknown paths in savedOrder are silently ignored', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), {});
+
+		const result = view.applyCardOrder([a], ['ghost.md', 'a.md']);
+
+		assert.strictEqual(result.length, 1);
+		assert.strictEqual(result[0].file.path, 'a.md');
+	});
+
+	test('empty savedOrder returns all entries in original order', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), {});
+		const b = createMockBasesEntry(createMockTFile('b.md'), {});
+
+		const result = view.applyCardOrder([a, b], []);
+
+		assert.strictEqual(result[0].file.path, 'a.md');
+		assert.strictEqual(result[1].file.path, 'b.md');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// setActiveCard / reapplyActiveCard – CSS class management
+// ---------------------------------------------------------------------------
+
+describe('setActiveCard and reapplyActiveCard', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		app = createMockApp();
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+	});
+
+	test('setActiveCard adds obk-card--active to the target card', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const path = card.getAttribute('data-entry-path')!;
+
+		(view as any).setActiveCard(path);
+
+		assert.ok(card.classList.contains('obk-card--active'));
+	});
+
+	test('setActiveCard removes obk-card--active from the previously active card', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cards = view.containerEl.querySelectorAll('.obk-card');
+		assert.ok(cards.length >= 2, 'need at least two cards');
+		const firstPath = (cards[0] as HTMLElement).getAttribute('data-entry-path')!;
+		const secondPath = (cards[1] as HTMLElement).getAttribute('data-entry-path')!;
+
+		(view as any).setActiveCard(firstPath);
+		(view as any).setActiveCard(secondPath);
+
+		assert.ok(!(cards[0] as HTMLElement).classList.contains('obk-card--active'));
+		assert.ok((cards[1] as HTMLElement).classList.contains('obk-card--active'));
+	});
+
+	test('setActiveCard(null) clears the active card', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const path = card.getAttribute('data-entry-path')!;
+		(view as any).setActiveCard(path);
+		(view as any).setActiveCard(null);
+
+		assert.ok(!card.classList.contains('obk-card--active'));
+	});
+
+	test('reapplyActiveCard restores obk-card--active after it is stripped', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		const path = card.getAttribute('data-entry-path')!;
+		(view as any).setActiveCard(path);
+		card.classList.remove('obk-card--active');
+
+		(view as any).reapplyActiveCard();
+
+		assert.ok(card.classList.contains('obk-card--active'));
+	});
+
+	test('reapplyActiveCard is a no-op when no card is active', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		assert.strictEqual((view as any)._activeCardPath, null);
+		assert.doesNotThrow(() => (view as any).reapplyActiveCard());
+	});
+});
+
+// ---------------------------------------------------------------------------
+// _dragging flag skips DOM reorder in patchColumnCards
+// ---------------------------------------------------------------------------
+
+describe('patchColumnCards - _dragging flag', () => {
+	let scrollEl: HTMLElement;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('when _dragging is false, cards are reordered to match newEntries', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), { [PROPERTY_STATUS]: 'To Do' });
+		const b = createMockBasesEntry(createMockTFile('b.md'), { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([a, b], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Trigger patch with reversed order
+		controller.data.data = [b, a];
+		(view as any)._dragging = false;
+		triggerDataUpdate(view);
+
+		const paths = Array.from(view.containerEl.querySelectorAll('.obk-card')).map((c) =>
+			(c as HTMLElement).getAttribute('data-entry-path'),
+		);
+		assert.strictEqual(paths[0], 'b.md');
+		assert.strictEqual(paths[1], 'a.md');
+	});
+
+	test('when _dragging is true, DOM order is not changed', () => {
+		const a = createMockBasesEntry(createMockTFile('a.md'), { [PROPERTY_STATUS]: 'To Do' });
+		const b = createMockBasesEntry(createMockTFile('b.md'), { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([a, b], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const orderBefore = Array.from(view.containerEl.querySelectorAll('.obk-card')).map((c) =>
+			(c as HTMLElement).getAttribute('data-entry-path'),
+		);
+
+		(view as any)._dragging = true;
+		controller.data.data = [b, a];
+		triggerDataUpdate(view);
+
+		const orderAfter = Array.from(view.containerEl.querySelectorAll('.obk-card')).map((c) =>
+			(c as HTMLElement).getAttribute('data-entry-path'),
+		);
+		assert.deepStrictEqual(orderAfter, orderBefore);
 	});
 });

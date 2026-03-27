@@ -67,11 +67,12 @@ export class KanbanView extends BasesView {
 	 * This breaks the config.set() → onDataUpdated() feedback loop that caused
 	 * state thrashing on every render cycle.
 	 */
-	private _prefs = {
-		columnOrder: [] as string[],
-		cardOrders: {} as Record<string, string[]>,
-		columnColors: {} as Record<string, string>, // columnValue → colorName
-	};
+	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
+		{
+			columnOrder: [],
+			cardOrders: {},
+			columnColors: {}, // columnValue → colorName
+		};
 	private _prefsPropertyId: BasesPropertyId | null = null;
 
 	/**
@@ -143,9 +144,7 @@ export class KanbanView extends BasesView {
 		const rawCardOrders = this.config?.get('cardOrders');
 		const allCardOrders = isCardOrders(rawCardOrders) ? rawCardOrders : {};
 		const savedCardOrders = allCardOrders[propertyId] ?? {};
-		this._prefs.cardOrders = Object.fromEntries(
-			Object.entries(savedCardOrders).map(([k, v]) => [k, [...v]]),
-		);
+		this._prefs.cardOrders = Object.fromEntries(Object.entries(savedCardOrders).map(([k, v]) => [k, [...v]]));
 
 		// Column colors — with legacy migration
 		const rawColors = this.config?.get('columnColors');
@@ -170,7 +169,8 @@ export class KanbanView extends BasesView {
 	 */
 	private _persistConfigKey<T>(key: string, guard: (v: unknown) => v is Record<string, T>, newValue: T): void {
 		if (!this._prefsPropertyId) return;
-		const all: Record<string, T> = guard(this.config?.get(key)) ? (this.config!.get(key) as Record<string, T>) : {};
+		const raw = this.config?.get(key);
+		const all: Record<string, T> = guard(raw) ? raw : {};
 		if (JSON.stringify(all[this._prefsPropertyId]) !== JSON.stringify(newValue)) {
 			this.config?.set(key, { ...all, [this._prefsPropertyId]: newValue });
 		}
@@ -246,11 +246,7 @@ export class KanbanView extends BasesView {
 			const orderedValues = this.getOrderedColumnValues(liveValues);
 
 			const existingBoard = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
-			if (
-				!existingBoard ||
-				!(existingBoard instanceof HTMLElement) ||
-				this._prefsPropertyId !== this.groupByPropertyId
-			) {
+			if (!existingBoard || !(existingBoard instanceof HTMLElement) || this._prefsPropertyId !== this.groupByPropertyId) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
 				this.patchBoard(existingBoard, orderedValues, groupedEntries);
@@ -715,10 +711,11 @@ export class KanbanView extends BasesView {
 	}
 
 	private findCardEl(path: string): HTMLElement | null {
-		for (const el of this.containerEl.querySelectorAll(`.${CSS_CLASSES.CARD}`)) {
-			if (el instanceof HTMLElement && el.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) === path) return el;
-		}
-		return null;
+		return (
+			Array.from(this.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`)).find(
+				(el) => el.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) === path,
+			) ?? null
+		);
 	}
 
 	private setActiveCard(path: string | null): void {

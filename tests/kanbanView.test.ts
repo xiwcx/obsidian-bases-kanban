@@ -657,6 +657,28 @@ describe('Data Updates', () => {
 		assert.strictEqual(loadConfigCalled, true, 'loadConfig should be called');
 		assert.strictEqual(renderCalled, true, 'render should be called');
 	});
+
+	test('re-renders card properties when getOrder() changes between updates', () => {
+		const entries = createEntriesWithMixedProperties();
+		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getDisplayName = (id: string) => id;
+		controller.config.getOrder = (): string[] => [PROPERTY_STATUS];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cardsBefore = view.containerEl.querySelectorAll('.obk-card-property');
+		assert.strictEqual(cardsBefore.length, 0, 'No extra properties shown initially');
+
+		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+		triggerDataUpdate(view);
+
+		const cardsAfter = view.containerEl.querySelectorAll('.obk-card-property');
+		assert.ok(cardsAfter.length > 0, 'Property elements should appear after getOrder() changes');
+	});
 });
 
 describe('Cleanup', () => {

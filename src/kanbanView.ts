@@ -67,6 +67,8 @@ export class KanbanView extends BasesView {
 	 * This breaks the config.set() → onDataUpdated() feedback loop that caused
 	 * state thrashing on every render cycle.
 	 */
+	private _lastOrderKey: string = '';
+
 	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
 		{
 			columnOrder: [],
@@ -245,8 +247,12 @@ export class KanbanView extends BasesView {
 
 			const orderedValues = this.getOrderedColumnValues(liveValues);
 
-			const existingBoard = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
-			if (!existingBoard || !(existingBoard instanceof HTMLElement) || this._prefsPropertyId !== this.groupByPropertyId) {
+			const currentOrderKey = JSON.stringify(this.config?.getOrder() ?? []);
+			const orderChanged = currentOrderKey !== this._lastOrderKey;
+			this._lastOrderKey = currentOrderKey;
+
+			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
+			if (!existingBoard || this._prefsPropertyId !== this.groupByPropertyId || orderChanged) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
 				this.patchBoard(existingBoard, orderedValues, groupedEntries);

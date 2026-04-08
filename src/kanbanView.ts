@@ -1,5 +1,14 @@
-import type { BasesEntry, BasesPropertyId, QueryController, ViewOption } from 'obsidian';
-import { BasesView, Keymap, MarkdownRenderer, parsePropertyId } from 'obsidian';
+import type { App, BasesEntry, BasesPropertyId, Component, QueryController, ViewOption } from 'obsidian';
+import {
+	BasesView,
+	HTMLValue,
+	Keymap,
+	ListValue,
+	MarkdownRenderer,
+	NullValue,
+	sanitizeHTMLToDom,
+	parsePropertyId,
+} from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	COLOR_PALETTE,
@@ -41,6 +50,65 @@ export function isCardOrders(value: unknown): value is Record<string, Record<str
 		!Array.isArray(value) &&
 		Object.values(value).every((v) => isRecord(v) && !Array.isArray(v) && Object.values(v).every((a) => Array.isArray(a)))
 	);
+}
+
+/**
+ * Wraps MarkdownRenderer.render() and strips the outer <p> it emits for
+ * inline content, matching the pattern used by Dataview (blacksmithgu/obsidian-dataview,
+ * src/ui/render.ts — renderCompactMarkdown).
+ */
+async function renderCompactMarkdown(
+	app: App,
+	markdown: string,
+	el: HTMLElement,
+	sourcePath: string,
+	component: Component,
+): Promise<void> {
+	const span = el.createSpan();
+	await MarkdownRenderer.render(app, markdown, span, sourcePath, component);
+	const p = span.querySelector(':scope > p');
+	if (span.children.length === 1 && p) {
+		while (p.firstChild) span.appendChild(p.firstChild);
+		span.removeChild(p);
+	}
+}
+
+/**
+ * Render an Obsidian Value into a container element with type-aware dispatch.
+ *
+ * Dispatch order (most-specific subclass first to avoid StringValue catching
+ * HTMLValue/LinkValue before they are checked):
+ *   HTMLValue  → sanitizeHTMLToDom (raw HTML from the html("") formula function)
+ *   ListValue  → comma-separated spans, each item rendered recursively
+ *   everything else → MarkdownRenderer.render via renderCompactMarkdown
+ *                     (handles wikilinks, tags, plain text, dates, booleans …)
+ *
+ * Value class sources: https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts (@since 1.10.0)
+ * Dataview dispatch reference: https://github.com/blacksmithgu/obsidian-dataview/blob/master/src/ui/render.ts
+ */
+export async function renderPropertyValue(
+	app: App | undefined,
+	value: { toString(): string },
+	el: HTMLElement,
+	sourcePath: string,
+	component: Component,
+): Promise<void> {
+	if (value instanceof HTMLValue) {
+		el.appendChild(sanitizeHTMLToDom(value.toString()));
+	} else if (value instanceof ListValue) {
+		const len = value.length();
+		for (let i = 0; i < len; i++) {
+			if (i > 0) el.appendChild(document.createTextNode(', '));
+			const item = value.get(i);
+			if (!(item instanceof NullValue)) {
+				await renderPropertyValue(app, item, el, sourcePath, component);
+			}
+		}
+	} else if (app) {
+		await renderCompactMarkdown(app, value.toString(), el, sourcePath, component);
+	} else {
+		el.appendChild(document.createTextNode(value.toString()));
+	}
 }
 
 export class KanbanView extends BasesView {
@@ -347,7 +415,7 @@ export class KanbanView extends BasesView {
 
 		// Update column count
 		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
-		if (countEl) countEl.textContent = `(${newEntries.length})`;
+		if (countEl) countEl.textContent = `${newEntries.length}`;
 
 		// Sync remove button: show only when column has no entries
 		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
@@ -370,17 +438,21 @@ export class KanbanView extends BasesView {
 			}
 		});
 
-		// Add cards for entries not yet in the DOM
-		const existingPaths = new Set<string>();
+		// Re-create all cards so that property value changes are always reflected.
+		const existingCards = new Map<string, HTMLElement>();
 		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
 			if (card instanceof HTMLElement) {
 				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-				if (path) existingPaths.add(path);
+				if (path) existingCards.set(path, card);
 			}
 		});
 		newEntries.forEach((entry) => {
-			if (!existingPaths.has(entry.file.path)) {
-				body.appendChild(this.createCard(entry));
+			const newCard = this.createCard(entry);
+			const existing = existingCards.get(entry.file.path);
+			if (existing) {
+				body.replaceChild(newCard, existing);
+			} else {
+				body.appendChild(newCard);
 			}
 		});
 
@@ -443,7 +515,7 @@ export class KanbanView extends BasesView {
 		});
 
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
-		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
+		headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
 
 		// Remove button — only shown when the column has no entries
 		if (entries.length === 0) {
@@ -487,11 +559,7 @@ export class KanbanView extends BasesView {
 			}
 			propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 			const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
-			if (this.app && valueStr.includes('[[')) {
-				void MarkdownRenderer.render(this.app, valueStr, valueEl, filePath, this);
-			} else {
-				valueEl.textContent = valueStr;
-			}
+			void renderPropertyValue(this.app, value, valueEl, filePath, this);
 		}
 
 		// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the

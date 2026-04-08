@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
+import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
@@ -15,6 +15,15 @@ import {
 	PROPERTY_RELATED,
 	PROPERTY_STATUS,
 	TEST_PROPERTIES,
+	VALUE_BOOLEAN,
+	VALUE_DATE,
+	VALUE_HTML,
+	VALUE_LINK,
+	VALUE_LIST_LINKS,
+	VALUE_LIST_PLAIN,
+	VALUE_NUMBER,
+	VALUE_PLAIN_STRING,
+	VALUE_WIKILINK_STRING,
 } from './fixtures.ts';
 import {
 	addClosestPolyfill,
@@ -2610,5 +2619,164 @@ describe('patchColumnCards - _dragging flag', () => {
 			(c as HTMLElement).getAttribute('data-entry-path'),
 		);
 		assert.deepStrictEqual(orderAfter, orderBefore);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Reactivity: property value changes are reflected after patch (issue #24)
+// ---------------------------------------------------------------------------
+
+describe('patchColumnCards - property value reactivity', () => {
+	let scrollEl: HTMLElement;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('updated property value is shown on card after second data update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_PRIORITY]: 'Low',
+		});
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Simulate user editing the file: same path, updated property value
+		const entryV2 = createMockBasesEntry(file, {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_PRIORITY]: 'High',
+		});
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('[data-entry-path="note.md"]') as HTMLElement;
+		assert.ok(card, 'Card should still exist after update');
+
+		const valueEl = card.querySelector('.obk-card-property-value');
+		assert.strictEqual(valueEl?.textContent, 'High', 'Card should reflect the updated property value');
+	});
+
+	test('no duplicate cards after property-only update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const entryV2 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const cards = view.containerEl.querySelectorAll('[data-entry-path="note.md"]');
+		assert.strictEqual(cards.length, 1, 'Should be exactly one card for the file after a property-only update');
+	});
+
+	test('column count remains correct after property-only update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const entryV2 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const countEl = view.containerEl.querySelector('.obk-column-count');
+		assert.strictEqual(countEl?.textContent, '1', 'Column count should remain 1 after a property-only update');
+	});
+});
+
+describe('renderPropertyValue', () => {
+	let el: HTMLElement;
+	let app: ReturnType<typeof createMockApp>;
+
+	beforeEach(() => {
+		el = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('plain StringValue renders text via MarkdownRenderer (paragraph stripped)', async () => {
+		await renderPropertyValue(app, VALUE_PLAIN_STRING, el, 'note.md', {} as any);
+		// MarkdownRenderer mock wraps in <p>; renderCompactMarkdown should strip it
+		assert.ok(!el.querySelector('p'), 'paragraph wrapper should be stripped');
+		assert.ok(el.textContent?.includes('plain text'), 'text content should be present');
+	});
+
+	test('StringValue containing [[wikilink]] renders as internal link', async () => {
+		await renderPropertyValue(app, VALUE_WIKILINK_STRING, el, 'note.md', {} as any);
+		const link = el.querySelector('a.internal-link');
+		assert.ok(link, 'internal link element should be present');
+		assert.strictEqual(link?.getAttribute('data-href'), 'Meeting Notes');
+	});
+
+	test('HTMLValue renders actual DOM elements, not escaped text', async () => {
+		await renderPropertyValue(app, VALUE_HTML, el, 'note.md', {} as any);
+		const progress = el.querySelector('progress');
+		assert.ok(progress, '<progress> element should be in the DOM');
+		assert.strictEqual(progress?.getAttribute('value'), '50');
+		assert.strictEqual(progress?.getAttribute('max'), '100');
+		// Must not appear as raw text
+		assert.ok(!el.textContent?.includes('<progress'), 'raw HTML string must not appear as text');
+	});
+
+	test('LinkValue renders as internal link', async () => {
+		await renderPropertyValue(app, VALUE_LINK, el, 'note.md', {} as any);
+		const link = el.querySelector('a.internal-link');
+		assert.ok(link, 'internal link element should be present');
+		assert.strictEqual(link?.getAttribute('data-href'), 'Project Alpha');
+	});
+
+	test('NumberValue renders its string representation', async () => {
+		await renderPropertyValue(app, VALUE_NUMBER, el, 'note.md', {} as any);
+		assert.ok(el.textContent?.includes('42'), 'number should appear in output');
+	});
+
+	test('BooleanValue renders its string representation', async () => {
+		await renderPropertyValue(app, VALUE_BOOLEAN, el, 'note.md', {} as any);
+		assert.ok(el.textContent?.includes('true'), 'boolean should appear in output');
+	});
+
+	test('DateValue renders its string representation', async () => {
+		await renderPropertyValue(app, VALUE_DATE, el, 'note.md', {} as any);
+		assert.ok(el.textContent?.includes('2026-04-08'), 'date should appear in output');
+	});
+
+	test('ListValue of plain strings renders comma-separated items', async () => {
+		await renderPropertyValue(app, VALUE_LIST_PLAIN, el, 'note.md', {} as any);
+		const text = el.textContent ?? '';
+		assert.ok(text.includes('alpha'), 'first item should be present');
+		assert.ok(text.includes('beta'), 'second item should be present');
+		assert.ok(text.includes('gamma'), 'third item should be present');
+	});
+
+	test('ListValue of LinkValues renders each item as an internal link', async () => {
+		await renderPropertyValue(app, VALUE_LIST_LINKS, el, 'note.md', {} as any);
+		const links = el.querySelectorAll('a.internal-link');
+		assert.strictEqual(links.length, 2, 'both links should be rendered');
+		assert.strictEqual(links[0]?.getAttribute('data-href'), 'Note A');
+		assert.strictEqual(links[1]?.getAttribute('data-href'), 'Note B');
+	});
+
+	test('falls back to text when app is undefined', async () => {
+		await renderPropertyValue(undefined, VALUE_PLAIN_STRING, el, 'note.md', {} as any);
+		assert.ok(el.textContent?.includes('plain text'), 'text content should still appear');
 	});
 });

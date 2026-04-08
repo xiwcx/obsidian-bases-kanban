@@ -1,5 +1,14 @@
 import { createMockTFile, createMockBasesEntry } from './helpers.ts';
 import type { BasesEntry, BasesPropertyId } from 'obsidian';
+import {
+	BooleanValue,
+	DateValue,
+	HTMLValue,
+	LinkValue,
+	ListValue,
+	NumberValue,
+	StringValue,
+} from './mocks/obsidian.ts';
 
 export const PROPERTY_STATUS = 'note.status' as BasesPropertyId;
 export const PROPERTY_PRIORITY = 'note.priority' as BasesPropertyId;
@@ -89,3 +98,25 @@ export function createEntriesWithLinks(): BasesEntry[] {
 
 // Property IDs for testing
 export const TEST_PROPERTIES: BasesPropertyId[] = [PROPERTY_STATUS, PROPERTY_PRIORITY, PROPERTY_CATEGORY];
+
+// Value instances for renderPropertyValue unit tests
+export const PROPERTY_DESCRIPTION = 'note.description' as BasesPropertyId;
+export const PROPERTY_PROGRESS = 'note.progress' as BasesPropertyId;
+export const PROPERTY_TAGS = 'note.tags' as BasesPropertyId;
+export const PROPERTY_COUNT = 'note.count' as BasesPropertyId;
+export const PROPERTY_DONE = 'note.done' as BasesPropertyId;
+export const PROPERTY_DUE = 'note.due' as BasesPropertyId;
+
+export const VALUE_PLAIN_STRING = new StringValue('plain text');
+export const VALUE_WIKILINK_STRING = new StringValue('[[Meeting Notes]]');
+export const VALUE_HTML = new HTMLValue('<progress value="50" max="100"></progress>');
+export const VALUE_LINK = new LinkValue('[[Project Alpha]]');
+export const VALUE_NUMBER = new NumberValue(42);
+export const VALUE_BOOLEAN = new BooleanValue(true);
+export const VALUE_DATE = new DateValue(new Date('2026-04-08'));
+export const VALUE_LIST_PLAIN = new ListValue([
+	new StringValue('alpha'),
+	new StringValue('beta'),
+	new StringValue('gamma'),
+]);
+export const VALUE_LIST_LINKS = new ListValue([new LinkValue('[[Note A]]'), new LinkValue('[[Note B]]')]);

@@ -2612,3 +2612,85 @@ describe('patchColumnCards - _dragging flag', () => {
 		assert.deepStrictEqual(orderAfter, orderBefore);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Reactivity: property value changes are reflected after patch (issue #24)
+// ---------------------------------------------------------------------------
+
+describe('patchColumnCards - property value reactivity', () => {
+	let scrollEl: HTMLElement;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('updated property value is shown on card after second data update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_PRIORITY]: 'Low',
+		});
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_PRIORITY];
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Simulate user editing the file: same path, updated property value
+		const entryV2 = createMockBasesEntry(file, {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_PRIORITY]: 'High',
+		});
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('[data-entry-path="note.md"]') as HTMLElement;
+		assert.ok(card, 'Card should still exist after update');
+
+		const valueEl = card.querySelector('.obk-card-property-value');
+		assert.strictEqual(valueEl?.textContent, 'High', 'Card should reflect the updated property value');
+	});
+
+	test('no duplicate cards after property-only update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const entryV2 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const cards = view.containerEl.querySelectorAll('[data-entry-path="note.md"]');
+		assert.strictEqual(cards.length, 1, 'Should be exactly one card for the file after a property-only update');
+	});
+
+	test('column count remains correct after property-only update', () => {
+		const file = createMockTFile('note.md');
+		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const entryV2 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
+		controller.data.data = [entryV2];
+		triggerDataUpdate(view);
+
+		const countEl = view.containerEl.querySelector('.obk-column-count');
+		assert.strictEqual(countEl?.textContent, '(1)', 'Column count should remain 1 after a property-only update');
+	});
+});

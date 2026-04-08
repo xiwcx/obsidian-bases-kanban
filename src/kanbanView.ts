@@ -370,17 +370,24 @@ export class KanbanView extends BasesView {
 			}
 		});
 
-		// Add cards for entries not yet in the DOM
-		const existingPaths = new Set<string>();
+		// Re-create all cards so that property value changes are always reflected
+		// in the DOM. Replacing (not skipping) existing nodes ensures edits to a
+		// file's properties are visible without a full board rebuild.
+		const existingCards = new Map<string, HTMLElement>();
 		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
 			if (card instanceof HTMLElement) {
 				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-				if (path) existingPaths.add(path);
+				if (path) existingCards.set(path, card);
 			}
 		});
 		newEntries.forEach((entry) => {
-			if (!existingPaths.has(entry.file.path)) {
-				body.appendChild(this.createCard(entry));
+			const newCard = this.createCard(entry);
+			const existing = existingCards.get(entry.file.path);
+			if (existing) {
+				body.replaceChild(newCard, existing);
+				existingCards.set(entry.file.path, newCard);
+			} else {
+				body.appendChild(newCard);
 			}
 		});
 

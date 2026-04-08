@@ -438,9 +438,7 @@ export class KanbanView extends BasesView {
 			}
 		});
 
-		// Re-create all cards so that property value changes are always reflected
-		// in the DOM. Replacing (not skipping) existing nodes ensures edits to a
-		// file's properties are visible without a full board rebuild.
+		// Re-create all cards so that property value changes are always reflected.
 		const existingCards = new Map<string, HTMLElement>();
 		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
 			if (card instanceof HTMLElement) {
@@ -453,7 +451,6 @@ export class KanbanView extends BasesView {
 			const existing = existingCards.get(entry.file.path);
 			if (existing) {
 				body.replaceChild(newCard, existing);
-				existingCards.set(entry.file.path, newCard);
 			} else {
 				body.appendChild(newCard);
 			}

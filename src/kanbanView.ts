@@ -68,6 +68,7 @@ export class KanbanView extends BasesView {
 	 * state thrashing on every render cycle.
 	 */
 	private _lastOrderKey: string = '';
+	private _lastWrapValue: boolean | null = null;
 
 	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
 		{
@@ -251,8 +252,12 @@ export class KanbanView extends BasesView {
 			const orderChanged = currentOrderKey !== this._lastOrderKey;
 			this._lastOrderKey = currentOrderKey;
 
+			const currentWrapValue = this.config?.get('wrapPropertyValues') === true;
+			const wrapChanged = currentWrapValue !== this._lastWrapValue;
+			this._lastWrapValue = currentWrapValue;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
-			if (!existingBoard || this._prefsPropertyId !== this.groupByPropertyId || orderChanged) {
+			if (!existingBoard || this._prefsPropertyId !== this.groupByPropertyId || orderChanged || wrapChanged) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
 				this.patchBoard(existingBoard, orderedValues, groupedEntries);
@@ -467,6 +472,8 @@ export class KanbanView extends BasesView {
 		titleEl.textContent = entry.file.basename;
 
 		const order = this.config?.getOrder() ?? [];
+		const shouldWrap = this.config?.get('wrapPropertyValues') === true;
+
 		for (const propertyId of order) {
 			if (propertyId === this.groupByPropertyId) continue;
 			const value = entry.getValue(propertyId);
@@ -475,6 +482,9 @@ export class KanbanView extends BasesView {
 			if (!valueStr || valueStr === 'null') continue;
 			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
 			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
+			if (shouldWrap) {
+				propertyEl.classList.add(CSS_CLASSES.CARD_PROPERTY_WRAP);
+			}
 			propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 			const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
 			if (this.app && valueStr.includes('[[')) {
@@ -827,6 +837,11 @@ export class KanbanView extends BasesView {
 				key: 'groupByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Select property',
+			},
+			{
+				displayName: 'Wrap property values',
+				type: 'toggle',
+				key: 'wrapPropertyValues',
 			},
 		];
 	}

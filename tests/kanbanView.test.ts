@@ -275,6 +275,73 @@ describe('Data Rendering - Card Rendering', () => {
 		assert.ok(title?.textContent, 'Card title should have text content');
 	});
 
+	test('Property wrapping class is applied when enabled in config', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			return null;
+		};
+		// Provide order with non-group-by property
+		controller.config.getOrder = () => [PROPERTY_PRIORITY];
+		controller.config.getDisplayName = (id: string) => id;
+
+		// Enable wrapping in mock config
+		controller.config.get = (key: string) => {
+			if (key === 'wrapPropertyValues') return true;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cards = view.containerEl.querySelectorAll('.obk-card');
+		const firstCard = cards[0] as HTMLElement;
+		const propertyEl = firstCard.querySelector('.obk-card-property');
+
+		assert.ok(propertyEl, 'Property element should exist');
+		assert.ok(
+			propertyEl?.classList.contains('obk-card-property-wrap'),
+			'Property element should have wrap class when enabled',
+		);
+	});
+
+	test('Property wrapping class is NOT applied when disabled in config', () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			return null;
+		};
+		// Provide order with non-group-by property
+		controller.config.getOrder = () => [PROPERTY_PRIORITY];
+		controller.config.getDisplayName = (id: string) => id;
+
+		// Disable wrapping in mock config
+		controller.config.get = (key: string) => {
+			if (key === 'wrapPropertyValues') return false;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cards = view.containerEl.querySelectorAll('.obk-card');
+		const firstCard = cards[0] as HTMLElement;
+		const propertyEl = firstCard.querySelector('.obk-card-property');
+
+		assert.ok(propertyEl, 'Property element should exist');
+		assert.strictEqual(
+			propertyEl?.classList.contains('obk-card-property-wrap'),
+			false,
+			'Property element should NOT have wrap class when disabled',
+		);
+	});
+
 	test('Card click handler opens file in workspace', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
@@ -678,6 +745,45 @@ describe('Data Updates', () => {
 
 		const cardsAfter = view.containerEl.querySelectorAll('.obk-card-property');
 		assert.ok(cardsAfter.length > 0, 'Property elements should appear after getOrder() changes');
+	});
+
+	test('re-renders cards when wrapPropertyValues changes', () => {
+		const entries = createEntriesWithMixedProperties();
+		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getDisplayName = (id: string) => id;
+		controller.config.getOrder = (): string[] => [PROPERTY_PRIORITY];
+
+		let wrapValue = false;
+		controller.config.get = (key: string) => {
+			if (key === 'wrapPropertyValues') return wrapValue;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const propertyElBefore = view.containerEl.querySelector('.obk-card-property');
+		assert.ok(propertyElBefore, 'Property element should exist');
+		assert.strictEqual(
+			propertyElBefore?.classList.contains('obk-card-property-wrap'),
+			false,
+			'Should not have wrap class initially',
+		);
+
+		// Toggle wrap and update
+		wrapValue = true;
+		triggerDataUpdate(view);
+
+		const propertyElAfter = view.containerEl.querySelector('.obk-card-property');
+		assert.ok(propertyElAfter, 'Property element should exist after update');
+		assert.strictEqual(
+			propertyElAfter?.classList.contains('obk-card-property-wrap'),
+			true,
+			'Should have wrap class after config changes',
+		);
 	});
 });
 

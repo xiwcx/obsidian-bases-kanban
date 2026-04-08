@@ -300,6 +300,16 @@
 	margin-top: 4px;
 }
 
+.obk-card-property-wrap {
+	white-space: normal;
+	text-overflow: initial;
+}
+
+.obk-card-property-wrap .obk-card-property-value {
+	white-space: normal;
+	text-overflow: initial;
+}
+
 .obk-card-property-label {
 	color: var(--text-muted);
 	flex-shrink: 0;

@@ -415,7 +415,7 @@ export class KanbanView extends BasesView {
 
 		// Update column count
 		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
-		if (countEl) countEl.textContent = `(${newEntries.length})`;
+		if (countEl) countEl.textContent = `${newEntries.length}`;
 
 		// Sync remove button: show only when column has no entries
 		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
@@ -518,7 +518,7 @@ export class KanbanView extends BasesView {
 		});
 
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
-		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
+		headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
 
 		// Remove button — only shown when the column has no entries
 		if (entries.length === 0) {

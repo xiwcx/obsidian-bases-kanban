@@ -2700,7 +2700,7 @@ describe('patchColumnCards - property value reactivity', () => {
 		triggerDataUpdate(view);
 
 		const countEl = view.containerEl.querySelector('.obk-column-count');
-		assert.strictEqual(countEl?.textContent, '(1)', 'Column count should remain 1 after a property-only update');
+		assert.strictEqual(countEl?.textContent, '1', 'Column count should remain 1 after a property-only update');
 	});
 });
 

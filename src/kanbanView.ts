@@ -202,12 +202,10 @@ export class KanbanView extends BasesView {
 		const rawOrders = this.config?.get('columnOrders');
 		const allOrders = isColumnOrders(rawOrders) ? rawOrders : {};
 		let columnOrder = allOrders[propertyId] ?? null;
-		if (!columnOrder) {
-			const legacyOrder = this.legacyData?.columnOrders[propertyId] ?? null;
-			if (legacyOrder) {
-				columnOrder = legacyOrder;
-				this.config?.set('columnOrders', { ...allOrders, [propertyId]: legacyOrder });
-			}
+		const legacyOrder = this.legacyData?.columnOrders[propertyId] ?? null;
+		if (!columnOrder && legacyOrder) {
+			columnOrder = legacyOrder;
+			this.config?.set('columnOrders', { ...allOrders, [propertyId]: legacyOrder });
 		}
 		this._prefs.columnOrder = columnOrder ? [...columnOrder] : [];
 
@@ -221,12 +219,10 @@ export class KanbanView extends BasesView {
 		const rawColors = this.config?.get('columnColors');
 		const allColors = isColumnColors(rawColors) ? rawColors : {};
 		let columnColors = allColors[propertyId] ?? null;
-		if (!columnColors) {
-			const legacyColors = this.legacyData?.columnColors[propertyId];
-			if (legacyColors && Object.keys(legacyColors).length > 0) {
-				columnColors = legacyColors;
-				this.config?.set('columnColors', { ...allColors, [propertyId]: legacyColors });
-			}
+		const legacyColors = this.legacyData?.columnColors[propertyId];
+		if (!columnColors && legacyColors && Object.keys(legacyColors).length > 0) {
+			columnColors = legacyColors;
+			this.config?.set('columnColors', { ...allColors, [propertyId]: legacyColors });
 		}
 		this._prefs.columnColors = columnColors ? { ...columnColors } : {};
 	}
@@ -258,18 +254,16 @@ export class KanbanView extends BasesView {
 			const entries = this.data?.data || [];
 			const availablePropertyIds = this.allProperties || [];
 
+			if (!this.groupByPropertyId && availablePropertyIds.length === 0) {
+				this.fullReset();
+				this.containerEl.createDiv({
+					text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
+					cls: CSS_CLASSES.EMPTY_STATE,
+				});
+				return;
+			}
 			if (!this.groupByPropertyId) {
-				// No property configured yet — pick a default or show an error.
-				if (availablePropertyIds.length > 0) {
-					this.groupByPropertyId = availablePropertyIds[0];
-				} else {
-					this.fullReset();
-					this.containerEl.createDiv({
-						text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
-						cls: CSS_CLASSES.EMPTY_STATE,
-					});
-					return;
-				}
+				this.groupByPropertyId = availablePropertyIds[0];
 			}
 			// If groupByPropertyId is set but is no longer in availablePropertyIds
 			// (e.g. all notes with that property were removed), keep the configured
@@ -281,18 +275,17 @@ export class KanbanView extends BasesView {
 				this._loadPrefs(this.groupByPropertyId);
 			}
 
-			if (entries.length === 0) {
-				if (this._prefs.columnOrder.length === 0) {
-					this.fullReset();
-					this.containerEl.createDiv({
-						text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
-						cls: CSS_CLASSES.EMPTY_STATE,
-					});
-					return;
-				}
-				// Entries are gone but the board has saved columns — fall through to
-				// render them as empty columns so the user can see and manage them.
+			const hasNoEntries = entries.length === 0;
+			const hasNoSavedColumns = this._prefs.columnOrder.length === 0;
+			if (hasNoEntries && hasNoSavedColumns) {
+				this.fullReset();
+				this.containerEl.createDiv({
+					text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
+					cls: CSS_CLASSES.EMPTY_STATE,
+				});
+				return;
 			}
+			// hasNoEntries && !hasNoSavedColumns: board has saved columns — render them as empty so the user can see and manage them.
 
 			// Build path→entry lookup map for O(1) access in handleCardDrop
 			this._entryMap = new Map(entries.map((e: BasesEntry) => [e.file.path, e]));
@@ -314,12 +307,9 @@ export class KanbanView extends BasesView {
 			const liveValues = Array.from(groupedEntries.keys());
 			const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
 			if (newValues.length > 0) {
-				if (this._prefs.columnOrder.length === 0) {
-					// No prior order — sort alphabetically as the initial ordering
-					this._prefs.columnOrder = [...newValues].sort();
-				} else {
-					this._prefs.columnOrder = [...this._prefs.columnOrder, ...newValues];
-				}
+				const isInitialOrder = this._prefs.columnOrder.length === 0;
+				// No prior order — sort alphabetically as the initial ordering
+				this._prefs.columnOrder = isInitialOrder ? [...newValues].sort() : [...this._prefs.columnOrder, ...newValues];
 				this._persistPrefs();
 			}
 
@@ -377,11 +367,9 @@ export class KanbanView extends BasesView {
 	private patchBoard(boardEl: HTMLElement, orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
 		// Index existing column elements by their value
 		const existingColumns = new Map<string, HTMLElement>();
-		boardEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
-			if (col instanceof HTMLElement) {
-				const val = col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
-				if (val !== null) existingColumns.set(val, col);
-			}
+		boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
+			const val = col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+			if (val !== null) existingColumns.set(val, col);
 		});
 
 		const newValueSet = new Set(orderedValues);
@@ -401,10 +389,10 @@ export class KanbanView extends BasesView {
 				const columnEl = this.createColumn(value, newEntries);
 				boardEl.appendChild(columnEl);
 				existingColumns.set(value, columnEl);
-				const body = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`);
-				if (body instanceof HTMLElement) {
-					this.attachCardSortable(body, value);
-				}
+				const body = columnEl.querySelector<HTMLElement>(
+					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
+				);
+				if (body) this.attachCardSortable(body, value);
 			} else {
 				const colEl = existingColumns.get(value);
 				if (colEl) this.patchColumnCards(colEl, newEntries);
@@ -428,32 +416,26 @@ export class KanbanView extends BasesView {
 
 		// Sync remove button: show only when column has no entries
 		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
-		if (headerEl) {
-			const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
-			const existingRemoveBtn = headerEl.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`);
-			if (newEntries.length === 0 && !existingRemoveBtn && columnValue) {
-				headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
-			} else if (newEntries.length > 0 && existingRemoveBtn) {
-				existingRemoveBtn.remove();
-			}
+		const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+		const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
+		if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue) {
+			headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
+		} else if (newEntries.length > 0 && existingRemoveBtn) {
+			existingRemoveBtn.remove();
 		}
 
 		// Remove cards whose entry is no longer in this column
 		const newPaths = new Set(newEntries.map((e) => e.file.path));
-		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			if (card instanceof HTMLElement) {
-				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-				if (path && !newPaths.has(path)) card.remove();
-			}
+		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+			const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
+			if (path && !newPaths.has(path)) card.remove();
 		});
 
 		// Re-create all cards so that property value changes are always reflected.
 		const existingCards = new Map<string, HTMLElement>();
-		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			if (card instanceof HTMLElement) {
-				const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-				if (path) existingCards.set(path, card);
-			}
+		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
+			const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
+			if (path) existingCards.set(path, card);
 		});
 		newEntries.forEach((entry) => {
 			const newCard = this.createCard(entry);
@@ -590,16 +572,19 @@ export class KanbanView extends BasesView {
 	}
 
 	private applyColumnColor(columnEl: HTMLElement, colorName: string | null): void {
-		if (colorName) {
-			const cssVar = COLOR_PALETTE.find((c) => c.name === colorName)?.cssVar ?? null;
-			if (cssVar) {
-				columnEl.style.setProperty('--obk-column-accent-color', cssVar);
-				columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
-				return;
-			}
+		if (!colorName) {
+			columnEl.style.removeProperty('--obk-column-accent-color');
+			columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
+			return;
 		}
-		columnEl.style.removeProperty('--obk-column-accent-color');
-		columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
+		const cssVar = COLOR_PALETTE.find((c) => c.name === colorName)?.cssVar ?? null;
+		if (!cssVar) {
+			columnEl.style.removeProperty('--obk-column-accent-color');
+			columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
+			return;
+		}
+		columnEl.style.setProperty('--obk-column-accent-color', cssVar);
+		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
 	}
 
 	private openColorPicker(anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string): void {

@@ -278,7 +278,7 @@ export class KanbanView extends BasesView {
 
 			// Reload prefs when the group-by property changes
 			if (this.groupByPropertyId !== this._prefsPropertyId) {
-				this._loadPrefs(this.groupByPropertyId!);
+				this._loadPrefs(this.groupByPropertyId);
 			}
 
 			if (entries.length === 0) {

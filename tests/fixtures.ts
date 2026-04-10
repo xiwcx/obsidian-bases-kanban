@@ -14,6 +14,7 @@ export const PROPERTY_STATUS = 'note.status' as BasesPropertyId;
 export const PROPERTY_PRIORITY = 'note.priority' as BasesPropertyId;
 export const PROPERTY_CATEGORY = 'note.category' as BasesPropertyId;
 export const PROPERTY_RELATED = 'note.related' as BasesPropertyId;
+export const PROPERTY_TITLE = 'note.title' as BasesPropertyId;
 
 // Sample entries with status property
 export function createEntriesWithStatus(): BasesEntry[] {
@@ -51,6 +52,16 @@ export function createEntriesWithEmptyValues(): BasesEntry[] {
 		createMockBasesEntry(createMockTFile('Task 2.md'), { [PROPERTY_STATUS]: null }),
 		createMockBasesEntry(createMockTFile('Task 3.md'), { [PROPERTY_STATUS]: '' }),
 		createMockBasesEntry(createMockTFile('Task 4.md'), {}), // No property
+	];
+}
+
+// Entry with a custom title property
+export function createEntriesWithCustomTitle(): BasesEntry[] {
+	return [
+		createMockBasesEntry(createMockTFile('README.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_TITLE]: 'My Project',
+		}),
 	];
 }
 

@@ -16,6 +16,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Property Selection**: Choose which property determines your columns (e.g., "Status", "Priority", "Category")
 - **Uncategorized Entries**: Notes without a value for the selected property are automatically grouped in an "Uncategorized" column
 - **Property Display**: Selected properties are shown on each card for at-a-glance context
+- **Custom Card Titles**: Display a frontmatter property as the card title instead of the file name — useful when files share a common name (e.g., `README.md`) across folders
 - **Property Word Wrap**: Toggle property text wrapping on cards to handle long property values
 - **Click to Open**: Click any card to open the corresponding note
 - **Visual Feedback**: Clear visual indicators during drag operations
@@ -59,6 +60,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 5. Drag cards between columns to update the property value
 6. Click any card to open the corresponding note
 7. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
+8. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
 ### Example
 
@@ -68,6 +70,11 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Drag cards between columns to change their status
 - Click any card to open the note
 - Drag columns by their handle to reorder them - your order preference will be remembered
+
+If your project folders each contain a `README.md` with a `title` property:
+- Select `title` in the "Card title property" dropdown
+- Cards will display the `title` property value instead of "README"
+- If a note is missing the property, the file name is used as a fallback
 
 ## Development
 

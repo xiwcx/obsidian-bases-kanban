@@ -137,11 +137,14 @@ describe('View Options', () => {
 	test('getViewOptions returns correct structure', () => {
 		const options = KanbanView.getViewOptions();
 
-		assert.strictEqual(options.length, 2, 'Should return two options');
+		assert.strictEqual(options.length, 3, 'Should return three options');
 		assert.strictEqual(options[0].displayName, 'Group by', 'First option should be Group by');
-		assert.strictEqual(options[1].displayName, 'Wrap property values', 'Second option should be Wrap property values');
-		assert.strictEqual(options[1].type, 'toggle', 'Wrap property values should be a toggle');
-		assert.strictEqual(options[1].key, 'wrapPropertyValues', 'Key should be "wrapPropertyValues"');
+		assert.strictEqual(options[1].displayName, 'Card title property', 'Second option should be Card title property');
+		assert.strictEqual(options[1].type, 'property', 'Card title property should be a property selector');
+		assert.strictEqual(options[1].key, 'cardTitleProperty', 'Key should be "cardTitleProperty"');
+		assert.strictEqual(options[2].displayName, 'Wrap property values', 'Third option should be Wrap property values');
+		assert.strictEqual(options[2].type, 'toggle', 'Wrap property values should be a toggle');
+		assert.strictEqual(options[2].key, 'wrapPropertyValues', 'Key should be "wrapPropertyValues"');
 	});
 
 	test('Property filter excludes file.* properties', () => {

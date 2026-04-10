@@ -118,6 +118,7 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
+	private cardTitlePropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
 	private _entryMap: Map<string, BasesEntry> = new Map();
 	private columnSortable: Sortable | null = null;
@@ -137,6 +138,7 @@ export class KanbanView extends BasesView {
 	 */
 	private _lastOrderKey: string = '';
 	private _lastWrapValue: boolean | null = null;
+	private _lastCardTitlePropertyId: BasesPropertyId | null | undefined = undefined;
 
 	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
 		{
@@ -189,6 +191,7 @@ export class KanbanView extends BasesView {
 
 	private loadConfig(): void {
 		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
+		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
 	}
 
 	/**
@@ -323,8 +326,18 @@ export class KanbanView extends BasesView {
 			const wrapChanged = currentWrapValue !== this._lastWrapValue;
 			this._lastWrapValue = currentWrapValue;
 
+			const currentCardTitlePropertyId = this.cardTitlePropertyId;
+			const cardTitleChanged = currentCardTitlePropertyId !== this._lastCardTitlePropertyId;
+			this._lastCardTitlePropertyId = currentCardTitlePropertyId;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
-			if (!existingBoard || this._prefsPropertyId !== this.groupByPropertyId || orderChanged || wrapChanged) {
+			if (
+				!existingBoard ||
+				this._prefsPropertyId !== this.groupByPropertyId ||
+				orderChanged ||
+				wrapChanged ||
+				cardTitleChanged
+			) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
 				this.patchBoard(existingBoard, orderedValues, groupedEntries);
@@ -525,6 +538,22 @@ export class KanbanView extends BasesView {
 		return columnEl;
 	}
 
+	private renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, filePath: string): void {
+		if (!this.cardTitlePropertyId) {
+			titleEl.textContent = entry.file.basename;
+			return;
+		}
+
+		const titleValue = entry.getValue(this.cardTitlePropertyId);
+
+		if (titleValue === null || titleValue instanceof NullValue) {
+			titleEl.textContent = entry.file.basename;
+			return;
+		}
+
+		void renderPropertyValue(this.app, titleValue, titleEl, filePath, this);
+	}
+
 	private createCard(entry: BasesEntry): HTMLElement {
 		const cardEl = document.createElement('div');
 		cardEl.className = CSS_CLASSES.CARD;
@@ -532,7 +561,7 @@ export class KanbanView extends BasesView {
 		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
 
 		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
-		titleEl.textContent = entry.file.basename;
+		this.renderCardTitle(titleEl, entry, filePath);
 
 		const order = this.config?.getOrder() ?? [];
 		const shouldWrap = this.config?.get('wrapPropertyValues') === true;
@@ -899,6 +928,12 @@ export class KanbanView extends BasesView {
 				key: 'groupByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Select property',
+			},
+			{
+				displayName: 'Card title property',
+				type: 'property',
+				key: 'cardTitleProperty',
+				placeholder: 'Default: file name',
 			},
 			{
 				displayName: 'Wrap property values',

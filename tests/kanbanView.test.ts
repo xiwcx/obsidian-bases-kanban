@@ -6,6 +6,7 @@ import { UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
 	createEmptyEntries,
+	createEntriesWithCustomTitle,
 	createEntriesWithEmptyValues,
 	createEntriesWithLinks,
 	createEntriesWithMixedProperties,
@@ -14,6 +15,7 @@ import {
 	PROPERTY_PRIORITY,
 	PROPERTY_RELATED,
 	PROPERTY_STATUS,
+	PROPERTY_TITLE,
 	TEST_PROPERTIES,
 	VALUE_BOOLEAN,
 	VALUE_DATE,
@@ -267,7 +269,10 @@ describe('Data Rendering - Card Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			return null;
+		};
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -281,7 +286,76 @@ describe('Data Rendering - Card Rendering', () => {
 
 		const title = firstCard.querySelector('.obk-card-title');
 		assert.ok(title, 'Card title should exist');
-		assert.ok(title?.textContent, 'Card title should have text content');
+		// Columns sorted alphabetically: Doing, Done, To Do — first card is Task 3
+		assert.strictEqual(title?.textContent, 'Task 3', 'Card title should default to file basename');
+	});
+
+	test('Card title defaults to file basename when cardTitleProperty is not configured', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Columns sorted alphabetically: Doing, Done, To Do — first card is Task 3
+		const firstCard = view.containerEl.querySelectorAll('.obk-card')[0] as HTMLElement;
+		const title = firstCard.querySelector('.obk-card-title');
+		assert.strictEqual(
+			title?.textContent,
+			'Task 3',
+			'Card title should be file basename when cardTitleProperty is not set',
+		);
+	});
+
+	test('Card title uses cardTitleProperty value when set', () => {
+		const entries = createEntriesWithCustomTitle();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'cardTitleProperty') return PROPERTY_TITLE;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const firstCard = view.containerEl.querySelectorAll('.obk-card')[0] as HTMLElement;
+		const title = firstCard.querySelector('.obk-card-title');
+		// MarkdownRenderer.render appends text synchronously before the await resolves
+		assert.ok(title?.textContent?.includes('My Project'), 'Card title should show the cardTitleProperty value');
+		assert.notStrictEqual(title?.textContent, 'README', 'Card title should not be the file basename');
+	});
+
+	test('Card title falls back to basename when cardTitleProperty value is null', () => {
+		const entries = createEntriesWithStatus(); // no PROPERTY_TITLE on these entries
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'cardTitleProperty') return PROPERTY_TITLE;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Columns sorted alphabetically: Doing, Done, To Do — first card is Task 3
+		const firstCard = view.containerEl.querySelectorAll('.obk-card')[0] as HTMLElement;
+		const title = firstCard.querySelector('.obk-card-title');
+		assert.strictEqual(
+			title?.textContent,
+			'Task 3',
+			'Card title should fall back to basename when property value is null',
+		);
 	});
 
 	test('Property wrapping class is applied when enabled in config', () => {

@@ -708,6 +708,205 @@ describe('Swimlane Drag and Drop - Card Drop', () => {
 	});
 });
 
+// ── Column Colors Across Swimlanes ───────────────────────────────────────────
+
+describe('Swimlane Column Colors - Shared Across Rows', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		(global as any).Sortable = mockSortable().Sortable;
+		// Clean up any leftover popover from a previous test
+		document.querySelectorAll('.obk-column-color-popover').forEach((el) => el.remove());
+	});
+
+	test('Stored column color is applied to all swimlane rows on initial render', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+		// Pre-load a color for "To Do" in config
+		controller.config.set('columnColors', { [PROPERTY_STATUS]: { 'To Do': 'red' } });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const todoColumns = Array.from(
+			view.containerEl.querySelectorAll<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"]`),
+		);
+		assert.ok(todoColumns.length >= 2, 'There should be a "To Do" column in each swimlane');
+
+		for (const col of todoColumns) {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				'var(--color-red)',
+				'Every "To Do" column across swimlanes should have the red accent',
+			);
+			assert.strictEqual(col.getAttribute('data-column-color'), 'red', 'data-column-color attribute should be set');
+		}
+	});
+
+	test('Columns without a stored color have no accent in any swimlane row', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const allColumns = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`));
+		for (const col of allColumns) {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				'',
+				'Column without stored color should have no accent variable',
+			);
+			assert.strictEqual(col.getAttribute('data-column-color'), null, 'data-column-color should be absent');
+		}
+	});
+
+	test('Picking a color via the picker immediately applies it to all swimlane rows', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Open the color picker on the "To Do" column in the first swimlane
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)!;
+		const todoColInFirst = firstSwimlane.querySelector<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"]`)!;
+		const colorBtn = todoColInFirst.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_COLOR_BTN}`)!;
+		assert.ok(colorBtn, 'Color button should exist on the column header');
+
+		colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const popover = document.querySelector<HTMLElement>('.obk-column-color-popover');
+		assert.ok(popover, 'Color picker popover should appear');
+
+		// Click the first real color swatch (index 0 is "none", index 1 is the first palette color)
+		const swatches = popover!.querySelectorAll<HTMLElement>('.obk-column-color-swatch');
+		assert.ok(swatches.length > 1, 'Popover should have at least one color swatch');
+		const firstColorSwatch = swatches[1];
+		const pickedColor = firstColorSwatch.title;
+		firstColorSwatch.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		// Every "To Do" column across all swimlanes should now have the picked color
+		const todoColumns = Array.from(
+			view.containerEl.querySelectorAll<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"]`),
+		);
+		assert.ok(todoColumns.length >= 2, 'Should have "To Do" in multiple swimlanes');
+
+		for (const col of todoColumns) {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				`var(--color-${pickedColor})`,
+				`All "To Do" columns should have the ${pickedColor} accent applied immediately`,
+			);
+		}
+	});
+
+	test('Picking a color for one column does not affect sibling columns in other swimlanes', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)!;
+		const todoColInFirst = firstSwimlane.querySelector<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"]`)!;
+		const colorBtn = todoColInFirst.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_COLOR_BTN}`)!;
+		colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const popover = document.querySelector<HTMLElement>('.obk-column-color-popover')!;
+		const swatches = popover.querySelectorAll<HTMLElement>('.obk-column-color-swatch');
+		swatches[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		// "Done" columns should be unaffected across all swimlanes
+		const doneColumns = Array.from(
+			view.containerEl.querySelectorAll<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="Done"]`),
+		);
+		assert.ok(doneColumns.length >= 1, 'There should be "Done" columns');
+		for (const col of doneColumns) {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				'',
+				'"Done" columns should remain uncolored when "To Do" color is set',
+			);
+		}
+	});
+
+	test('Selecting "no color" clears the accent from all swimlane rows', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+		controller.config.set('columnColors', { [PROPERTY_STATUS]: { 'To Do': 'green' } });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Verify the color is applied initially
+		const todoColumns = Array.from(
+			view.containerEl.querySelectorAll<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"]`),
+		);
+		assert.ok(
+			todoColumns.every((col) => col.style.getPropertyValue('--obk-column-accent-color') !== ''),
+			'All "To Do" columns should have a color before clearing',
+		);
+
+		// Open the picker and click "no color" (swatch index 0)
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)!;
+		const colorBtn = firstSwimlane.querySelector<HTMLElement>(
+			`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"] .${CSS_CLASSES.COLUMN_COLOR_BTN}`,
+		)!;
+		colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const popover = document.querySelector<HTMLElement>('.obk-column-color-popover')!;
+		const noneSwatch = popover.querySelectorAll<HTMLElement>('.obk-column-color-swatch')[0];
+		noneSwatch.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		for (const col of todoColumns) {
+			assert.strictEqual(
+				col.style.getPropertyValue('--obk-column-accent-color'),
+				'',
+				'All "To Do" columns should have accent cleared after selecting "no color"',
+			);
+			assert.strictEqual(col.getAttribute('data-column-color'), null, 'data-column-color attribute should be removed');
+		}
+	});
+
+	test('Color choice is persisted to config and keyed by column value (not swimlane)', () => {
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)!;
+		const colorBtn = firstSwimlane.querySelector<HTMLElement>(
+			`[${DATA_ATTRIBUTES.COLUMN_VALUE}="To Do"] .${CSS_CLASSES.COLUMN_COLOR_BTN}`,
+		)!;
+		colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const popover = document.querySelector<HTMLElement>('.obk-column-color-popover')!;
+		const swatches = popover.querySelectorAll<HTMLElement>('.obk-column-color-swatch');
+		const pickedColor = swatches[1].title;
+		swatches[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+		const savedColors = controller.config.get('columnColors') as Record<string, Record<string, string>> | null;
+		assert.ok(savedColors, 'columnColors should be saved to config');
+		assert.strictEqual(
+			savedColors[PROPERTY_STATUS]?.['To Do'],
+			pickedColor,
+			'Color should be stored under the column value key, not a swimlane-composite key',
+		);
+	});
+});
+
 // ── Preference Persistence ────────────────────────────────────────────────────
 
 describe('Swimlane Preferences - Loading and Persistence', () => {
@@ -794,5 +993,178 @@ describe('Swimlane Preferences - Loading and Persistence', () => {
 			null,
 			'_swimlanePrefsPropertyId should be null after disabling swimlane',
 		);
+	});
+});
+
+// ── Collapse Toggle ──────────────────────────────────────────────────────────
+
+describe('Swimlane Collapse Toggle', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		mockSortable();
+		(global as any).Sortable = mockSortable().Sortable;
+		addClosestPolyfill(document.createElement('div'));
+		controller = setupSwimlaneController(createSwimlaneEntries());
+		controller.app = app;
+	});
+
+	test('Each swimlane header has a toggle button', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const swimlanes = view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+		swimlanes.forEach((slEl) => {
+			const toggleBtn = slEl.querySelector(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+			assert.ok(toggleBtn, 'Swimlane header should have a toggle button');
+		});
+	});
+
+	test('Toggle button shows ▾ (expanded) by default', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const swimlanes = view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+		swimlanes.forEach((slEl) => {
+			const toggleBtn = slEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+			assert.strictEqual(toggleBtn?.textContent, '▾', 'Toggle button should show ▾ when expanded');
+		});
+	});
+
+	test('Clicking toggle collapses the swimlane', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+		assert.ok(firstSwimlane, 'Swimlane should exist');
+
+		const toggleBtn = firstSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		assert.ok(toggleBtn, 'Toggle button should exist');
+
+		toggleBtn!.click();
+
+		assert.ok(
+			firstSwimlane!.classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED),
+			'Swimlane should have collapsed class after toggle',
+		);
+		assert.strictEqual(toggleBtn!.textContent, '▸', 'Toggle button should show ▸ when collapsed');
+	});
+
+	test('Clicking toggle again expands the swimlane', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const firstSwimlane = view.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+		const toggleBtn = firstSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+
+		toggleBtn!.click();
+		toggleBtn!.click();
+
+		assert.ok(
+			!firstSwimlane!.classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED),
+			'Swimlane should not have collapsed class after toggling twice',
+		);
+		assert.strictEqual(toggleBtn!.textContent, '▾', 'Toggle button should show ▾ when re-expanded');
+	});
+
+	test('Collapsing a swimlane updates _swimlanePrefs.collapsedSwimlanes', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const highSwimlane = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)).find(
+			(sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) === 'High',
+		);
+		assert.ok(highSwimlane, 'High swimlane should exist');
+
+		const toggleBtn = highSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		toggleBtn!.click();
+
+		const collapsed = (view as any)._swimlanePrefs.collapsedSwimlanes as string[];
+		assert.ok(collapsed.includes('High'), 'collapsedSwimlanes should include High');
+	});
+
+	test('Expanding a swimlane removes it from _swimlanePrefs.collapsedSwimlanes', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const highSwimlane = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)).find(
+			(sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) === 'High',
+		);
+		const toggleBtn = highSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+
+		toggleBtn!.click();
+		toggleBtn!.click();
+
+		const collapsed = (view as any)._swimlanePrefs.collapsedSwimlanes as string[];
+		assert.ok(!collapsed.includes('High'), 'collapsedSwimlanes should not include High after re-expanding');
+	});
+
+	test('Collapsed state is persisted to config', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const highSwimlane = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)).find(
+			(sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) === 'High',
+		);
+		const toggleBtn = highSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		toggleBtn!.click();
+
+		const savedCollapsed = controller.config.get('swimlaneCollapsed');
+		assert.ok(savedCollapsed, 'swimlaneCollapsed should be saved to config');
+		const collapsedForProp = (savedCollapsed as any)[PROPERTY_PRIORITY] as string[];
+		assert.ok(Array.isArray(collapsedForProp), 'Should have an array for the swimlane property');
+		assert.ok(collapsedForProp.includes('High'), 'Persisted collapsed state should include High');
+	});
+
+	test('Collapsed state is restored from config on initial render', () => {
+		// Pre-populate config with a collapsed swimlane
+		controller.config.set('swimlaneCollapsed', { [PROPERTY_PRIORITY]: ['High'] });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const highSwimlane = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)).find(
+			(sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) === 'High',
+		);
+		assert.ok(highSwimlane, 'High swimlane should exist');
+		assert.ok(
+			highSwimlane!.classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED),
+			'High swimlane should be collapsed based on saved config',
+		);
+
+		const toggleBtn = highSwimlane!.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		assert.strictEqual(toggleBtn?.textContent, '▸', 'Toggle button should show ▸ for collapsed swimlane');
+
+		const lowSwimlane = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`)).find(
+			(sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) === 'Low',
+		);
+		assert.ok(!lowSwimlane!.classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED), 'Low swimlane should remain expanded');
+	});
+
+	test('Only the clicked swimlane collapses; others remain expanded', () => {
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const swimlanes = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`));
+		assert.strictEqual(swimlanes.length, 2, 'Should have 2 swimlanes');
+
+		const firstToggle = swimlanes[0].querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		firstToggle!.click();
+
+		assert.ok(swimlanes[0].classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED), 'First swimlane should be collapsed');
+		assert.ok(!swimlanes[1].classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED), 'Second swimlane should remain expanded');
 	});
 });

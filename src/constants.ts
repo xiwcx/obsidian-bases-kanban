@@ -86,8 +86,10 @@ export const CSS_CLASSES = {
 	// Swimlane (horizontal rows grouping a second property)
 	BOARD_SWIMLANE: 'obk-board--swimlane',
 	SWIMLANE: 'obk-swimlane',
+	SWIMLANE_COLLAPSED: 'obk-swimlane--collapsed',
 	SWIMLANE_HEADER: 'obk-swimlane-header',
 	SWIMLANE_DRAG_HANDLE: 'obk-swimlane-drag-handle',
+	SWIMLANE_TOGGLE: 'obk-swimlane-toggle',
 	SWIMLANE_TITLE: 'obk-swimlane-title',
 	SWIMLANE_COUNT: 'obk-swimlane-count',
 	SWIMLANE_BOARD: 'obk-swimlane-board',

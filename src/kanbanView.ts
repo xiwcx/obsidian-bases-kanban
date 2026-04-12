@@ -168,7 +168,10 @@ export class KanbanView extends BasesView {
 		};
 	private _prefsPropertyId: BasesPropertyId | null = null;
 
-	private _swimlanePrefs: { swimlaneOrder: string[] } = { swimlaneOrder: [] };
+	private _swimlanePrefs: { swimlaneOrder: string[]; collapsedSwimlanes: string[] } = {
+		swimlaneOrder: [],
+		collapsedSwimlanes: [],
+	};
 	private _swimlanePrefsPropertyId: BasesPropertyId | null = null;
 
 	/**
@@ -254,13 +257,17 @@ export class KanbanView extends BasesView {
 		this._prefs.columnColors = columnColors ? { ...columnColors } : {};
 	}
 
-	/** Load swimlane row order from config for the given swimlane property. */
+	/** Load swimlane row order and collapsed state from config for the given swimlane property. */
 	private _loadSwimlanePrefs(propertyId: BasesPropertyId): void {
 		this._swimlanePrefsPropertyId = propertyId;
 		const rawOrders = this.config?.get('swimlaneOrders');
 		const allOrders = isColumnOrders(rawOrders) ? rawOrders : {};
 		const savedOrder = allOrders[propertyId] ?? null;
 		this._swimlanePrefs.swimlaneOrder = savedOrder ? [...savedOrder] : [];
+
+		const rawCollapsed = this.config?.get('swimlaneCollapsed');
+		const allCollapsed = isColumnOrders(rawCollapsed) ? rawCollapsed : {};
+		this._swimlanePrefs.collapsedSwimlanes = allCollapsed[propertyId] ? [...allCollapsed[propertyId]] : [];
 	}
 
 	/**
@@ -293,6 +300,18 @@ export class KanbanView extends BasesView {
 			this.config?.set('swimlaneOrders', {
 				...allOrders,
 				[this._swimlanePrefsPropertyId]: this._swimlanePrefs.swimlaneOrder,
+			});
+		}
+
+		const rawCollapsed = this.config?.get('swimlaneCollapsed');
+		const allCollapsed = isColumnOrders(rawCollapsed) ? rawCollapsed : {};
+		if (
+			JSON.stringify(allCollapsed[this._swimlanePrefsPropertyId]) !==
+			JSON.stringify(this._swimlanePrefs.collapsedSwimlanes)
+		) {
+			this.config?.set('swimlaneCollapsed', {
+				...allCollapsed,
+				[this._swimlanePrefsPropertyId]: this._swimlanePrefs.collapsedSwimlanes,
 			});
 		}
 	}
@@ -350,7 +369,7 @@ export class KanbanView extends BasesView {
 				this._loadSwimlanePrefs(this.swimlaneByPropertyId);
 			} else if (!hasSwimlane && this._swimlanePrefsPropertyId !== null) {
 				this._swimlanePrefsPropertyId = null;
-				this._swimlanePrefs = { swimlaneOrder: [] };
+				this._swimlanePrefs = { swimlaneOrder: [], collapsedSwimlanes: [] };
 			}
 
 			const hasNoEntries = entries.length === 0;
@@ -556,12 +575,22 @@ export class KanbanView extends BasesView {
 		slEl.className = CSS_CLASSES.SWIMLANE;
 		slEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, slValue);
 
+		const isCollapsed = this._swimlanePrefs.collapsedSwimlanes.includes(slValue);
+		if (isCollapsed) slEl.classList.add(CSS_CLASSES.SWIMLANE_COLLAPSED);
+
 		const headerEl = slEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
 		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE });
 		dragHandle.textContent = '⋮⋮';
 		headerEl.createSpan({ text: slValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
 		const totalEntries = Array.from(colGrouped.values()).reduce((sum, arr) => sum + arr.length, 0);
 		headerEl.createSpan({ text: `${totalEntries}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
+
+		const toggleBtn = headerEl.createEl('button', {
+			cls: CSS_CLASSES.SWIMLANE_TOGGLE,
+			attr: { 'aria-label': isCollapsed ? 'Expand swimlane' : 'Collapse swimlane' },
+		});
+		toggleBtn.textContent = isCollapsed ? '▸' : '▾';
+		toggleBtn.addEventListener('click', () => this._toggleSwimlaneCollapsed(slEl, slValue, toggleBtn));
 
 		const innerBoardEl = slEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BOARD });
 		orderedColumns.forEach((colValue) => {
@@ -570,6 +599,21 @@ export class KanbanView extends BasesView {
 		});
 
 		return slEl;
+	}
+
+	private _toggleSwimlaneCollapsed(slEl: HTMLElement, slValue: string, toggleBtn: HTMLElement): void {
+		const nowCollapsed = slEl.classList.toggle(CSS_CLASSES.SWIMLANE_COLLAPSED);
+		toggleBtn.textContent = nowCollapsed ? '▸' : '▾';
+		toggleBtn.setAttribute('aria-label', nowCollapsed ? 'Expand swimlane' : 'Collapse swimlane');
+
+		if (nowCollapsed) {
+			if (!this._swimlanePrefs.collapsedSwimlanes.includes(slValue)) {
+				this._swimlanePrefs.collapsedSwimlanes = [...this._swimlanePrefs.collapsedSwimlanes, slValue];
+			}
+		} else {
+			this._swimlanePrefs.collapsedSwimlanes = this._swimlanePrefs.collapsedSwimlanes.filter((v) => v !== slValue);
+		}
+		this._persistSwimlanePrefs();
 	}
 
 	/** Patch the swimlane board in place (add/remove/reorder swimlane rows and their columns). */
@@ -919,6 +963,14 @@ export class KanbanView extends BasesView {
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
 	}
 
+	/** Apply a color to every column element sharing the same column value (all swimlane rows). */
+	private applyColumnColorToAll(columnValue: string, colorName: string | null): void {
+		const escaped = CSS.escape(columnValue);
+		this.containerEl
+			.querySelectorAll<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="${escaped}"]`)
+			.forEach((el) => this.applyColumnColor(el, colorName));
+	}
+
 	private openColorPicker(anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string): void {
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
@@ -933,7 +985,7 @@ export class KanbanView extends BasesView {
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
 		noneSwatch.addEventListener('click', () => {
-			this.applyColumnColor(columnEl, null);
+			this.applyColumnColorToAll(columnValue, null);
 			delete this._prefs.columnColors[columnValue];
 			this._persistPrefs();
 			popover.remove();
@@ -948,7 +1000,7 @@ export class KanbanView extends BasesView {
 			swatch.title = color.name;
 			if (currentColor === color.name) swatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 			swatch.addEventListener('click', () => {
-				this.applyColumnColor(columnEl, color.name);
+				this.applyColumnColorToAll(columnValue, color.name);
 				this._prefs.columnColors[columnValue] = color.name;
 				this._persistPrefs();
 				popover.remove();

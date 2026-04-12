@@ -490,6 +490,38 @@
 	max-height: none;
 }
 
+/* Collapse toggle button */
+.obk-swimlane-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	background: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: 16px;
+	border-radius: 4px;
+	flex-shrink: 0;
+}
+
+.obk-swimlane-toggle:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+/* Collapsed swimlane: hide the board and square off the header corners */
+.obk-swimlane--collapsed .obk-swimlane-board {
+	display: none;
+}
+
+.obk-swimlane--collapsed .obk-swimlane-header {
+	border-bottom: none;
+	border-radius: 8px;
+}
+
 /* Swimlane drag-and-drop states */
 .obk-swimlane-dragging {
 	opacity: 0.5;

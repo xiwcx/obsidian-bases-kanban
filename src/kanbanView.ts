@@ -118,10 +118,26 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
+	private swimlaneByPropertyId: BasesPropertyId | null = null;
 	private cardTitlePropertyId: BasesPropertyId | null = null;
+
+	/**
+	 * Card drag sortables.
+	 * Flat mode key:     "columnValue"
+	 * Swimlane mode key: "swimlaneValue||columnValue"
+	 */
 	private _columnSortables: Map<string, Sortable> = new Map();
-	private _entryMap: Map<string, BasesEntry> = new Map();
+	/**
+	 * Column-reorder sortables — one per swimlane board in swimlane mode,
+	 * keyed by swimlane value.  Unused in flat mode (columnSortable covers that).
+	 */
+	private _columnBoardSortables: Map<string, Sortable> = new Map();
+	/** Swimlane row reorder sortable (swimlane mode only). */
+	private _swimlaneSortable: Sortable | null = null;
+	/** Column reorder sortable for the flat-mode board. */
 	private columnSortable: Sortable | null = null;
+
+	private _entryMap: Map<string, BasesEntry> = new Map();
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
 
@@ -135,18 +151,25 @@ export class KanbanView extends BasesView {
 	 *
 	 * This breaks the config.set() → onDataUpdated() feedback loop that caused
 	 * state thrashing on every render cycle.
+	 *
+	 * Card order keys in swimlane mode use the composite format "swimlaneValue||columnValue"
+	 * so the same cardOrders map works for both flat and swimlane modes.
 	 */
 	private _lastOrderKey: string = '';
 	private _lastWrapValue: boolean | null = null;
 	private _lastCardTitlePropertyId: BasesPropertyId | null | undefined = undefined;
+	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
 
 	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
 		{
 			columnOrder: [],
 			cardOrders: {},
-			columnColors: {}, // columnValue → colorName
+			columnColors: {},
 		};
 	private _prefsPropertyId: BasesPropertyId | null = null;
+
+	private _swimlanePrefs: { swimlaneOrder: string[] } = { swimlaneOrder: [] };
+	private _swimlanePrefsPropertyId: BasesPropertyId | null = null;
 
 	/**
 	 * True while a card or column drag is in flight. When set, patchColumnCards
@@ -192,10 +215,11 @@ export class KanbanView extends BasesView {
 	private loadConfig(): void {
 		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
 		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
+		this.swimlaneByPropertyId = this.config.getAsPropertyId('swimlaneByProperty');
 	}
 
 	/**
-	 * Load display preferences from config for the given propertyId.
+	 * Load display preferences from config for the given column property.
 	 * Called once when groupByPropertyId changes; subsequent renders reuse _prefs.
 	 */
 	private _loadPrefs(propertyId: BasesPropertyId): void {
@@ -230,6 +254,15 @@ export class KanbanView extends BasesView {
 		this._prefs.columnColors = columnColors ? { ...columnColors } : {};
 	}
 
+	/** Load swimlane row order from config for the given swimlane property. */
+	private _loadSwimlanePrefs(propertyId: BasesPropertyId): void {
+		this._swimlanePrefsPropertyId = propertyId;
+		const rawOrders = this.config?.get('swimlaneOrders');
+		const allOrders = isColumnOrders(rawOrders) ? rawOrders : {};
+		const savedOrder = allOrders[propertyId] ?? null;
+		this._swimlanePrefs.swimlaneOrder = savedOrder ? [...savedOrder] : [];
+	}
+
 	/**
 	 * Write _prefs back to config. Called only on user actions (drag-drop,
 	 * column remove, color change) — never during renders.
@@ -250,6 +283,37 @@ export class KanbanView extends BasesView {
 		this._persistConfigKey('columnOrders', isColumnOrders, this._prefs.columnOrder);
 		this._persistConfigKey('cardOrders', isCardOrders, this._prefs.cardOrders);
 		this._persistConfigKey('columnColors', isColumnColors, this._prefs.columnColors);
+	}
+
+	private _persistSwimlanePrefs(): void {
+		if (!this._swimlanePrefsPropertyId) return;
+		const rawOrders = this.config?.get('swimlaneOrders');
+		const allOrders = isColumnOrders(rawOrders) ? rawOrders : {};
+		if (JSON.stringify(allOrders[this._swimlanePrefsPropertyId]) !== JSON.stringify(this._swimlanePrefs.swimlaneOrder)) {
+			this.config?.set('swimlaneOrders', {
+				...allOrders,
+				[this._swimlanePrefsPropertyId]: this._swimlanePrefs.swimlaneOrder,
+			});
+		}
+	}
+
+	/**
+	 * True when swimlane mode is active (a swimlane property is selected and it
+	 * differs from the column group-by property). Use this instead of checking
+	 * swimlaneByPropertyId directly, because the raw field may be non-null even
+	 * when the user picked the same property for both axes.
+	 */
+	private get isSwimlaneModeActive(): boolean {
+		return !!this.swimlaneByPropertyId && this.swimlaneByPropertyId !== this.groupByPropertyId;
+	}
+
+	/**
+	 * Composite key for card order storage.
+	 * Flat mode:     cardOrderKey("Todo")           → "Todo"
+	 * Swimlane mode: cardOrderKey("Todo", "Backlog") → "Backlog||Todo"
+	 */
+	private cardOrderKey(columnValue: string, swimlaneValue?: string): string {
+		return swimlaneValue ? `${swimlaneValue}||${columnValue}` : columnValue;
 	}
 
 	private render(): void {
@@ -273,9 +337,20 @@ export class KanbanView extends BasesView {
 			// value so the board renders from persisted prefs rather than switching
 			// to an unrelated property.
 
-			// Reload prefs when the group-by property changes
+			// Reload prefs when the column property changes
 			if (this.groupByPropertyId !== this._prefsPropertyId) {
 				this._loadPrefs(this.groupByPropertyId);
+			}
+
+			// Swimlane mode is active only when a different property is selected
+			const hasSwimlane = !!this.swimlaneByPropertyId && this.swimlaneByPropertyId !== this.groupByPropertyId;
+
+			// Reload/clear swimlane prefs when the swimlane property changes
+			if (hasSwimlane && this.swimlaneByPropertyId !== this._swimlanePrefsPropertyId) {
+				this._loadSwimlanePrefs(this.swimlaneByPropertyId);
+			} else if (!hasSwimlane && this._swimlanePrefsPropertyId !== null) {
+				this._swimlanePrefsPropertyId = null;
+				this._swimlanePrefs = { swimlaneOrder: [] };
 			}
 
 			const hasNoEntries = entries.length === 0;
@@ -293,31 +368,7 @@ export class KanbanView extends BasesView {
 			// Build path→entry lookup map for O(1) access in handleCardDrop
 			this._entryMap = new Map(entries.map((e: BasesEntry) => [e.file.path, e]));
 
-			// Group entries by group by property value
-			const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
-
-			// Apply saved card order within each column
-			groupedEntries.forEach((columnEntries, value) => {
-				const savedOrder = this._prefs.cardOrders[value];
-				if (savedOrder) {
-					groupedEntries.set(value, this.applyCardOrder(columnEntries, savedOrder));
-				}
-			});
-
-			// Merge any newly-seen column values into prefs and persist eagerly.
-			// This is the only place render() calls _persistPrefs(), and only when
-			// new columns appear — not on every render pass.
-			const liveValues = Array.from(groupedEntries.keys());
-			const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
-			if (newValues.length > 0) {
-				const isInitialOrder = this._prefs.columnOrder.length === 0;
-				// No prior order — sort alphabetically as the initial ordering
-				this._prefs.columnOrder = isInitialOrder ? [...newValues].sort() : [...this._prefs.columnOrder, ...newValues];
-				this._persistPrefs();
-			}
-
-			const orderedValues = this.getOrderedColumnValues(liveValues);
-
+			// Change detection flags
 			const currentOrderKey = JSON.stringify(this.config?.getOrder() ?? []);
 			const orderChanged = currentOrderKey !== this._lastOrderKey;
 			this._lastOrderKey = currentOrderKey;
@@ -330,21 +381,96 @@ export class KanbanView extends BasesView {
 			const cardTitleChanged = currentCardTitlePropertyId !== this._lastCardTitlePropertyId;
 			this._lastCardTitlePropertyId = currentCardTitlePropertyId;
 
+			const effectiveSwimlaneId = hasSwimlane ? this.swimlaneByPropertyId : null;
+			const swimlaneChanged = effectiveSwimlaneId !== this._lastSwimlanePropertyId;
+			this._lastSwimlanePropertyId = effectiveSwimlaneId;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
-			if (
+			const baseNeedsRebuild =
 				!existingBoard ||
 				this._prefsPropertyId !== this.groupByPropertyId ||
 				orderChanged ||
 				wrapChanged ||
-				cardTitleChanged
-			) {
-				this.fullRebuild(orderedValues, groupedEntries);
+				cardTitleChanged ||
+				swimlaneChanged;
+
+			if (hasSwimlane) {
+				this._renderSwimlane(entries, existingBoard, baseNeedsRebuild);
 			} else {
-				this.patchBoard(existingBoard, orderedValues, groupedEntries);
+				this._renderFlat(entries, existingBoard, baseNeedsRebuild);
 			}
+
 			this.reapplyActiveCard();
 		} catch (error) {
 			console.error('KanbanView error:', error);
+		}
+	}
+
+	private _renderFlat(entries: BasesEntry[], existingBoard: HTMLElement | null, baseNeedsRebuild: boolean): void {
+		const groupedEntries = this.groupEntriesByProperty(entries, this.groupByPropertyId);
+
+		// Apply saved card order within each column
+		groupedEntries.forEach((columnEntries, value) => {
+			const savedOrder = this._prefs.cardOrders[value];
+			if (savedOrder) {
+				groupedEntries.set(value, this.applyCardOrder(columnEntries, savedOrder));
+			}
+		});
+
+		// Merge any newly-seen column values into prefs and persist eagerly
+		const liveValues = Array.from(groupedEntries.keys());
+		const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
+		if (newValues.length > 0) {
+			const isInitialOrder = this._prefs.columnOrder.length === 0;
+			this._prefs.columnOrder = isInitialOrder ? [...newValues].sort() : [...this._prefs.columnOrder, ...newValues];
+			this._persistPrefs();
+		}
+
+		const orderedValues = this.getOrderedColumnValues(liveValues);
+
+		if (baseNeedsRebuild) {
+			this.fullRebuild(orderedValues, groupedEntries);
+		} else {
+			this.patchBoard(existingBoard, orderedValues, groupedEntries);
+		}
+	}
+
+	private _renderSwimlane(entries: BasesEntry[], existingBoard: HTMLElement | null, baseNeedsRebuild: boolean): void {
+		const swimlaneGrouped = this.groupEntriesByProperty(entries, this.swimlaneByPropertyId);
+
+		// Compute the union of all column values across every swimlane
+		const allColValSet = new Set<string>();
+		swimlaneGrouped.forEach((slEntries) => {
+			this.groupEntriesByProperty(slEntries, this.groupByPropertyId).forEach((_, k) => allColValSet.add(k));
+		});
+		const allColumnValues = Array.from(allColValSet);
+
+		// Merge new swimlane values into prefs
+		const liveSwimlaneValues = Array.from(swimlaneGrouped.keys());
+		const newSwimlaneValues = liveSwimlaneValues.filter((v) => !this._swimlanePrefs.swimlaneOrder.includes(v));
+		if (newSwimlaneValues.length > 0) {
+			const isInitial = this._swimlanePrefs.swimlaneOrder.length === 0;
+			this._swimlanePrefs.swimlaneOrder = isInitial
+				? [...newSwimlaneValues].sort()
+				: [...this._swimlanePrefs.swimlaneOrder, ...newSwimlaneValues];
+			this._persistSwimlanePrefs();
+		}
+
+		// Merge new column values into prefs
+		const newColValues = allColumnValues.filter((v) => !this._prefs.columnOrder.includes(v));
+		if (newColValues.length > 0) {
+			const isInitialOrder = this._prefs.columnOrder.length === 0;
+			this._prefs.columnOrder = isInitialOrder ? [...newColValues].sort() : [...this._prefs.columnOrder, ...newColValues];
+			this._persistPrefs();
+		}
+
+		const orderedColumns = this.getOrderedColumnValues(allColumnValues);
+		const orderedSwimlanes = this.getOrderedSwimlaneValues(liveSwimlaneValues);
+
+		if (baseNeedsRebuild) {
+			this.fullRebuildSwimlane(orderedColumns, orderedSwimlanes, swimlaneGrouped);
+		} else {
+			this.patchSwimlaneBoard(existingBoard, orderedColumns, orderedSwimlanes, swimlaneGrouped);
 		}
 	}
 
@@ -355,6 +481,12 @@ export class KanbanView extends BasesView {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
 		}
+		this._columnBoardSortables.forEach((s) => s.destroy());
+		this._columnBoardSortables.clear();
+		if (this._swimlaneSortable) {
+			this._swimlaneSortable.destroy();
+			this._swimlaneSortable = null;
+		}
 	}
 
 	private fullReset(): void {
@@ -363,6 +495,7 @@ export class KanbanView extends BasesView {
 		this._entryMap.clear();
 	}
 
+	/** Flat mode full rebuild. */
 	private fullRebuild(orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
 		this.containerEl.empty();
 		this.destroySortables();
@@ -375,6 +508,173 @@ export class KanbanView extends BasesView {
 
 		this.initializeSortable();
 		this.initializeColumnSortable();
+	}
+
+	/** Swimlane mode full rebuild. */
+	private fullRebuildSwimlane(
+		orderedColumns: string[],
+		orderedSwimlanes: string[],
+		swimlaneGrouped: Map<string, BasesEntry[]>,
+	): void {
+		this.containerEl.empty();
+		this.destroySortables();
+
+		const boardEl = this.containerEl.createDiv({
+			cls: `${CSS_CLASSES.BOARD} ${CSS_CLASSES.BOARD_SWIMLANE}`,
+		});
+
+		orderedSwimlanes.forEach((slValue) => {
+			const slEntries = swimlaneGrouped.get(slValue) ?? [];
+			const colGrouped = this.buildColumnGrouped(slEntries, slValue);
+			const slEl = this.createSwimlane(slValue, orderedColumns, colGrouped);
+			boardEl.appendChild(slEl);
+		});
+
+		this.initializeSortableForSwimlanes();
+		this.initializeColumnSortablesForSwimlanes();
+		this.initializeSwimlaneSort();
+	}
+
+	/**
+	 * Group a set of entries by the column property and apply saved card order.
+	 * swimlaneValue is passed in swimlane mode to build the composite card-order key.
+	 */
+	private buildColumnGrouped(slEntries: BasesEntry[], swimlaneValue?: string): Map<string, BasesEntry[]> {
+		const colGrouped = this.groupEntriesByProperty(slEntries, this.groupByPropertyId);
+		colGrouped.forEach((colEntries, colValue) => {
+			const key = this.cardOrderKey(colValue, swimlaneValue);
+			const savedOrder = this._prefs.cardOrders[key];
+			if (savedOrder) {
+				colGrouped.set(colValue, this.applyCardOrder(colEntries, savedOrder));
+			}
+		});
+		return colGrouped;
+	}
+
+	private createSwimlane(slValue: string, orderedColumns: string[], colGrouped: Map<string, BasesEntry[]>): HTMLElement {
+		const slEl = document.createElement('div');
+		slEl.className = CSS_CLASSES.SWIMLANE;
+		slEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, slValue);
+
+		const headerEl = slEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
+		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE });
+		dragHandle.textContent = '⋮⋮';
+		headerEl.createSpan({ text: slValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
+		const totalEntries = Array.from(colGrouped.values()).reduce((sum, arr) => sum + arr.length, 0);
+		headerEl.createSpan({ text: `${totalEntries}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
+
+		const innerBoardEl = slEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BOARD });
+		orderedColumns.forEach((colValue) => {
+			const colEl = this.createColumn(colValue, colGrouped.get(colValue) ?? []);
+			innerBoardEl.appendChild(colEl);
+		});
+
+		return slEl;
+	}
+
+	/** Patch the swimlane board in place (add/remove/reorder swimlane rows and their columns). */
+	private patchSwimlaneBoard(
+		boardEl: HTMLElement,
+		orderedColumns: string[],
+		orderedSwimlanes: string[],
+		swimlaneGrouped: Map<string, BasesEntry[]>,
+	): void {
+		const existingSwimlanes = new Map<string, HTMLElement>();
+		boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`).forEach((sl) => {
+			const val = sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE);
+			if (val !== null) existingSwimlanes.set(val, sl);
+		});
+
+		const newSwimlaneSet = new Set(orderedSwimlanes);
+
+		// Remove swimlanes no longer present
+		existingSwimlanes.forEach((slEl, value) => {
+			if (!newSwimlaneSet.has(value)) {
+				this.detachSwimlane(value, slEl);
+				existingSwimlanes.delete(value);
+			}
+		});
+
+		// Add new swimlane rows or patch existing ones
+		orderedSwimlanes.forEach((slValue) => {
+			const slEntries = swimlaneGrouped.get(slValue) ?? [];
+			const colGrouped = this.buildColumnGrouped(slEntries, slValue);
+
+			if (!existingSwimlanes.has(slValue)) {
+				const slEl = this.createSwimlane(slValue, orderedColumns, colGrouped);
+				boardEl.appendChild(slEl);
+				existingSwimlanes.set(slValue, slEl);
+				const innerBoard = slEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BOARD}`);
+				if (innerBoard) {
+					this.attachCardSortablesForSwimlaneBoard(innerBoard, slValue);
+					this.attachColumnSortableForSwimlane(innerBoard, slValue);
+				}
+			} else {
+				const slEl = existingSwimlanes.get(slValue);
+				this.patchSwimlaneRow(slEl, orderedColumns, colGrouped, slValue);
+			}
+		});
+
+		// Re-order swimlane rows in the DOM to match orderedSwimlanes
+		orderedSwimlanes.forEach((value) => {
+			const slEl = existingSwimlanes.get(value);
+			if (slEl) boardEl.appendChild(slEl);
+		});
+	}
+
+	/** Patch columns and their cards within a single swimlane row. */
+	private patchSwimlaneRow(
+		slEl: HTMLElement,
+		orderedColumns: string[],
+		colGrouped: Map<string, BasesEntry[]>,
+		slValue: string,
+	): void {
+		const innerBoard = slEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BOARD}`);
+		if (!innerBoard) return;
+
+		// Update swimlane count badge
+		const countEl = slEl.querySelector(`.${CSS_CLASSES.SWIMLANE_COUNT}`);
+		if (countEl) {
+			const total = Array.from(colGrouped.values()).reduce((sum, arr) => sum + arr.length, 0);
+			countEl.textContent = `${total}`;
+		}
+
+		const existingColumns = new Map<string, HTMLElement>();
+		innerBoard.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
+			const val = col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+			if (val !== null) existingColumns.set(val, col);
+		});
+
+		const newColumnSet = new Set(orderedColumns);
+
+		// Remove columns no longer in the global column order
+		existingColumns.forEach((colEl, colValue) => {
+			if (!newColumnSet.has(colValue)) {
+				this.detachColumn(`${slValue}||${colValue}`, colEl);
+				existingColumns.delete(colValue);
+			}
+		});
+
+		// Add missing columns or patch existing ones
+		orderedColumns.forEach((colValue) => {
+			const newEntries = colGrouped.get(colValue) ?? [];
+			if (!existingColumns.has(colValue)) {
+				const colEl = this.createColumn(colValue, newEntries);
+				innerBoard.appendChild(colEl);
+				existingColumns.set(colValue, colEl);
+				const body = colEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`);
+				if (body) this.attachCardSortable(body, colValue, slValue);
+			} else {
+				const colEl = existingColumns.get(colValue);
+				this.patchColumnCards(colEl, newEntries);
+			}
+		});
+
+		// Re-order columns in DOM to match orderedColumns
+		orderedColumns.forEach((colValue) => {
+			const colEl = existingColumns.get(colValue);
+			if (colEl) innerBoard.appendChild(colEl);
+		});
 	}
 
 	private patchBoard(boardEl: HTMLElement, orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
@@ -427,14 +727,16 @@ export class KanbanView extends BasesView {
 		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
 		if (countEl) countEl.textContent = `${newEntries.length}`;
 
-		// Sync remove button: show only when column has no entries
-		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
-		const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
-		const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
-		if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue) {
-			headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
-		} else if (newEntries.length > 0 && existingRemoveBtn) {
-			existingRemoveBtn.remove();
+		// Sync remove button — only in flat mode (in swimlane mode removing a column is global)
+		if (!this.isSwimlaneModeActive) {
+			const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
+			const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+			const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
+			if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue) {
+				headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
+			} else if (newEntries.length > 0 && existingRemoveBtn) {
+				existingRemoveBtn.remove();
+			}
 		}
 
 		// Remove cards whose entry is no longer in this column
@@ -521,8 +823,8 @@ export class KanbanView extends BasesView {
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
 
-		// Remove button — only shown when the column has no entries
-		if (entries.length === 0) {
+		// Remove button — only in flat mode and only when column has no entries
+		if (entries.length === 0 && !this.isSwimlaneModeActive) {
 			headerEl.appendChild(this.createRemoveButton(value, columnEl));
 		}
 
@@ -568,6 +870,7 @@ export class KanbanView extends BasesView {
 
 		for (const propertyId of order) {
 			if (propertyId === this.groupByPropertyId) continue;
+			if (propertyId === this.swimlaneByPropertyId) continue;
 			const value = entry.getValue(propertyId);
 			if (value === null) continue;
 			const valueStr = value.toString().trim();
@@ -683,13 +986,34 @@ export class KanbanView extends BasesView {
 		return btn;
 	}
 
-	private detachColumn(value: string, colEl: HTMLElement): void {
-		const sortable = this._columnSortables.get(value);
+	/**
+	 * Detach a column element: destroy its card Sortable and remove from DOM.
+	 * key is the _columnSortables map key ("colValue" or "slValue||colValue").
+	 */
+	private detachColumn(key: string, colEl: HTMLElement): void {
+		const sortable = this._columnSortables.get(key);
 		if (sortable) {
 			sortable.destroy();
-			this._columnSortables.delete(value);
+			this._columnSortables.delete(key);
 		}
 		colEl.remove();
+	}
+
+	/** Detach a swimlane row: destroy all its card/column sortables and remove from DOM. */
+	private detachSwimlane(slValue: string, slEl: HTMLElement): void {
+		// Destroy all card sortables belonging to this swimlane
+		const prefix = `${slValue}||`;
+		const keysToDelete = Array.from(this._columnSortables.keys()).filter((k) => k.startsWith(prefix));
+		keysToDelete.forEach((k) => {
+			this._columnSortables.get(k)?.destroy();
+			this._columnSortables.delete(k);
+		});
+
+		// Destroy the column-board sortable for this swimlane
+		this._columnBoardSortables.get(slValue)?.destroy();
+		this._columnBoardSortables.delete(slValue);
+
+		slEl.remove();
 	}
 
 	private removeColumn(value: string, columnEl: HTMLElement): void {
@@ -699,7 +1023,8 @@ export class KanbanView extends BasesView {
 		this.detachColumn(value, columnEl);
 	}
 
-	private attachCardSortable(body: HTMLElement, value: string): void {
+	private attachCardSortable(body: HTMLElement, columnValue: string, swimlaneValue?: string): void {
+		const key = swimlaneValue ? `${swimlaneValue}||${columnValue}` : columnValue;
 		const sortable = new Sortable(body, {
 			group: SORTABLE_GROUP,
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
@@ -716,9 +1041,10 @@ export class KanbanView extends BasesView {
 				void this.handleCardDrop(evt);
 			},
 		});
-		this._columnSortables.set(value, sortable);
+		this._columnSortables.set(key, sortable);
 	}
 
+	/** Flat mode: attach card sortables to all column bodies in the board. */
 	private initializeSortable(): void {
 		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
 		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
@@ -727,6 +1053,112 @@ export class KanbanView extends BasesView {
 			const value = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
 			if (!value) return;
 			this.attachCardSortable(columnBody, value);
+		});
+	}
+
+	/** Swimlane mode: attach card sortables to all column bodies (uses composite key). */
+	private initializeSortableForSwimlanes(): void {
+		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
+		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
+			if (!(columnBody instanceof HTMLElement)) return;
+			const colEl = columnBody.closest(`.${CSS_CLASSES.COLUMN}`);
+			const columnValue = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
+			if (!columnValue) return;
+			const slEl = columnBody.closest(`.${CSS_CLASSES.SWIMLANE}`);
+			const swimlaneValue =
+				slEl instanceof HTMLElement ? (slEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? undefined) : undefined;
+			this.attachCardSortable(columnBody, columnValue, swimlaneValue);
+		});
+	}
+
+	/** Attach card sortables for all columns inside a single swimlane board element. */
+	private attachCardSortablesForSwimlaneBoard(slBoard: HTMLElement, slValue: string): void {
+		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
+		slBoard.querySelectorAll(selector).forEach((columnBody) => {
+			if (!(columnBody instanceof HTMLElement)) return;
+			const colEl = columnBody.closest(`.${CSS_CLASSES.COLUMN}`);
+			const columnValue = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
+			if (!columnValue) return;
+			this.attachCardSortable(columnBody, columnValue, slValue);
+		});
+	}
+
+	/** Flat mode: column reorder sortable on the board. */
+	private initializeColumnSortable(): void {
+		if (this.columnSortable) {
+			this.columnSortable.destroy();
+		}
+
+		const boardEl = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		if (!boardEl || !(boardEl instanceof HTMLElement)) return;
+
+		this.columnSortable = new Sortable(boardEl, {
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
+			draggable: `.${CSS_CLASSES.COLUMN}`,
+			ghostClass: CSS_CLASSES.COLUMN_GHOST,
+			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
+			onStart: () => {
+				this._dragging = true;
+			},
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
+				this.handleColumnDrop(evt);
+			},
+		});
+	}
+
+	/** Swimlane mode: create one column-reorder sortable per swimlane board. */
+	private initializeColumnSortablesForSwimlanes(): void {
+		this.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BOARD}`).forEach((slBoard) => {
+			const slEl = slBoard.closest<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+			const slValue = slEl?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? '';
+			this.attachColumnSortableForSwimlane(slBoard, slValue);
+		});
+	}
+
+	private attachColumnSortableForSwimlane(slBoard: HTMLElement, slValue: string): void {
+		const existing = this._columnBoardSortables.get(slValue);
+		if (existing) existing.destroy();
+
+		const s = new Sortable(slBoard, {
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
+			draggable: `.${CSS_CLASSES.COLUMN}`,
+			ghostClass: CSS_CLASSES.COLUMN_GHOST,
+			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
+			onStart: () => {
+				this._dragging = true;
+			},
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
+				this.handleColumnDropForSwimlane(evt, slBoard);
+			},
+		});
+		this._columnBoardSortables.set(slValue, s);
+	}
+
+	/** Swimlane mode: sortable for reordering swimlane rows on the outer board. */
+	private initializeSwimlaneSort(): void {
+		if (this._swimlaneSortable) {
+			this._swimlaneSortable.destroy();
+		}
+		const boardEl = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
+		if (!boardEl) return;
+
+		this._swimlaneSortable = new Sortable(boardEl, {
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			handle: `.${CSS_CLASSES.SWIMLANE_DRAG_HANDLE}`,
+			draggable: `.${CSS_CLASSES.SWIMLANE}`,
+			ghostClass: CSS_CLASSES.SWIMLANE_GHOST,
+			dragClass: CSS_CLASSES.SWIMLANE_DRAGGING,
+			onStart: () => {
+				this._dragging = true;
+			},
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
+				this.handleSwimlaneDrop(evt);
+			},
 		});
 	}
 
@@ -767,25 +1199,40 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
+		// Determine swimlane context (null in flat mode)
+		const swimlaneSelector = `.${CSS_CLASSES.SWIMLANE}`;
+		const oldSwimlaneEl = evt.from.closest(swimlaneSelector);
+		const newSwimlaneEl = evt.to.closest(swimlaneSelector);
+		const oldSwimlaneValue =
+			oldSwimlaneEl instanceof HTMLElement ? oldSwimlaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
+		const newSwimlaneValue =
+			newSwimlaneEl instanceof HTMLElement ? newSwimlaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
+
 		// Helper: read card paths from a column body element
 		const getColumnPaths = (bodyEl: Element): string[] =>
 			Array.from(bodyEl.querySelectorAll(`.${CSS_CLASSES.CARD}`))
 				.map((c) => (c instanceof HTMLElement ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
 				.filter((p): p is string => p !== null);
 
-		// Same-column reorder: update prefs and persist
-		if (oldColumnValue === newColumnValue) {
-			this._prefs.cardOrders[newColumnValue] = getColumnPaths(evt.to);
+		const sameColumn = oldColumnValue === newColumnValue;
+		const sameSwimlane = oldSwimlaneValue === newSwimlaneValue;
+
+		const oldCardOrderKey = this.cardOrderKey(oldColumnValue ?? '', oldSwimlaneValue ?? undefined);
+		const newCardOrderKey = this.cardOrderKey(newColumnValue, newSwimlaneValue ?? undefined);
+
+		// Same position: just update card order and return
+		if (sameColumn && sameSwimlane) {
+			this._prefs.cardOrders[newCardOrderKey] = getColumnPaths(evt.to);
 			this._persistPrefs();
 			return;
 		}
 
-		// Cross-column drop: capture DOM order for both columns
+		// Cross-column or cross-swimlane drop: capture DOM order for both sides
 		if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
 			const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-			if (oldBody) this._prefs.cardOrders[oldColumnValue] = getColumnPaths(oldBody);
+			if (oldBody) this._prefs.cardOrders[oldCardOrderKey] = getColumnPaths(oldBody);
 		}
-		this._prefs.cardOrders[newColumnValue] = getColumnPaths(evt.to);
+		this._prefs.cardOrders[newCardOrderKey] = getColumnPaths(evt.to);
 		this._persistPrefs();
 
 		const entry = this._entryMap.get(entryPath);
@@ -800,21 +1247,85 @@ export class KanbanView extends BasesView {
 		}
 
 		try {
-			const valueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
-			const parsedProperty = parsePropertyId(this._prefsPropertyId);
-			const propertyName = parsedProperty.name;
+			const parsedColumnProperty = parsePropertyId(this._prefsPropertyId);
+			const columnValueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
+
+			let parsedSwimlaneProperty: ReturnType<typeof parsePropertyId> | null = null;
+			let swimlaneValueToSet: string | null = null;
+			if (this.swimlaneByPropertyId && !sameSwimlane && newSwimlaneValue !== null) {
+				parsedSwimlaneProperty = parsePropertyId(this.swimlaneByPropertyId);
+				swimlaneValueToSet = newSwimlaneValue === UNCATEGORIZED_LABEL ? '' : newSwimlaneValue;
+			}
 
 			await this.app.fileManager.processFrontMatter(entry.file, (frontmatter: Record<string, unknown>) => {
-				if (valueToSet === '') {
-					delete frontmatter[propertyName];
-				} else {
-					frontmatter[propertyName] = valueToSet;
+				if (!sameColumn) {
+					if (columnValueToSet === '') {
+						delete frontmatter[parsedColumnProperty.name];
+					} else {
+						frontmatter[parsedColumnProperty.name] = columnValueToSet;
+					}
+				}
+				if (parsedSwimlaneProperty !== null && swimlaneValueToSet !== null) {
+					if (swimlaneValueToSet === '') {
+						delete frontmatter[parsedSwimlaneProperty.name];
+					} else {
+						frontmatter[parsedSwimlaneProperty.name] = swimlaneValueToSet;
+					}
 				}
 			});
 		} catch (error) {
 			console.error('Error updating entry property:', error);
 			this.render();
 		}
+	}
+
+	/** Flat mode: persist column order after a column is dragged. */
+	private handleColumnDrop(evt: Sortable.SortableEvent): void {
+		if (!this._prefsPropertyId) return;
+
+		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
+		const order = Array.from(columns)
+			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
+			.filter((v): v is string => v !== null);
+
+		this._prefs.columnOrder = order;
+		this._persistPrefs();
+	}
+
+	/**
+	 * Swimlane mode: persist column order and sync it to all other swimlane boards.
+	 * Column order is global — dragging in one row reorders all rows.
+	 */
+	private handleColumnDropForSwimlane(evt: Sortable.SortableEvent, draggedSlBoard: HTMLElement): void {
+		if (!this._prefsPropertyId) return;
+
+		const columns = draggedSlBoard.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
+		const order = Array.from(columns)
+			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
+			.filter((v): v is string => v !== null);
+
+		this._prefs.columnOrder = order;
+		this._persistPrefs();
+
+		// Sync column order to every OTHER swimlane board
+		this.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BOARD}`).forEach((slBoard) => {
+			if (slBoard === draggedSlBoard) return;
+			order.forEach((colValue) => {
+				const colEl = slBoard.querySelector<HTMLElement>(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="${CSS.escape(colValue)}"]`);
+				if (colEl) slBoard.appendChild(colEl);
+			});
+		});
+	}
+
+	/** Swimlane mode: persist swimlane row order after a row is dragged. */
+	private handleSwimlaneDrop(evt: Sortable.SortableEvent): void {
+		const swimlanes = this.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`);
+		const order = Array.from(swimlanes)
+			.map((sl) => sl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE))
+			.filter((v): v is string => v !== null);
+
+		this._swimlanePrefs.swimlaneOrder = order;
+		this._persistSwimlanePrefs();
 	}
 
 	private findCardEl(path: string): HTMLElement | null {
@@ -847,47 +1358,17 @@ export class KanbanView extends BasesView {
 		return [...this._prefs.columnOrder, ...newValues];
 	}
 
+	private getOrderedSwimlaneValues(liveValues: string[]): string[] {
+		if (!this._swimlanePrefs.swimlaneOrder.length) return liveValues.sort();
+		const newValues = liveValues.filter((v) => !this._swimlanePrefs.swimlaneOrder.includes(v));
+		return [...this._swimlanePrefs.swimlaneOrder, ...newValues];
+	}
+
 	private applyCardOrder(entries: BasesEntry[], savedOrder: string[]): BasesEntry[] {
 		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
 		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
 		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
 		return [...ordered, ...unsaved];
-	}
-
-	private initializeColumnSortable(): void {
-		if (this.columnSortable) {
-			this.columnSortable.destroy();
-		}
-
-		const boardEl = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
-		if (!boardEl || !(boardEl instanceof HTMLElement)) return;
-
-		this.columnSortable = new Sortable(boardEl, {
-			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
-			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
-			draggable: `.${CSS_CLASSES.COLUMN}`,
-			ghostClass: CSS_CLASSES.COLUMN_GHOST,
-			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
-			onStart: () => {
-				this._dragging = true;
-			},
-			onEnd: (evt: Sortable.SortableEvent) => {
-				this._dragging = false;
-				this.handleColumnDrop(evt);
-			},
-		});
-	}
-
-	private handleColumnDrop(evt: Sortable.SortableEvent): void {
-		if (!this._prefsPropertyId) return;
-
-		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
-		const order = Array.from(columns)
-			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
-			.filter((v): v is string => v !== null);
-
-		this._prefs.columnOrder = order;
-		this._persistPrefs();
 	}
 
 	onClose(): void {
@@ -928,6 +1409,13 @@ export class KanbanView extends BasesView {
 				key: 'groupByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Select property',
+			},
+			{
+				displayName: 'Swimlane by',
+				type: 'property',
+				key: 'swimlaneByProperty',
+				filter: (prop: string) => !prop.startsWith('file.'),
+				placeholder: 'None (flat board)',
 			},
 			{
 				displayName: 'Card title property',

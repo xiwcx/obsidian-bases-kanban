@@ -29,6 +29,7 @@ export const DATA_ATTRIBUTES = {
 	SORTABLE_CONTAINER: 'data-sortable-container',
 	COLUMN_POSITION: 'data-column-position',
 	COLUMN_COLOR: 'data-column-color',
+	SWIMLANE_VALUE: 'data-swimlane-value',
 } as const;
 
 /** CSS class names */
@@ -81,6 +82,17 @@ export const CSS_CLASSES = {
 	COLUMN_COLOR_SWATCH: 'obk-column-color-swatch',
 	COLUMN_COLOR_SWATCH_ACTIVE: 'obk-column-color-swatch--active',
 	COLUMN_COLOR_NONE: 'obk-column-color-none',
+
+	// Swimlane (horizontal rows grouping a second property)
+	BOARD_SWIMLANE: 'obk-board--swimlane',
+	SWIMLANE: 'obk-swimlane',
+	SWIMLANE_HEADER: 'obk-swimlane-header',
+	SWIMLANE_DRAG_HANDLE: 'obk-swimlane-drag-handle',
+	SWIMLANE_TITLE: 'obk-swimlane-title',
+	SWIMLANE_COUNT: 'obk-swimlane-count',
+	SWIMLANE_BOARD: 'obk-swimlane-board',
+	SWIMLANE_DRAGGING: 'obk-swimlane-dragging',
+	SWIMLANE_GHOST: 'obk-swimlane-ghost',
 } as const;
 
 /** Sortable.js configuration constants */

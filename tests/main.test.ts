@@ -137,14 +137,17 @@ describe('View Options', () => {
 	test('getViewOptions returns correct structure', () => {
 		const options = KanbanView.getViewOptions();
 
-		assert.strictEqual(options.length, 3, 'Should return three options');
+		assert.strictEqual(options.length, 4, 'Should return four options');
 		assert.strictEqual(options[0].displayName, 'Group by', 'First option should be Group by');
-		assert.strictEqual(options[1].displayName, 'Card title property', 'Second option should be Card title property');
-		assert.strictEqual(options[1].type, 'property', 'Card title property should be a property selector');
-		assert.strictEqual(options[1].key, 'cardTitleProperty', 'Key should be "cardTitleProperty"');
-		assert.strictEqual(options[2].displayName, 'Wrap property values', 'Third option should be Wrap property values');
-		assert.strictEqual(options[2].type, 'toggle', 'Wrap property values should be a toggle');
-		assert.strictEqual(options[2].key, 'wrapPropertyValues', 'Key should be "wrapPropertyValues"');
+		assert.strictEqual(options[1].displayName, 'Swimlane by', 'Second option should be Swimlane by');
+		assert.strictEqual(options[1].type, 'property', 'Swimlane by should be a property selector');
+		assert.strictEqual(options[1].key, 'swimlaneByProperty', 'Key should be "swimlaneByProperty"');
+		assert.strictEqual(options[2].displayName, 'Card title property', 'Third option should be Card title property');
+		assert.strictEqual(options[2].type, 'property', 'Card title property should be a property selector');
+		assert.strictEqual(options[2].key, 'cardTitleProperty', 'Key should be "cardTitleProperty"');
+		assert.strictEqual(options[3].displayName, 'Wrap property values', 'Fourth option should be Wrap property values');
+		assert.strictEqual(options[3].type, 'toggle', 'Wrap property values should be a toggle');
+		assert.strictEqual(options[3].key, 'wrapPropertyValues', 'Key should be "wrapPropertyValues"');
 	});
 
 	test('Property filter excludes file.* properties', () => {

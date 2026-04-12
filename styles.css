@@ -366,3 +366,137 @@
 		flex: 0 0 240px;
 	}
 }
+
+/* ── Swimlane mode ─────────────────────────────────────────────────────────── */
+
+/* Board modifier: vertical stack of swimlane rows instead of horizontal columns */
+.obk-board--swimlane {
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: auto;
+	gap: 12px;
+}
+
+.obk-board--swimlane::-webkit-scrollbar {
+	width: 8px;
+}
+
+.obk-board--swimlane::-webkit-scrollbar-track {
+	background: var(--background-secondary);
+	border-radius: 4px;
+}
+
+.obk-board--swimlane::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+}
+
+.obk-board--swimlane::-webkit-scrollbar-thumb:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* Swimlane row container */
+.obk-swimlane {
+	display: flex;
+	flex-direction: column;
+	background: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* Swimlane header */
+.obk-swimlane-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 14px;
+	background: var(--background-primary-alt);
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 8px 8px 0 0;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.obk-swimlane-drag-handle {
+	cursor: grab;
+	padding: 4px;
+	opacity: 0.5;
+	user-select: none;
+	font-size: 16px;
+	line-height: 1;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.obk-swimlane-drag-handle:hover {
+	opacity: 1;
+	color: var(--text-normal);
+}
+
+.obk-swimlane-drag-handle:active {
+	cursor: grabbing;
+}
+
+.obk-swimlane-title {
+	flex: 1;
+	font-weight: 600;
+	font-size: 14px;
+	color: var(--text-normal);
+}
+
+.obk-swimlane-count {
+	font-size: 12px;
+	color: var(--text-muted);
+	background: var(--background-modifier-border);
+	padding: 2px 8px;
+	border-radius: 12px;
+	flex-shrink: 0;
+}
+
+/* Inner horizontal board of columns within a swimlane */
+.obk-swimlane-board {
+	display: flex;
+	flex-direction: row;
+	gap: 12px;
+	padding: 12px;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.obk-swimlane-board::-webkit-scrollbar {
+	height: 6px;
+}
+
+.obk-swimlane-board::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.obk-swimlane-board::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+.obk-swimlane-board::-webkit-scrollbar-thumb:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* Columns inside swimlanes are shorter since height is not constrained to the viewport */
+.obk-swimlane-board .obk-column {
+	min-height: 80px;
+	max-height: none;
+}
+
+/* Swimlane drag-and-drop states */
+.obk-swimlane-dragging {
+	opacity: 0.5;
+}
+
+.obk-swimlane-ghost {
+	opacity: 0.3;
+	background: var(--background-modifier-border);
+	border-radius: 8px;
+}

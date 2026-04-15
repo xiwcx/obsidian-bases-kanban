@@ -592,7 +592,7 @@ export class KanbanView extends BasesView {
 			if (e.target instanceof Element && e.target.closest('a')) return;
 			this.setActiveCard(filePath);
 			if (this.app?.workspace) {
-				void this.app.workspace.openLinkText(filePath, '', false);
+				void this.app.workspace.openLinkText(filePath, '', Keymap.isModEvent(e));
 			}
 		};
 		cardEl.addEventListener('click', clickHandler);

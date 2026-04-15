@@ -441,12 +441,46 @@ describe('Data Rendering - Card Rendering', () => {
 		const entryPath = card.getAttribute('data-entry-path');
 		card.click();
 
-		// Verify openLinkText was called
+		// Verify openLinkText was called in current leaf
 		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called');
 		assert.strictEqual(
 			app.workspace.openLinkText.calls[0][0],
 			entryPath,
 			'openLinkText should be called with entry path',
+		);
+		assert.strictEqual(
+			app.workspace.openLinkText.calls[0][2],
+			false,
+			'openLinkText should open in current leaf without modifier',
+		);
+	});
+
+	test('Ctrl+click on card opens file in new leaf', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		assert.ok(card, 'Card should exist');
+
+		const entryPath = card.getAttribute('data-entry-path');
+		card.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+
+		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called');
+		assert.strictEqual(
+			app.workspace.openLinkText.calls[0][0],
+			entryPath,
+			'openLinkText should be called with entry path',
+		);
+		assert.strictEqual(
+			app.workspace.openLinkText.calls[0][2],
+			true,
+			'openLinkText should open in new leaf with Ctrl held',
 		);
 	});
 });

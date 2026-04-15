@@ -18,7 +18,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Property Display**: Selected properties are shown on each card for at-a-glance context
 - **Custom Card Titles**: Display a frontmatter property as the card title instead of the file name — useful when files share a common name (e.g., `README.md`) across folders
 - **Property Word Wrap**: Toggle property text wrapping on cards to handle long property values
-- **Click to Open**: Click any card to open the corresponding note
+- **Click to Open**: Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
 - **Visual Feedback**: Clear visual indicators during drag operations
 - **Responsive Design**: Works well on different screen sizes
 
@@ -58,7 +58,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 3. Select the property you want to use for columns (e.g., "Status") in the "Group by" option
 4. Your notes will be automatically organized into columns based on the selected property's values
 5. Drag cards between columns to update the property value
-6. Click any card to open the corresponding note
+6. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
 7. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
 8. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
@@ -68,7 +68,7 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Select "Status" in the "Group by" dropdown
 - Three columns will appear: "To Do", "Doing", and "Done" (plus an "Uncategorized" column for notes without a status)
 - Drag cards between columns to change their status
-- Click any card to open the note
+- Click any card to open the note (Cmd/Ctrl+click to open in new tab)
 - Drag columns by their handle to reorder them - your order preference will be remembered
 
 If your project folders each contain a `README.md` with a `title` property:

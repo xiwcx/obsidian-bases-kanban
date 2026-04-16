@@ -95,6 +95,49 @@ describe('Integration Tests - Full Workflow', () => {
 		assert.ok(fileArg, 'File should be passed to processFrontMatter');
 	});
 
+	test('Column scroll positions are preserved when a card moves between columns', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columnBodies = view.containerEl.querySelectorAll<HTMLElement>('.obk-column-body');
+		assert.ok(columnBodies.length >= 2, 'Need at least two column bodies to test scroll preservation');
+
+		// Stub scroll geometry so scrollTop assignments stick in jsdom.
+		columnBodies.forEach((body, i) => {
+			Object.defineProperty(body, 'scrollHeight', { value: 1000, configurable: true });
+			Object.defineProperty(body, 'clientHeight', { value: 200, configurable: true });
+			body.scrollTop = 100 + i * 50;
+		});
+
+		const scrollBefore = Array.from(columnBodies).map((b) => ({
+			value: b.closest('.obk-column')?.getAttribute('data-column-value'),
+			top: b.scrollTop,
+		}));
+
+		// Mutate an entry's group value — simulates the state after a cross-column drop
+		// and forces render → patchBoard (group-by property unchanged).
+		const entry = entries[0];
+		(entry as any).getValue = (propId: string) => {
+			if (propId === PROPERTY_STATUS) return 'Doing';
+			return null;
+		};
+		triggerDataUpdate(view);
+
+		scrollBefore.forEach(({ value, top }) => {
+			const body = view.containerEl.querySelector(
+				`.obk-column[data-column-value="${value}"] .obk-column-body`,
+			) as HTMLElement | null;
+			if (!body) return; // column may have been removed if it became empty
+			assert.strictEqual(body.scrollTop, top, `Scroll for column "${value}" should be preserved across patchBoard`);
+		});
+	});
+
 	test('View updates automatically after property change', async () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);

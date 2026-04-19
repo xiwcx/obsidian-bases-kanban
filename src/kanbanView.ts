@@ -6,8 +6,8 @@ import {
 	ListValue,
 	MarkdownRenderer,
 	NullValue,
-	sanitizeHTMLToDom,
 	parsePropertyId,
+	sanitizeHTMLToDom,
 } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
@@ -119,6 +119,7 @@ export class KanbanView extends BasesView {
 	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
 	private cardTitlePropertyId: BasesPropertyId | null = null;
+	private imagePropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
 	private _entryMap: Map<string, BasesEntry> = new Map();
 	private columnSortable: Sortable | null = null;
@@ -139,6 +140,9 @@ export class KanbanView extends BasesView {
 	private _lastOrderKey: string = '';
 	private _lastWrapValue: boolean | null = null;
 	private _lastCardTitlePropertyId: BasesPropertyId | null | undefined = undefined;
+	private _lastImagePropertyId: BasesPropertyId | null | undefined = undefined;
+	private _lastImageFit: string | undefined = undefined;
+	private _lastImageAspectRatio: number | undefined = undefined;
 
 	private _prefs: { columnOrder: string[]; cardOrders: Record<string, string[]>; columnColors: Record<string, string> } =
 		{
@@ -192,6 +196,7 @@ export class KanbanView extends BasesView {
 	private loadConfig(): void {
 		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
 		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
+		this.imagePropertyId = this.config.getAsPropertyId('imageProperty');
 	}
 
 	/**
@@ -330,13 +335,29 @@ export class KanbanView extends BasesView {
 			const cardTitleChanged = currentCardTitlePropertyId !== this._lastCardTitlePropertyId;
 			this._lastCardTitlePropertyId = currentCardTitlePropertyId;
 
+			const currentImagePropertyId = this.imagePropertyId;
+			const imagePropertyChanged = currentImagePropertyId !== this._lastImagePropertyId;
+			this._lastImagePropertyId = currentImagePropertyId;
+
+			const currentImageFit = this.config?.get('imageFit') === 'contain' ? 'contain' : 'cover';
+			const imageFitChanged = currentImageFit !== this._lastImageFit;
+			this._lastImageFit = currentImageFit;
+
+			const rawRatio = Number(this.config?.get('imageAspectRatio'));
+			const currentImageAspectRatio = Number.isFinite(rawRatio) && rawRatio > 0 ? rawRatio : 0.5;
+			const imageAspectRatioChanged = currentImageAspectRatio !== this._lastImageAspectRatio;
+			this._lastImageAspectRatio = currentImageAspectRatio;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
 			if (
 				!existingBoard ||
 				this._prefsPropertyId !== this.groupByPropertyId ||
 				orderChanged ||
 				wrapChanged ||
-				cardTitleChanged
+				cardTitleChanged ||
+				imagePropertyChanged ||
+				imageFitChanged ||
+				imageAspectRatioChanged
 			) {
 				this.fullRebuild(orderedValues, groupedEntries);
 			} else {
@@ -574,11 +595,57 @@ export class KanbanView extends BasesView {
 		void renderPropertyValue(this.app, titleValue, titleEl, filePath, this);
 	}
 
+	/**
+	 * Render a cover image for the card using the configured image property.
+	 * Accepts wikilinks (`[[cover.png]]`), legacy markdown embeds (`![[cover.png]]`),
+	 * and external URLs (`http(s)://…`). Returns false if nothing renderable was found
+	 * so the caller can discard an empty slot.
+	 */
+	private renderCardCover(coverEl: HTMLElement, entry: BasesEntry, filePath: string): boolean {
+		if (!this.imagePropertyId) return false;
+		const value = entry.getValue(this.imagePropertyId);
+		if (value === null || value instanceof NullValue) return false;
+
+		const raw = value.toString().trim();
+		if (!raw || raw === 'null') return false;
+
+		if (/^https?:\/\//i.test(raw)) {
+			coverEl.createEl('img', { attr: { src: raw, alt: '' } });
+			return true;
+		}
+
+		// Strip legacy `!` embed prefix and surrounding wikilink brackets.
+		let linkText = raw.replace(/^!\s*/, '');
+		const wikiMatch = linkText.match(/^\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]$/);
+		if (wikiMatch) linkText = wikiMatch[1];
+		linkText = linkText.trim();
+		if (!linkText) return false;
+
+		const app = this.app;
+		if (!app) return false;
+		const file = app.metadataCache.getFirstLinkpathDest(linkText, filePath);
+		if (!file) return false;
+
+		coverEl.createEl('img', { attr: { src: app.vault.getResourcePath(file), alt: '' } });
+		return true;
+	}
+
 	private createCard(entry: BasesEntry): HTMLElement {
 		const cardEl = document.createElement('div');
 		cardEl.className = CSS_CLASSES.CARD;
 		const filePath = entry.file.path;
 		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
+
+		if (this.imagePropertyId) {
+			const coverEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_COVER });
+			const fit = this.config?.get('imageFit') === 'contain' ? 'contain' : 'cover';
+			coverEl.classList.add(fit === 'contain' ? CSS_CLASSES.CARD_COVER_FIT_CONTAIN : CSS_CLASSES.CARD_COVER_FIT_COVER);
+			const rawRatio = Number(this.config?.get('imageAspectRatio'));
+			const ratio = Number.isFinite(rawRatio) && rawRatio > 0 ? rawRatio : 0.5;
+			coverEl.style.aspectRatio = `1 / ${ratio}`;
+			const rendered = this.renderCardCover(coverEl, entry, filePath);
+			if (!rendered) coverEl.remove();
+		}
 
 		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
 		this.renderCardTitle(titleEl, entry, filePath);
@@ -954,6 +1021,28 @@ export class KanbanView extends BasesView {
 				type: 'property',
 				key: 'cardTitleProperty',
 				placeholder: 'Default: file name',
+			},
+			{
+				displayName: 'Image property',
+				type: 'property',
+				key: 'imageProperty',
+				placeholder: 'Optional: image link property',
+			},
+			{
+				displayName: 'Image fit',
+				type: 'dropdown',
+				key: 'imageFit',
+				default: 'cover',
+				options: { cover: 'Cover', contain: 'Contain' },
+			},
+			{
+				displayName: 'Image aspect ratio',
+				type: 'slider',
+				key: 'imageAspectRatio',
+				default: 0.5,
+				min: 0.25,
+				max: 2.5,
+				step: 0.05,
 			},
 			{
 				displayName: 'Wrap property values',

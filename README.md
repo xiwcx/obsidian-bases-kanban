@@ -17,6 +17,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Uncategorized Entries**: Notes without a value for the selected property are automatically grouped in an "Uncategorized" column
 - **Property Display**: Selected properties are shown on each card for at-a-glance context
 - **Custom Card Titles**: Display a frontmatter property as the card title instead of the file name — useful when files share a common name (e.g., `README.md`) across folders
+- **Cover Images**: Show a cover image on each card by picking a frontmatter property — mirrors Obsidian's native Cards view *Image property* with matching fit (cover/contain) and aspect-ratio controls, so one frontmatter field works for both views
 - **Property Word Wrap**: Toggle property text wrapping on cards to handle long property values
 - **Click to Open**: Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
 - **Visual Feedback**: Clear visual indicators during drag operations
@@ -75,6 +76,13 @@ If your project folders each contain a `README.md` with a `title` property:
 - Select `title` in the "Card title property" dropdown
 - Cards will display the `title` property value instead of "README"
 - If a note is missing the property, the file name is used as a fallback
+
+If your notes have a frontmatter property pointing at a cover image (e.g., `cover: "[[book-cover.jpg]]"` or `cover: "https://example.com/poster.jpg"`):
+- Select that property in the "Image property" dropdown
+- Each card gets a cover image above the title
+- Use "Image fit" to choose between Cover (crop to fill) and Contain (letterbox)
+- Drag the "Image aspect ratio" slider to size the cover — wide banner on the left, tall portrait on the right
+- The same property value also works in Obsidian's built-in Cards view, so the two views stay in sync
 
 ## Development
 

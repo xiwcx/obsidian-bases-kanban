@@ -1,8 +1,8 @@
-import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
+import { describe, test } from 'node:test';
 import { KanbanView } from '../src/kanbanView.ts';
-import { setupTestEnvironment, createDivWithMethods, createMockQueryController } from './helpers.ts';
+import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
+import { createDivWithMethods, createMockQueryController, setupTestEnvironment } from './helpers.ts';
 
 setupTestEnvironment();
 
@@ -137,14 +137,36 @@ describe('View Options', () => {
 	test('getViewOptions returns correct structure', () => {
 		const options = KanbanView.getViewOptions();
 
-		assert.strictEqual(options.length, 3, 'Should return three options');
-		assert.strictEqual(options[0].displayName, 'Group by', 'First option should be Group by');
-		assert.strictEqual(options[1].displayName, 'Card title property', 'Second option should be Card title property');
-		assert.strictEqual(options[1].type, 'property', 'Card title property should be a property selector');
-		assert.strictEqual(options[1].key, 'cardTitleProperty', 'Key should be "cardTitleProperty"');
-		assert.strictEqual(options[2].displayName, 'Wrap property values', 'Third option should be Wrap property values');
-		assert.strictEqual(options[2].type, 'toggle', 'Wrap property values should be a toggle');
-		assert.strictEqual(options[2].key, 'wrapPropertyValues', 'Key should be "wrapPropertyValues"');
+		const byKey = Object.fromEntries(options.map((o) => [(o as { key: string }).key, o])) as Record<string, any>;
+
+		assert.ok(byKey.groupByProperty, 'groupByProperty option should exist');
+		assert.strictEqual(byKey.groupByProperty.displayName, 'Group by');
+		assert.strictEqual(byKey.groupByProperty.type, 'property');
+
+		assert.ok(byKey.cardTitleProperty, 'cardTitleProperty option should exist');
+		assert.strictEqual(byKey.cardTitleProperty.displayName, 'Card title property');
+		assert.strictEqual(byKey.cardTitleProperty.type, 'property');
+
+		assert.ok(byKey.imageProperty, 'imageProperty option should exist');
+		assert.strictEqual(byKey.imageProperty.displayName, 'Image property');
+		assert.strictEqual(byKey.imageProperty.type, 'property');
+
+		assert.ok(byKey.imageFit, 'imageFit option should exist');
+		assert.strictEqual(byKey.imageFit.displayName, 'Image fit');
+		assert.strictEqual(byKey.imageFit.type, 'dropdown');
+		assert.deepStrictEqual(byKey.imageFit.options, { cover: 'Cover', contain: 'Contain' });
+		assert.strictEqual(byKey.imageFit.default, 'cover');
+
+		assert.ok(byKey.imageAspectRatio, 'imageAspectRatio option should exist');
+		assert.strictEqual(byKey.imageAspectRatio.displayName, 'Image aspect ratio');
+		assert.strictEqual(byKey.imageAspectRatio.type, 'slider');
+		assert.strictEqual(byKey.imageAspectRatio.min, 0.25);
+		assert.strictEqual(byKey.imageAspectRatio.max, 2.5);
+		assert.strictEqual(byKey.imageAspectRatio.default, 0.5);
+
+		assert.ok(byKey.wrapPropertyValues, 'wrapPropertyValues option should exist');
+		assert.strictEqual(byKey.wrapPropertyValues.displayName, 'Wrap property values');
+		assert.strictEqual(byKey.wrapPropertyValues.type, 'toggle');
 	});
 
 	test('Property filter excludes file.* properties', () => {

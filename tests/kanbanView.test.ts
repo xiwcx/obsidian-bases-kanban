@@ -1,17 +1,19 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
 	createEmptyEntries,
+	createEntriesWithCovers,
 	createEntriesWithCustomTitle,
 	createEntriesWithEmptyValues,
 	createEntriesWithLinks,
 	createEntriesWithMixedProperties,
 	createEntriesWithStatus,
 	PROPERTY_CATEGORY,
+	PROPERTY_COVER,
 	PROPERTY_PRIORITY,
 	PROPERTY_RELATED,
 	PROPERTY_STATUS,
@@ -482,6 +484,120 @@ describe('Data Rendering - Card Rendering', () => {
 			true,
 			'openLinkText should open in new leaf with Ctrl held',
 		);
+	});
+});
+
+describe('Data Rendering - Image cover property', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp({
+			'cover-1.jpg': { path: 'attachments/cover-1.jpg' },
+		});
+	});
+
+	function setupCoverView(
+		overrides: { imageProperty?: BasesPropertyId | null; imageFit?: string; imageAspectRatio?: number } = {},
+	) {
+		const entries = createEntriesWithCovers();
+		controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_COVER]);
+		controller.app = app;
+		const imageProperty = 'imageProperty' in overrides ? overrides.imageProperty : PROPERTY_COVER;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'imageProperty') return imageProperty;
+			return null;
+		};
+		controller.config.get = (key: string) => {
+			if (key === 'imageFit') return overrides.imageFit ?? 'cover';
+			if (key === 'imageAspectRatio') return overrides.imageAspectRatio ?? 0.5;
+			return null;
+		};
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		return view;
+	}
+
+	function cardByPath(view: KanbanView, path: string): HTMLElement {
+		const el = view.containerEl.querySelector(`.obk-card[data-entry-path="${path}"]`);
+		assert.ok(el, `card for ${path} should exist`);
+		return el as HTMLElement;
+	}
+
+	test('no imageProperty configured → no cover slot on any card', () => {
+		const view = setupCoverView({ imageProperty: null });
+		const covers = view.containerEl.querySelectorAll('.obk-card-cover');
+		assert.strictEqual(covers.length, 0, 'no .obk-card-cover should exist when imageProperty is unset');
+	});
+
+	test('wikilink value resolves to getResourcePath src', () => {
+		const view = setupCoverView();
+		const img = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover img') as HTMLImageElement;
+		assert.ok(img, 'cover img should render for resolved wikilink');
+		assert.strictEqual(img.getAttribute('src'), 'app://fake/attachments/cover-1.jpg');
+		assert.strictEqual(img.getAttribute('alt'), '');
+	});
+
+	test('external URL value is used directly as src', () => {
+		const view = setupCoverView();
+		const img = cardByPath(view, 'Task B.md').querySelector('.obk-card-cover img') as HTMLImageElement;
+		assert.ok(img, 'cover img should render for URL');
+		assert.strictEqual(img.getAttribute('src'), 'https://example.com/remote.jpg');
+	});
+
+	test('legacy ![[...]] prefix still resolves (backward compat)', () => {
+		const view = setupCoverView();
+		const img = cardByPath(view, 'Task C.md').querySelector('.obk-card-cover img') as HTMLImageElement;
+		assert.ok(img, 'cover img should render when value has leading !');
+		assert.strictEqual(img.getAttribute('src'), 'app://fake/attachments/cover-1.jpg');
+	});
+
+	test('unresolvable wikilink → no cover slot on that card', () => {
+		const view = setupCoverView();
+		const cover = cardByPath(view, 'Task D.md').querySelector('.obk-card-cover');
+		assert.strictEqual(cover, null, 'unresolved wikilink should not leave an empty cover slot');
+	});
+
+	test('empty string value → no cover slot', () => {
+		const view = setupCoverView();
+		const cover = cardByPath(view, 'Task E.md').querySelector('.obk-card-cover');
+		assert.strictEqual(cover, null, 'empty cover value should not render a cover');
+	});
+
+	test('missing property value → no cover slot', () => {
+		const view = setupCoverView();
+		const cover = cardByPath(view, 'Task F.md').querySelector('.obk-card-cover');
+		assert.strictEqual(cover, null, 'absent cover property should not render a cover');
+	});
+
+	test('imageFit=cover applies fit-cover modifier class', () => {
+		const view = setupCoverView({ imageFit: 'cover' });
+		const cover = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover');
+		assert.ok(cover?.classList.contains('obk-card-cover--fit-cover'));
+		assert.ok(!cover?.classList.contains('obk-card-cover--fit-contain'));
+	});
+
+	test('imageFit=contain applies fit-contain modifier class', () => {
+		const view = setupCoverView({ imageFit: 'contain' });
+		const cover = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover');
+		assert.ok(cover?.classList.contains('obk-card-cover--fit-contain'));
+		assert.ok(!cover?.classList.contains('obk-card-cover--fit-cover'));
+	});
+
+	test('imageAspectRatio is applied as inline aspect-ratio style', () => {
+		const view = setupCoverView({ imageAspectRatio: 1.5 });
+		const cover = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover') as HTMLElement;
+		assert.strictEqual(cover.style.aspectRatio, '1 / 1.5');
+	});
+
+	test('invalid/missing imageAspectRatio falls back to 0.5 (2:1 banner)', () => {
+		const view = setupCoverView({ imageAspectRatio: Number.NaN });
+		const cover = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover') as HTMLElement;
+		assert.strictEqual(cover.style.aspectRatio, '1 / 0.5');
 	});
 });
 

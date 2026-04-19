@@ -1,6 +1,6 @@
-import { JSDOM } from 'jsdom';
 import { mock } from 'node:test';
-import type { BasesEntry, BasesPropertyId, TFile, App, QueryController } from 'obsidian';
+import { JSDOM } from 'jsdom';
+import type { App, BasesEntry, BasesPropertyId, QueryController, TFile } from 'obsidian';
 import type Sortable from 'sortablejs';
 import { DEBOUNCE_DELAY } from '../src/constants.ts';
 
@@ -52,13 +52,21 @@ if (!HTMLElementProto.createSpan) {
 }
 
 if (!HTMLElementProto.createEl) {
-	HTMLElementProto.createEl = function (tag: string, options?: { cls?: string; text?: string }): HTMLElement {
+	HTMLElementProto.createEl = function (
+		tag: string,
+		options?: { cls?: string; text?: string; attr?: Record<string, string> },
+	): HTMLElement {
 		const el = document.createElement(tag);
 		if (options?.cls) {
 			el.className = options.cls;
 		}
 		if (options?.text) {
 			el.textContent = options.text;
+		}
+		if (options?.attr) {
+			for (const [k, v] of Object.entries(options.attr)) {
+				el.setAttribute(k, v);
+			}
 		}
 		this.appendChild(el);
 		return el;
@@ -193,7 +201,7 @@ export function createMockFn(): MockFn {
 }
 
 // Mock App
-export function createMockApp(): App & {
+export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
 	workspace: { openLinkText: MockFn };
 	fileManager: { processFrontMatter: MockFn };
 } {
@@ -206,6 +214,12 @@ export function createMockApp(): App & {
 		} as any,
 		fileManager: {
 			processFrontMatter,
+		} as any,
+		metadataCache: {
+			getFirstLinkpathDest: (linkpath: string, _sourcePath: string) => imageFiles[linkpath] ?? null,
+		} as any,
+		vault: {
+			getResourcePath: (file: { path: string }) => `app://fake/${file.path}`,
 		} as any,
 	} as any;
 }

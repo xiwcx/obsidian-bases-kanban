@@ -1,5 +1,5 @@
-import { createMockTFile, createMockBasesEntry } from './helpers.ts';
 import type { BasesEntry, BasesPropertyId } from 'obsidian';
+import { createMockBasesEntry, createMockTFile } from './helpers.ts';
 import {
 	BooleanValue,
 	DateValue,
@@ -15,6 +15,7 @@ export const PROPERTY_PRIORITY = 'note.priority' as BasesPropertyId;
 export const PROPERTY_CATEGORY = 'note.category' as BasesPropertyId;
 export const PROPERTY_RELATED = 'note.related' as BasesPropertyId;
 export const PROPERTY_TITLE = 'note.title' as BasesPropertyId;
+export const PROPERTY_COVER = 'note.cover' as BasesPropertyId;
 
 // Sample entries with status property
 export function createEntriesWithStatus(): BasesEntry[] {
@@ -90,6 +91,35 @@ export function createEntriesWithNumericValues(): BasesEntry[] {
 		createMockBasesEntry(createMockTFile('Task 1.md'), { [PROPERTY_STATUS]: '1' }),
 		createMockBasesEntry(createMockTFile('Task 2.md'), { [PROPERTY_STATUS]: '2' }),
 		createMockBasesEntry(createMockTFile('Task 3.md'), { [PROPERTY_STATUS]: '3' }),
+	];
+}
+
+// Entries exercising each code path of the image cover renderer
+export function createEntriesWithCovers(): BasesEntry[] {
+	return [
+		createMockBasesEntry(createMockTFile('Task A.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: '[[cover-1.jpg]]',
+		}),
+		createMockBasesEntry(createMockTFile('Task B.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: 'https://example.com/remote.jpg',
+		}),
+		createMockBasesEntry(createMockTFile('Task C.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: '![[cover-1.jpg]]',
+		}),
+		createMockBasesEntry(createMockTFile('Task D.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: '[[missing.jpg]]',
+		}),
+		createMockBasesEntry(createMockTFile('Task E.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: '',
+		}),
+		createMockBasesEntry(createMockTFile('Task F.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+		}),
 	];
 }
 

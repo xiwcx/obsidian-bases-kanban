@@ -426,10 +426,16 @@ export class KanbanView extends BasesView {
 			if (colEl) boardEl.appendChild(colEl);
 		});
 
-		scrollPositions.forEach((top, value) => {
-			const colEl = existingColumns.get(value);
-			const body = colEl?.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
-			if (body) body.scrollTop = top;
+		// Defer to the next frame so layout has finalized before we restore.
+		// Synchronous `scrollTop = top` can be clamped down when a transient layout
+		// pass reports a smaller scrollHeight (e.g. image-backed cards whose media
+		// has not laid out yet), and that clamp sticks once scrollHeight grows back.
+		requestAnimationFrame(() => {
+			scrollPositions.forEach((top, value) => {
+				const colEl = existingColumns.get(value);
+				const body = colEl?.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
+				if (body) body.scrollTop = top;
+			});
 		});
 	}
 

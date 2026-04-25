@@ -205,15 +205,17 @@ export function createMockFn(): MockFn {
 
 // Mock App
 export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
-	workspace: { openLinkText: MockFn };
+	workspace: { openLinkText: MockFn; trigger: MockFn };
 	fileManager: { processFrontMatter: MockFn };
 } {
 	const openLinkText = createMockFn();
+	const trigger = createMockFn();
 	const processFrontMatter = createMockFn();
 
 	return {
 		workspace: {
 			openLinkText,
+			trigger,
 		} as any,
 		fileManager: {
 			processFrontMatter,

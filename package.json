@@ -11,7 +11,7 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
-		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test",
+		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test tests/*.test.ts",
 		"prepare": "git config core.hooksPath .githooks",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",

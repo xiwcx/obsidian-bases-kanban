@@ -78,6 +78,153 @@
 	background: var(--background-modifier-border-hover);
 }
 
+/* Swimlane mode: stack lanes vertically. The lane body becomes the
+   horizontal column flex (replacing what .obk-board does in flat mode). */
+.obk-board--with-swimlanes {
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: auto;
+	gap: 12px;
+}
+
+.obk-swimlane {
+	display: flex;
+	flex-direction: column;
+	background: var(--background-secondary-alt);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.obk-swimlane-header {
+	padding: 8px 14px;
+	background: var(--background-primary-alt);
+	border-bottom: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--text-normal);
+	text-transform: capitalize;
+	flex-shrink: 0;
+}
+
+.obk-swimlane-count {
+	font-size: 12px;
+	color: var(--text-muted);
+	background: var(--background-modifier-border);
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-weight: 500;
+}
+
+.obk-swimlane-body {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	overflow-x: auto;
+	overflow-y: visible;
+	padding: 12px;
+	min-height: 140px;
+}
+
+/* In swimlane mode, columns + bodies size to their content. Each lane grows
+   tall enough to fit every card; the outer board scrolls vertically across
+   lanes. */
+.obk-board--with-swimlanes .obk-column {
+	min-height: 0;
+	max-height: none;
+	height: auto;
+	overflow: visible;
+}
+
+.obk-board--with-swimlanes .obk-column-body {
+	flex: 0 1 auto;
+	max-height: none;
+	overflow-y: visible;
+	min-height: 0;
+}
+
+/* The outer container caps height in flat mode; release it in swimlane mode
+   so the board grows to fit all lanes and the parent scroll-area scrolls. */
+.obk-view-container:has(.obk-board--with-swimlanes) {
+	overflow: visible;
+	height: auto;
+}
+
+/* Collapsed lane: cap the column body at ~3 cards and scroll within the
+   column. The lane and column themselves stay flexible — only the card
+   container is capped. */
+.obk-swimlane--collapsed .obk-column-body {
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+.obk-swimlane-toggle {
+	padding: 2px 10px;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-muted);
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background 0.1s ease,
+		color 0.1s ease;
+}
+
+.obk-swimlane-toggle:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-border-hover);
+}
+
+.obk-swimlane-drag-handle {
+	cursor: grab;
+	padding: 2px 4px;
+	opacity: 0.5;
+	user-select: none;
+	font-size: 14px;
+	line-height: 1;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.obk-swimlane-drag-handle:hover {
+	opacity: 1;
+	color: var(--text-normal);
+}
+
+.obk-swimlane-drag-handle:active {
+	cursor: grabbing;
+}
+
+.obk-swimlane-dragging {
+	opacity: 0.5;
+}
+
+.obk-swimlane-ghost {
+	opacity: 0.3;
+	background: var(--background-modifier-border);
+}
+
+.obk-swimlane-body::-webkit-scrollbar {
+	height: 8px;
+}
+.obk-swimlane-body::-webkit-scrollbar-track {
+	background: transparent;
+}
+.obk-swimlane-body::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 4px;
+}
+.obk-swimlane-body::-webkit-scrollbar-thumb:hover {
+	background: var(--background-modifier-border-hover);
+}
+
 /* Kanban Column */
 .obk-column {
 	--obk-column-accent-color: transparent;

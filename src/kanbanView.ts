@@ -418,11 +418,20 @@ export class KanbanView extends BasesView {
 			// This is the only place render() calls _persistPrefs(), and only when
 			// new columns appear — not on every render pass.
 			const liveValues = Array.from(groupedEntries.keys());
+			const liveValueSet = new Set(liveValues);
+			let shouldPersistColumnOrder = false;
+			if (this._prefs.columnOrder.includes(UNCATEGORIZED_LABEL) && !liveValueSet.has(UNCATEGORIZED_LABEL)) {
+				this._prefs.columnOrder = this._prefs.columnOrder.filter((value) => value !== UNCATEGORIZED_LABEL);
+				shouldPersistColumnOrder = true;
+			}
 			const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
 			if (newValues.length > 0) {
 				const isInitialOrder = this._prefs.columnOrder.length === 0;
 				// No prior order — sort alphabetically as the initial ordering
 				this._prefs.columnOrder = isInitialOrder ? [...newValues].sort() : [...this._prefs.columnOrder, ...newValues];
+				shouldPersistColumnOrder = true;
+			}
+			if (shouldPersistColumnOrder) {
 				this._persistPrefs();
 			}
 

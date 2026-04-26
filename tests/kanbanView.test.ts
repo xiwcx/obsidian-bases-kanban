@@ -2340,6 +2340,31 @@ describe('Empty Column Persistence - Saved columns restored', () => {
 		);
 		assert.strictEqual(columnValues[3], 'In Progress', 'Empty saved column should appear at its saved position');
 	});
+
+	test('Empty saved Uncategorized column is hidden when no entries need the fallback', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', {
+			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', UNCATEGORIZED_LABEL],
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columnValues = Array.from(view.containerEl.querySelectorAll('.obk-column')).map((col) =>
+			col.getAttribute('data-column-value'),
+		);
+		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]>;
+
+		assert.ok(!columnValues.includes(UNCATEGORIZED_LABEL), 'Empty fallback column should not be rendered');
+		assert.ok(
+			!savedOrders[PROPERTY_STATUS].includes(UNCATEGORIZED_LABEL),
+			'Empty fallback column should be pruned from saved column order',
+		);
+	});
 });
 
 describe('Empty Column Persistence - Eager order save', () => {

@@ -121,7 +121,7 @@
 
 .obk-swimlane-body {
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	gap: 12px;
 	overflow-x: auto;
 	overflow-y: visible;
@@ -129,18 +129,19 @@
 	min-height: 140px;
 }
 
-/* In swimlane mode, columns + bodies size to their content. Each lane grows
-   tall enough to fit every card; the outer board scrolls vertically across
-   lanes. */
+/* In swimlane mode, each lane grows tall enough to fit the fullest column,
+   and shorter column bodies stretch to that height so their Sortable drop
+   target spans the whole lane row. */
 .obk-board--with-swimlanes .obk-column {
 	min-height: 0;
 	max-height: none;
 	height: auto;
 	overflow: visible;
+	align-self: stretch;
 }
 
 .obk-board--with-swimlanes .obk-column-body {
-	flex: 0 1 auto;
+	flex: 1 1 auto;
 	max-height: none;
 	overflow-y: visible;
 	min-height: 0;

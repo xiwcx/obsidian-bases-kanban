@@ -118,6 +118,8 @@ export const CSS_CLASSES = {
 /** Sortable.js configuration constants */
 export const SORTABLE_CONFIG = {
 	ANIMATION_DURATION: 150,
+	TOUCH_DELAY: 150,
+	TOUCH_START_THRESHOLD: 4,
 } as const;
 
 /** Debounce delay in ms for onDataUpdated renders */

@@ -1,5 +1,6 @@
 /* Kanban View Container */
 .obk-view-container {
+	container-type: inline-size;
 	height: 100%;
 	display: flex;
 	flex-direction: column;
@@ -240,7 +241,7 @@
 /* Kanban Column */
 .obk-column {
 	--obk-column-accent-color: transparent;
-	flex: 0 0 280px;
+	flex: 0 0 clamp(200px, 60cqw, 280px);
 	display: flex;
 	flex-direction: column;
 	background: var(--background-secondary);
@@ -459,6 +460,13 @@
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+@media (pointer: coarse) {
+	.obk-card {
+		user-select: none;
+		-webkit-user-select: none;
+	}
+}
+
 .obk-card--hover {
 	border-color: var(--interactive-accent);
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -603,11 +611,4 @@
 	background: var(--interactive-accent);
 	border: 2px dashed var(--interactive-accent);
 	border-radius: 6px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-	.obk-column {
-		flex: 0 0 240px;
-	}
 }

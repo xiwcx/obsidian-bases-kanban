@@ -121,6 +121,7 @@ describe('isCardOrders type guard accepts swimlane composite keys', () => {
 		assert.ok(!isCardOrders('not an object'));
 		assert.ok(!isCardOrders({ key: 'string-value' }));
 		assert.ok(!isCardOrders({ key: { nested: 'string-not-array' } }));
+		assert.ok(!isCardOrders({ key: { nested: [1, 2, 3] } }));
 		assert.ok(!isCardOrders([]));
 	});
 });
@@ -138,6 +139,7 @@ describe('isCollapsedLanes type guard', () => {
 	test('rejects records whose values are not arrays', () => {
 		assert.ok(!isCollapsedLanes({ 'note.priority': 'P1' }));
 		assert.ok(!isCollapsedLanes({ 'note.priority': { nested: 'value' } }));
+		assert.ok(!isCollapsedLanes([]));
 	});
 
 	test('rejects arrays containing non-strings', () => {
@@ -165,6 +167,12 @@ describe('swimlaneOrders persistence shape', () => {
 	test('rejects nested-object shape used by columnColors', () => {
 		const colorsShape = { 'note.priority': { P1: 'red', P2: 'blue' } };
 		assert.ok(!isColumnOrders(colorsShape));
+	});
+
+	test('rejects top-level arrays and arrays with non-string values', () => {
+		assert.ok(!isColumnOrders([]));
+		assert.ok(!isColumnOrders({ 'note.priority': [1, 2, 3] }));
+		assert.ok(!isColumnOrders({ 'note.priority': ['P1', null] }));
 	});
 });
 

@@ -34,8 +34,16 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
+function isStringArray(value: unknown): value is string[] {
+	return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isStringArrayRecord(value: unknown): value is Record<string, string[]> {
+	return isRecord(value) && !Array.isArray(value) && Object.values(value).every(isStringArray);
+}
+
 export function isColumnOrders(value: unknown): value is Record<string, string[]> {
-	return isRecord(value) && Object.values(value).every((v) => Array.isArray(v));
+	return isStringArrayRecord(value);
 }
 
 export function isColumnColors(value: unknown): value is Record<string, Record<string, string>> {
@@ -49,12 +57,12 @@ export function isCardOrders(value: unknown): value is Record<string, Record<str
 	return (
 		isRecord(value) &&
 		!Array.isArray(value) &&
-		Object.values(value).every((v) => isRecord(v) && !Array.isArray(v) && Object.values(v).every((a) => Array.isArray(a)))
+		Object.values(value).every((v) => isRecord(v) && !Array.isArray(v) && Object.values(v).every(isStringArray))
 	);
 }
 
 export function isCollapsedLanes(value: unknown): value is Record<string, string[]> {
-	return isRecord(value) && Object.values(value).every((v) => Array.isArray(v) && v.every((s) => typeof s === 'string'));
+	return isStringArrayRecord(value);
 }
 
 /**

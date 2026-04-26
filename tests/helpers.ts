@@ -308,7 +308,11 @@ export function addClosestPolyfill(element: HTMLElement): void {
 export function setupTestEnvironment(): void {
 	// DOM is already set up at module level, but ensure it's available
 	if (typeof document === 'undefined') {
-		const newDom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+		const newDom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+			url: 'http://localhost',
+			pretendToBeVisual: true,
+			resources: 'usable',
+		});
 		(global as any).document = newDom.window.document;
 		(global as any).window = newDom.window;
 		(global as any).HTMLElement = newDom.window.HTMLElement;

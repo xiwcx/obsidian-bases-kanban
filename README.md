@@ -11,6 +11,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Dynamic Column Generation**: Select any property from your base to generate kanban columns automatically
 - **Drag and Drop**: Move cards between columns with smooth animations
 - **Column Reordering**: Drag columns by their handle (⋮⋮) to reorder them to your preference
+- **Swimlanes**: Optionally group the board into horizontal lanes using a second property
 - **Column Color Themes**: Assign colors to columns using the color picker button for visual categorization
 - **Column Order Persistence**: Your column order is saved per property and persists across sessions
 - **Property Selection**: Choose which property determines your columns (e.g., "Status", "Priority", "Category")
@@ -61,7 +62,8 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 5. Drag cards between columns to update the property value
 6. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
 7. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
-8. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
+8. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
+9. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
 ### Example
 
@@ -71,6 +73,15 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Drag cards between columns to change their status
 - Click any card to open the note (Cmd/Ctrl+click to open in new tab)
 - Drag columns by their handle to reorder them - your order preference will be remembered
+
+If your base also has a "Priority" property with values "High", "Medium", and "Low":
+- Select "Status" in the "Group by" dropdown
+- Select "Priority" in the "Swimlane by" dropdown
+- The board will render one horizontal lane for each priority, and each lane will contain the same status columns
+- Drag cards sideways to change their status, or drag them to another lane to change their priority
+- Drag lane headers to reorder lanes, use the lane toggle to collapse or expand a lane, and drag any column header to reorder that column across all lanes
+- Notes without a value for the swimlane property appear in an "Uncategorized" lane
+- Leave "Swimlane by" unset to use the original single-axis kanban layout
 
 If your project folders each contain a `README.md` with a `title` property:
 - Select `title` in the "Card title property" dropdown
@@ -181,4 +192,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built with [SortableJS](https://sortablejs.github.io/Sortable/) for drag-and-drop functionality
 - Inspired by the need for better task management in Obsidian Bases
-

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import { CSS_CLASSES, UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
@@ -251,9 +251,177 @@ describe('Data Rendering - Column Rendering', () => {
 		const count = header?.querySelector('.obk-column-count');
 		assert.ok(count, 'Column count should exist');
 
+		const addBtn = header?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`);
+		assert.ok(addBtn, 'Column quick add button should exist');
+
 		const body = firstColumn.querySelector('.obk-column-body');
 		assert.ok(body, 'Column body should exist');
 		assert.ok(body?.getAttribute('data-sortable-container'), 'Column body should have data-sortable-container attribute');
+	});
+
+	test('column quick add button has an accessible label and plus icon', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		const addBtn = doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`);
+		assert.ok(addBtn, 'Doing column should have a quick add button');
+		assert.strictEqual(addBtn?.getAttribute('aria-label'), 'Add card to column: Doing');
+		assert.strictEqual(addBtn?.getAttribute('tabindex'), '0');
+		assert.ok(addBtn?.querySelector('[data-icon="plus"]'), 'Quick add button should render the plus icon');
+	});
+
+	test('quick add creates a file with the selected column property', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
+		]);
+	});
+
+	test('quick add omits the column property for Uncategorized', async () => {
+		const entries = createEntriesWithEmptyValues();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Task', UNCATEGORIZED_LABEL, null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'New Task', frontmatter: {} }]);
+	});
+
+	test('quick add sets both column and swimlane properties when used inside a lane', async () => {
+		const entries = createEntriesWithMixedProperties();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'swimlaneByProperty') return PROPERTY_PRIORITY;
+			return null;
+		};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Lane Task', 'Doing', 'High');
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'New Lane Task', frontmatter: { status: 'Doing', priority: 'High' } },
+		]);
+	});
+
+	test('quick add moves the created file to the configured folder', async () => {
+		const entries = createEntriesWithStatus();
+		const createdFile = createMockTFile('dashboards/New Task.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base')];
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'energy');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createdFile];
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
+		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
+	});
+
+	test('quick add closes the native Base new item popover', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const popover = document.createElement('div');
+		popover.className = 'bases-new-item-popover';
+		document.body.appendChild(popover);
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.strictEqual(document.querySelector('.bases-new-item-popover'), null);
+	});
+
+	test('quick add closes the native Base new item popover when Obsidian opens it after creation', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async () => {
+			window.setTimeout(() => {
+				const popover = document.createElement('div');
+				popover.className = 'bases-new-item-popover';
+				document.body.appendChild(popover);
+			}, 200);
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+		await new Promise((resolve) => window.setTimeout(resolve, 300));
+
+		assert.strictEqual(document.querySelector('.bases-new-item-popover'), null);
+	});
+
+	test('quick add does not create a file when configured folder is missing', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'missing');
+		(app.vault as any).getFolderByPath = (): null => null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, []);
 	});
 });
 

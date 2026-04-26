@@ -378,6 +378,48 @@
 	border-radius: 12px;
 }
 
+.obk-column-add-btn,
+.obk-column-remove-btn {
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	cursor: pointer;
+	flex-shrink: 0;
+	transition:
+		background 0.1s ease,
+		color 0.1s ease,
+		opacity 0.1s ease;
+}
+
+.obk-column-add-btn {
+	opacity: 0.55;
+}
+
+.obk-column:hover .obk-column-add-btn,
+.obk-column-add-btn:focus-visible {
+	opacity: 1;
+}
+
+.obk-column-add-btn:hover,
+.obk-column-remove-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.obk-column-add-btn .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+.obk-column-remove-btn {
+	font-size: 18px;
+	line-height: 1;
+}
+
 .obk-column-body {
 	flex: 1;
 	overflow-y: auto;
@@ -509,6 +551,22 @@
 .obk-card-property-value p {
 	display: inline;
 	margin: 0;
+}
+
+.obk-quick-add-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.obk-quick-add-input {
+	width: 100%;
+}
+
+.obk-quick-add-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
 
 /* Drag and Drop States */

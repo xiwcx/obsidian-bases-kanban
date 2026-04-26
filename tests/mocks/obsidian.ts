@@ -43,6 +43,13 @@ export interface App {
 	};
 	fileManager: {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;
+		renameFile(file: TFile, newPath: string): Promise<void>;
+	};
+	vault: {
+		getMarkdownFiles(): TFile[];
+		getFolderByPath(path: string): { path: string; name: string } | null;
+		getAbstractFileByPath(path: string): TFile | null;
+		getResourcePath(file: { path: string }): string;
 	};
 }
 
@@ -57,6 +64,7 @@ export abstract class BasesView {
 		getOrder(): BasesPropertyId[];
 		getDisplayName(propertyId: BasesPropertyId): string;
 	};
+	createFileForViewCalls: Array<{ baseFileName: string; frontmatter: Record<string, unknown> }> = [];
 
 	constructor(controller: QueryController) {
 		this.app = controller.app;
@@ -67,6 +75,15 @@ export abstract class BasesView {
 
 	abstract onDataUpdated(): void;
 	onClose?(): void;
+
+	async createFileForView(
+		baseFileName: string,
+		frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+	): Promise<void> {
+		const frontmatter: Record<string, unknown> = {};
+		frontmatterProcessor?.(frontmatter);
+		this.createFileForViewCalls.push({ baseFileName, frontmatter });
+	}
 }
 
 export class Plugin {
@@ -224,15 +241,110 @@ export class Keymap {
 	}
 }
 
-export function parsePropertyId(propertyId: BasesPropertyId): { name: string; source?: string } {
+export class Modal {
+	app: App;
+	containerEl: HTMLElement;
+	modalEl: HTMLElement;
+	titleEl: HTMLElement;
+	contentEl: HTMLElement;
+	scope = {};
+
+	constructor(app: App) {
+		this.app = app;
+		this.containerEl = document.createElement('div');
+		this.containerEl.className = 'modal-container';
+		this.modalEl = this.containerEl.createDiv({ cls: 'modal' });
+		this.titleEl = this.modalEl.createDiv({ cls: 'modal-title' });
+		this.contentEl = this.modalEl.createDiv({ cls: 'modal-content' });
+	}
+
+	open(): void {
+		document.body.appendChild(this.containerEl);
+		void this.onOpen();
+	}
+
+	close(): void {
+		this.onClose();
+		this.containerEl.remove();
+	}
+
+	onOpen(): Promise<void> | void {}
+
+	onClose(): void {}
+
+	setTitle(title: string): this {
+		this.titleEl.textContent = title;
+		return this;
+	}
+
+	setContent(content: string | DocumentFragment): this {
+		this.contentEl.empty();
+		if (typeof content === 'string') {
+			this.contentEl.textContent = content;
+		} else {
+			this.contentEl.appendChild(content);
+		}
+		return this;
+	}
+}
+
+export class TextComponent {
+	inputEl: HTMLInputElement;
+
+	constructor(containerEl: HTMLElement) {
+		this.inputEl = document.createElement('input');
+		this.inputEl.type = 'text';
+		containerEl.appendChild(this.inputEl);
+	}
+
+	getValue(): string {
+		return this.inputEl.value;
+	}
+
+	setValue(value: string): this {
+		this.inputEl.value = value;
+		return this;
+	}
+
+	setPlaceholder(placeholder: string): this {
+		this.inputEl.placeholder = placeholder;
+		return this;
+	}
+}
+
+export class Notice {
+	static notices: Array<string | DocumentFragment> = [];
+
+	constructor(
+		public message: string | DocumentFragment,
+		_duration?: number,
+	) {
+		Notice.notices.push(message);
+	}
+
+	setMessage(message: string | DocumentFragment): this {
+		this.message = message;
+		Notice.notices.push(message);
+		return this;
+	}
+
+	hide(): void {}
+}
+
+export function normalizePath(path: string): string {
+	return path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+export function parsePropertyId(propertyId: BasesPropertyId): { name: string; type: string } {
 	const parts = propertyId.split('.');
 	if (parts.length > 1) {
 		return {
 			name: parts.slice(1).join('.'),
-			source: parts[0],
+			type: parts[0],
 		};
 	}
 	return {
 		name: propertyId,
+		type: 'note',
 	};
 }

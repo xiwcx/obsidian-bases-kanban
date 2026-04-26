@@ -167,6 +167,10 @@ describe('View Options', () => {
 		assert.ok(byKey.wrapPropertyValues, 'wrapPropertyValues option should exist');
 		assert.strictEqual(byKey.wrapPropertyValues.displayName, 'Wrap property values');
 		assert.strictEqual(byKey.wrapPropertyValues.type, 'toggle');
+
+		assert.ok(byKey.quickAddFolder, 'quickAddFolder option should exist');
+		assert.strictEqual(byKey.quickAddFolder.displayName, 'New card folder');
+		assert.strictEqual(byKey.quickAddFolder.type, 'folder');
 	});
 
 	test('Property filter excludes file.* properties', () => {

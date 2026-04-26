@@ -206,10 +206,12 @@ export function createMockFn(): MockFn {
 // Mock App
 export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
 	workspace: { openLinkText: MockFn };
-	fileManager: { processFrontMatter: MockFn };
+	fileManager: { processFrontMatter: MockFn; renameFile: MockFn };
 } {
 	const openLinkText = createMockFn();
 	const processFrontMatter = createMockFn();
+	const renameFile = createMockFn();
+	const markdownFiles: any[] = [];
 
 	return {
 		workspace: {
@@ -217,11 +219,15 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		} as any,
 		fileManager: {
 			processFrontMatter,
+			renameFile,
 		} as any,
 		metadataCache: {
 			getFirstLinkpathDest: (linkpath: string, _sourcePath: string) => imageFiles[linkpath] ?? null,
 		} as any,
 		vault: {
+			getMarkdownFiles: () => markdownFiles,
+			getFolderByPath: (path: string) => ({ path, name: path.split('/').pop() ?? path }),
+			getAbstractFileByPath: (path: string) => markdownFiles.find((file) => file.path === path) ?? null,
 			getResourcePath: (file: { path: string }) => `app://fake/${file.path}`,
 		} as any,
 	} as any;

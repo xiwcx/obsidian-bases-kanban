@@ -86,6 +86,13 @@ export class Plugin {
 	}
 }
 
+export function setIcon(parent: HTMLElement, iconId: string): void {
+	while (parent.firstChild) parent.removeChild(parent.firstChild);
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('data-icon', iconId);
+	parent.appendChild(svg);
+}
+
 // Value type hierarchy mocks
 //
 // Source: https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts

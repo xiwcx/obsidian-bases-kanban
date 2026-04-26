@@ -8,6 +8,7 @@ import {
 	NullValue,
 	parsePropertyId,
 	sanitizeHTMLToDom,
+	setIcon,
 } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
@@ -587,10 +588,11 @@ export class KanbanView extends BasesView {
 			const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
 			headerEl.createSpan({ text: `${laneCount}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
 
-			const toggleBtn = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_TOGGLE });
-			toggleBtn.setAttribute('role', 'button');
-			toggleBtn.setAttribute('aria-label', isCollapsed ? 'Expand lane' : 'Collapse lane');
-			toggleBtn.textContent = isCollapsed ? 'Expand' : 'Collapse';
+			const toggleBtn = headerEl.createEl('button', {
+				cls: CSS_CLASSES.SWIMLANE_TOGGLE,
+				attr: { type: 'button' },
+			});
+			this.updateSwimlaneToggle(toggleBtn, isCollapsed);
 			toggleBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this.toggleSwimlaneCollapsed(laneValue, laneEl, toggleBtn);
@@ -866,9 +868,17 @@ export class KanbanView extends BasesView {
 		if (willCollapse) this._prefs.collapsedLanes.add(laneValue);
 		else this._prefs.collapsedLanes.delete(laneValue);
 		laneEl.classList.toggle(CSS_CLASSES.SWIMLANE_COLLAPSED, willCollapse);
-		toggleBtn.textContent = willCollapse ? 'Expand' : 'Collapse';
-		toggleBtn.setAttribute('aria-label', willCollapse ? 'Expand lane' : 'Collapse lane');
+		this.updateSwimlaneToggle(toggleBtn, willCollapse);
 		this._persistPrefs();
+	}
+
+	private updateSwimlaneToggle(toggleBtn: HTMLElement, isCollapsed: boolean): void {
+		const label = isCollapsed ? 'Expand lane' : 'Collapse lane';
+		toggleBtn.empty();
+		setIcon(toggleBtn, isCollapsed ? 'chevron-right' : 'chevron-down');
+		toggleBtn.setAttribute('aria-label', label);
+		toggleBtn.setAttribute('title', label);
+		toggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
 	}
 
 	/**

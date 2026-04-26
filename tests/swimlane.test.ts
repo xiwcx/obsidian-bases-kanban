@@ -84,6 +84,10 @@ function getColumnOrder(body: HTMLElement): string[] {
 		.filter((value): value is string => value !== null);
 }
 
+function getToggleIcon(toggle: HTMLElement): string | null {
+	return toggle.querySelector('svg')?.getAttribute('data-icon') ?? null;
+}
+
 describe('SWIMLANE_KEY_SEPARATOR', () => {
 	test('is the Unit Separator control character (U+001F)', () => {
 		assert.strictEqual(SWIMLANE_KEY_SEPARATOR, '\u001F');
@@ -237,7 +241,11 @@ describe('Swimlane rendering behavior', () => {
 		const priorityHighLane = getLane(view, 'High');
 		const toggle = priorityHighLane.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
 		assert.ok(toggle, 'Expected collapse toggle to exist');
+		assert.strictEqual(toggle.getAttribute('aria-expanded'), 'true');
+		assert.strictEqual(getToggleIcon(toggle), 'chevron-down');
 		toggle.click();
+		assert.strictEqual(toggle.getAttribute('aria-expanded'), 'false');
+		assert.strictEqual(getToggleIcon(toggle), 'chevron-right');
 
 		const priorityScopedKey = `${PROPERTY_STATUS}${SWIMLANE_KEY_SEPARATOR}${PROPERTY_PRIORITY}`;
 		const collapsed = controller.config.get('collapsedLanes') as Record<string, string[]>;
@@ -251,6 +259,10 @@ describe('Swimlane rendering behavior', () => {
 			!assigneeHighLane.classList.contains(CSS_CLASSES.SWIMLANE_COLLAPSED),
 			'Same lane label from another swimlane property should not inherit collapsed state',
 		);
+		const assigneeToggle = assigneeHighLane.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_TOGGLE}`);
+		assert.ok(assigneeToggle, 'Expected assignee collapse toggle to exist');
+		assert.strictEqual(assigneeToggle.getAttribute('aria-expanded'), 'true');
+		assert.strictEqual(getToggleIcon(assigneeToggle), 'chevron-down');
 	});
 
 	test('swimlane card order is stored under the group plus swimlane property key', async () => {

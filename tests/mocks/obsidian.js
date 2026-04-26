@@ -45,8 +45,16 @@ function parsePropertyId(propertyId) {
 	};
 }
 
+function setIcon(parent, iconId) {
+	while (parent.firstChild) parent.removeChild(parent.firstChild);
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('data-icon', iconId);
+	parent.appendChild(svg);
+}
+
 module.exports = {
 	BasesView,
 	Plugin,
 	parsePropertyId,
+	setIcon,
 };

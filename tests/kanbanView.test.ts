@@ -2095,6 +2095,40 @@ describe('Card Order - Persistence', () => {
 		assert.strictEqual(columnOrder[1], cards[0].getAttribute('data-entry-path'), 'Original first card should be second');
 	});
 
+	test('Same-column drop does not save card order while Base sort is active', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const cards = Array.from(toDoBody.querySelectorAll('.obk-card')) as HTMLElement[];
+
+		toDoBody.insertBefore(cards[1], cards[0]);
+
+		const mockEvent = { item: cards[1], from: toDoBody, to: toDoBody, oldIndex: 1, newIndex: 0 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>> | null;
+		assert.strictEqual(
+			savedOrders?.[PROPERTY_STATUS]?.['To Do'],
+			undefined,
+			'To Do card order should not be saved when Base sort is active',
+		);
+
+		const cardPaths = Array.from(toDoBody.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
+		assert.strictEqual(cardPaths[0], 'Task 1.md', 'First card should snap back to sorted data order');
+		assert.strictEqual(cardPaths[1], 'Task 2.md', 'Second card should snap back to sorted data order');
+	});
+
 	test('Same-column drop does not call processFrontMatter', async () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
@@ -2181,6 +2215,28 @@ describe('Card Order - Persistence', () => {
 
 		assert.strictEqual(cardPaths[0], 'Task 2.md', 'First card should be Task 2 per saved order');
 		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Second card should be Task 1 per saved order');
+	});
+
+	test('Base sort takes precedence over saved card order', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+		controller.config.set('cardOrders', { [PROPERTY_STATUS]: { 'To Do': ['Task 2.md', 'Task 1.md'] } });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const cardPaths = Array.from(toDoColumn.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
+
+		assert.strictEqual(cardPaths[0], 'Task 1.md', 'First card should follow the sorted data order');
+		assert.strictEqual(cardPaths[1], 'Task 2.md', 'Second card should follow the sorted data order');
 	});
 
 	test('Re-render applies saved card order (patch path)', () => {

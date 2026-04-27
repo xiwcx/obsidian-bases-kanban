@@ -168,6 +168,7 @@ export function createMockQueryController(
 		config: {
 			getAsPropertyId: (_key: string): BasesPropertyId | null => null,
 			getOrder: (): string[] => [],
+			getSort: (): unknown => configData.sort ?? [],
 			getDisplayName: (propertyId: string): string => propertyId,
 			get: (key: string): unknown => configData[key] ?? null,
 			set: (key: string, value: unknown): void => {

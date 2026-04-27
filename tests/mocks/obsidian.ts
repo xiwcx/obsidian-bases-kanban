@@ -32,7 +32,10 @@ export interface QueryController {
 	config: {
 		getAsPropertyId(key: string): BasesPropertyId | null;
 		getOrder(): BasesPropertyId[];
+		getSort?(): unknown;
 		getDisplayName(propertyId: BasesPropertyId): string;
+		get?(key: string): unknown;
+		set?(key: string, value: unknown): void;
 	};
 	app?: App;
 }
@@ -55,7 +58,10 @@ export abstract class BasesView {
 	config?: {
 		getAsPropertyId(key: string): BasesPropertyId | null;
 		getOrder(): BasesPropertyId[];
+		getSort?(): unknown;
 		getDisplayName(propertyId: BasesPropertyId): string;
+		get?(key: string): unknown;
+		set?(key: string, value: unknown): void;
 	};
 
 	constructor(controller: QueryController) {

@@ -395,9 +395,11 @@ export class KanbanView extends BasesView {
 			const groupedEntries = groupedByLane
 				? this.flattenLanes(groupedByLane)
 				: this.groupEntriesByProperty(entries, this.groupByPropertyId);
+			const sortActive = this.hasActiveSort();
 
-			// Apply saved card order within each column / lane×column cell.
-			if (groupedByLane) {
+			// Apply manual card order only when the Base itself is not sorted.
+			// When sorting is active, Bases has already ordered `entries`.
+			if (!sortActive && groupedByLane) {
 				groupedByLane.forEach((columns, laneValue) => {
 					columns.forEach((cellEntries, columnValue) => {
 						const savedOrder = this._prefs.cardOrders[this.cardOrderKey(laneValue, columnValue)];
@@ -406,7 +408,7 @@ export class KanbanView extends BasesView {
 						}
 					});
 				});
-			} else {
+			} else if (!sortActive) {
 				groupedEntries.forEach((columnEntries, value) => {
 					const savedOrder = this._prefs.cardOrders[this.cardOrderKey(null, value)];
 					if (savedOrder) {
@@ -1253,21 +1255,28 @@ export class KanbanView extends BasesView {
 
 		const oldKey = this.cardOrderKey(oldLaneValue, oldColumnValue ?? '');
 		const newKey = this.cardOrderKey(newLaneValue, newColumnValue);
+		const sortActive = this.hasActiveSort();
 
 		// Same cell reorder: update prefs and persist
 		if (oldLaneValue === newLaneValue && oldColumnValue === newColumnValue) {
+			if (sortActive) {
+				this.render();
+				return;
+			}
 			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
 			this._persistPrefs();
 			return;
 		}
 
 		// Cross-cell drop: capture DOM order for both source and destination
-		if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
-			const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-			if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
+		if (!sortActive) {
+			if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
+				const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
+				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
+			}
+			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			this._persistPrefs();
 		}
-		this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
-		this._persistPrefs();
 
 		const entry = this._entryMap.get(entryPath);
 		if (!entry) {
@@ -1331,6 +1340,13 @@ export class KanbanView extends BasesView {
 	private reapplyActiveCard(): void {
 		if (!this._activeCardPath) return;
 		this.findCardEl(this._activeCardPath)?.classList.add(CSS_CLASSES.CARD_ACTIVE);
+	}
+
+	private hasActiveSort(): boolean {
+		const sortConfig = this.config?.getSort();
+		if (Array.isArray(sortConfig)) return sortConfig.length > 0;
+		if (!sortConfig || typeof sortConfig !== 'object') return Boolean(sortConfig);
+		return Object.keys(sortConfig).length > 0;
 	}
 
 	private getOrderedColumnValues(liveValues: string[]): string[] {

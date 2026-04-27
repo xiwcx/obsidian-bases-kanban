@@ -6,10 +6,13 @@ import {
 	ListValue,
 	MarkdownRenderer,
 	NullValue,
+	Notice,
+	normalizePath,
 	parsePropertyId,
 	sanitizeHTMLToDom,
 	setIcon,
 } from 'obsidian';
+import type { TFile } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	COLOR_PALETTE,
@@ -22,6 +25,7 @@ import {
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
+import { QuickAddModal } from './quickAddModal.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
@@ -602,7 +606,10 @@ export class KanbanView extends BasesView {
 
 			const bodyEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BODY });
 			orderedColumnValues.forEach((columnValue) => {
-				const columnEl = this.createColumn(columnValue, laneEntries.get(columnValue) || [], { showRemoveButton: false });
+				const columnEl = this.createColumn(columnValue, laneEntries.get(columnValue) || [], {
+					showRemoveButton: false,
+					swimlaneValue: laneValue,
+				});
 				bodyEl.appendChild(columnEl);
 				const cardBody = columnEl.querySelector<HTMLElement>(
 					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
@@ -921,7 +928,11 @@ export class KanbanView extends BasesView {
 		return flat;
 	}
 
-	private createColumn(value: string, entries: BasesEntry[], options: { showRemoveButton?: boolean } = {}): HTMLElement {
+	private createColumn(
+		value: string,
+		entries: BasesEntry[],
+		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
+	): HTMLElement {
 		const columnEl = document.createElement('div');
 		columnEl.className = CSS_CLASSES.COLUMN;
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
@@ -946,6 +957,7 @@ export class KanbanView extends BasesView {
 
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
+		headerEl.appendChild(this.createAddButton(value, options.swimlaneValue ?? null));
 
 		// Remove button — only shown for flat-mode empty columns.
 		if (entries.length === 0 && options.showRemoveButton !== false) {
@@ -1140,6 +1152,188 @@ export class KanbanView extends BasesView {
 			}
 		};
 		document.addEventListener('click', dismiss);
+	}
+
+	private createAddButton(columnValue: string, swimlaneValue: string | null): HTMLElement {
+		const btn = document.createElement('div');
+		btn.className = CSS_CLASSES.COLUMN_ADD_BTN;
+		btn.setAttribute(
+			'aria-label',
+			swimlaneValue
+				? `Add card to column: ${columnValue} in lane: ${swimlaneValue}`
+				: `Add card to column: ${columnValue}`,
+		);
+		btn.setAttribute('role', 'button');
+		btn.setAttribute('tabindex', '0');
+		setIcon(btn, 'plus');
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.openQuickAdd(columnValue, swimlaneValue);
+		});
+		btn.addEventListener('keydown', (e) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			e.preventDefault();
+			e.stopPropagation();
+			this.openQuickAdd(columnValue, swimlaneValue);
+		});
+		return btn;
+	}
+
+	private openQuickAdd(columnValue: string, swimlaneValue: string | null): void {
+		if (!this.app) return;
+		new QuickAddModal(this.app, {
+			columnValue,
+			swimlaneValue,
+			onSubmit: (title) => this.createQuickAddCard(title, columnValue, swimlaneValue),
+		}).open();
+	}
+
+	private getWritableFrontmatterPropertyName(propertyId: BasesPropertyId | null): string | null {
+		if (!propertyId) return null;
+		const parsed = parsePropertyId(propertyId);
+		if (parsed.type !== 'note') return null;
+		return parsed.name || null;
+	}
+
+	private getQuickAddFolder(): string | null {
+		const rawFolder = this.config?.get('quickAddFolder');
+		if (typeof rawFolder !== 'string') return null;
+		const folder = normalizePath(rawFolder.trim());
+		return folder ? folder : null;
+	}
+
+	private sanitizeBaseFileName(title: string): string {
+		return title
+			.trim()
+			.replace(/\.md$/i, '')
+			.replace(/[\\/:*?"<>|]/g, '-')
+			.replace(/\s+/g, ' ')
+			.replace(/[.\s]+$/g, '')
+			.trim();
+	}
+
+	private async createQuickAddCard(title: string, columnValue: string, swimlaneValue: string | null): Promise<void> {
+		const baseFileName = this.sanitizeBaseFileName(title);
+		if (!baseFileName) {
+			new Notice('Enter a card title.');
+			return;
+		}
+
+		const columnPropertyName = this.getWritableFrontmatterPropertyName(this._prefsPropertyId);
+		if (!columnPropertyName) {
+			new Notice('Quick add needs a writable note property for columns.');
+			return;
+		}
+
+		const swimlanePropertyName = swimlaneValue
+			? this.getWritableFrontmatterPropertyName(this._prefsSwimlanePropertyId)
+			: null;
+		if (swimlaneValue && !swimlanePropertyName) {
+			new Notice('Quick add needs a writable note property for swimlanes.');
+			return;
+		}
+
+		const quickAddFolder = this.getQuickAddFolder();
+		if (quickAddFolder && !this.app?.vault.getFolderByPath(quickAddFolder)) {
+			new Notice(`Quick add folder not found: ${quickAddFolder}`);
+			return;
+		}
+		const createdFilePaths =
+			quickAddFolder && this.app?.vault ? new Set(this.app.vault.getMarkdownFiles().map((file) => file.path)) : null;
+
+		const setFrontmatter = (frontmatter: Record<string, unknown>): void => {
+			if (columnValue === UNCATEGORIZED_LABEL) {
+				delete frontmatter[columnPropertyName];
+			} else {
+				frontmatter[columnPropertyName] = columnValue;
+			}
+
+			if (!swimlaneValue || !swimlanePropertyName) return;
+			if (swimlaneValue === UNCATEGORIZED_LABEL) {
+				delete frontmatter[swimlanePropertyName];
+			} else {
+				frontmatter[swimlanePropertyName] = swimlaneValue;
+			}
+		};
+
+		try {
+			await this.createFileForView(baseFileName, setFrontmatter);
+			if (quickAddFolder && createdFilePaths) {
+				await this.moveCreatedCardToFolder(createdFilePaths, baseFileName, quickAddFolder);
+			}
+			this.closeNativeNewItemPopover();
+		} catch (error) {
+			console.error('Error creating kanban card:', error);
+			new Notice('Could not create card.');
+		}
+	}
+
+	private closeNativeNewItemPopover(): void {
+		const closePopovers = () => {
+			const popovers = Array.from(document.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
+			if (popovers.length === 0) return;
+
+			document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+			document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			popovers.forEach((popover) => {
+				popover.remove();
+			});
+		};
+
+		closePopovers();
+		globalThis.requestAnimationFrame(closePopovers);
+		for (const delay of [50, 250, 1000]) {
+			globalThis.setTimeout(closePopovers, delay);
+		}
+	}
+
+	private getCreatedMarkdownFile(previousPaths: Set<string>, baseFileName: string): TFile | null {
+		if (!this.app?.vault) return null;
+
+		const createdFiles = this.app.vault.getMarkdownFiles().filter((file) => !previousPaths.has(file.path));
+		if (createdFiles.length === 0) return null;
+
+		const preferredBasename = baseFileName.split('/').pop() ?? baseFileName;
+		return createdFiles.find((file) => file.basename === preferredBasename) ?? createdFiles[0] ?? null;
+	}
+
+	private getAvailablePath(folder: string, fileName: string): string {
+		const extension = fileName.toLowerCase().endsWith('.md') ? '.md' : '';
+		const basename = extension ? fileName.slice(0, -extension.length) : fileName;
+		let candidate = normalizePath(`${folder}/${extension ? fileName : `${fileName}.md`}`);
+		let counter = 1;
+
+		while (this.app?.vault.getAbstractFileByPath(candidate)) {
+			candidate = normalizePath(`${folder}/${basename} ${counter}.md`);
+			counter++;
+		}
+
+		return candidate;
+	}
+
+	private async moveCreatedCardToFolder(
+		previousPaths: Set<string>,
+		baseFileName: string,
+		folder: string,
+	): Promise<void> {
+		if (!this.app?.vault || !this.app.fileManager) return;
+
+		const targetFolder = this.app.vault.getFolderByPath(folder);
+		if (!targetFolder) {
+			new Notice(`Quick add folder not found: ${folder}`);
+			return;
+		}
+
+		const createdFile = this.getCreatedMarkdownFile(previousPaths, baseFileName);
+		if (!createdFile) {
+			new Notice(`Created card, but could not move it to ${folder}.`);
+			return;
+		}
+
+		const targetPath = this.getAvailablePath(folder, createdFile.name);
+		if (targetPath === createdFile.path) return;
+
+		await this.app.fileManager.renameFile(createdFile, targetPath);
 	}
 
 	private createRemoveButton(value: string, columnEl: HTMLElement): HTMLElement {
@@ -1444,6 +1638,12 @@ export class KanbanView extends BasesView {
 				key: 'swimlaneByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Optional: horizontal grouping',
+			},
+			{
+				displayName: 'New card folder',
+				type: 'folder',
+				key: 'quickAddFolder',
+				placeholder: 'Default: base file folder',
 			},
 			{
 				displayName: 'Card title property',

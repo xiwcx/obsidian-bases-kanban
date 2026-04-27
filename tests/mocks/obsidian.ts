@@ -40,6 +40,7 @@ export interface QueryController {
 export interface App {
 	workspace: {
 		openLinkText(path: string, source: string, newLeaf: boolean): void;
+		trigger(name: string, ...data: unknown[]): void;
 	};
 	fileManager: {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;
@@ -82,6 +83,10 @@ export class Plugin {
 	onunload(): void {}
 
 	registerBasesView?(viewType: string, options: any): void {
+		// Mock implementation
+	}
+
+	registerHoverLinkSource?(id: string, info: any): void {
 		// Mock implementation
 	}
 }

@@ -74,6 +74,7 @@ export const CSS_CLASSES = {
 	COLUMN_DRAG_HANDLE: 'obk-column-drag-handle',
 	COLUMN_DRAGGING: 'obk-column-dragging',
 	COLUMN_GHOST: 'obk-column-ghost',
+	COLUMN_ADD_BTN: 'obk-column-add-btn',
 
 	// Card
 	CARD: 'obk-card',
@@ -100,6 +101,11 @@ export const CSS_CLASSES = {
 
 	// Column remove button (shown only when column is empty)
 	COLUMN_REMOVE_BTN: 'obk-column-remove-btn',
+
+	// Quick add modal
+	QUICK_ADD_FORM: 'obk-quick-add-form',
+	QUICK_ADD_INPUT: 'obk-quick-add-input',
+	QUICK_ADD_ACTIONS: 'obk-quick-add-actions',
 
 	// Color picker
 	COLUMN_COLOR_BTN: 'obk-column-color-btn',

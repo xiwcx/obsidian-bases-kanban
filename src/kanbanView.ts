@@ -1395,7 +1395,15 @@ export class KanbanView extends BasesView {
 	private attachCardSortable(body: HTMLElement, value: string): void {
 		const sortable = new Sortable(body, {
 			group: SORTABLE_GROUP,
+
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+
+			// require a press-and-hold before drag begins on touch so that
+			// swiping to scroll a column isn't mistaken for a card drag
+			delay: SORTABLE_CONFIG.TOUCH_DELAY,
+			delayOnTouchOnly: true,
+			touchStartThreshold: SORTABLE_CONFIG.TOUCH_START_THRESHOLD,
+
 			dragClass: CSS_CLASSES.CARD_DRAGGING,
 			ghostClass: CSS_CLASSES.CARD_GHOST,
 			chosenClass: CSS_CLASSES.CARD_CHOSEN,

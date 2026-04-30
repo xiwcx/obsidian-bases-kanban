@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { CSS_CLASSES, HOVER_LINK_SOURCE_ID, UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import { CSS_CLASSES, HOVER_LINK_SOURCE_ID, SORTABLE_CONFIG, UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
@@ -867,6 +867,34 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		// Verify old instances were destroyed
 		firstInstances.forEach((instance) => {
 			assert.strictEqual(instance.destroyed, true, 'Old instances should be destroyed');
+		});
+	});
+
+	test('Card Sortable instances include touch settings', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const viewInstances = Array.from((view as any)._columnSortables.values());
+		assert.ok(viewInstances.length > 0, 'Sortable instances should be created');
+
+		viewInstances.forEach((instance: any) => {
+			assert.strictEqual(
+				instance.options.delay,
+				SORTABLE_CONFIG.TOUCH_DELAY,
+				'Card Sortable should have touch delay configured',
+			);
+			assert.strictEqual(instance.options.delayOnTouchOnly, true, 'Card Sortable should have delayOnTouchOnly enabled');
+			assert.strictEqual(
+				instance.options.touchStartThreshold,
+				SORTABLE_CONFIG.TOUCH_START_THRESHOLD,
+				'Card Sortable should have touchStartThreshold configured',
+			);
 		});
 	});
 });

@@ -460,7 +460,10 @@
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-@media (any-pointer: coarse) {
+/* targets touch-first devices (tablets, phones) to make the kanban genuinely usable on
+   touch screens — any-pointer: coarse alone would also match hybrid devices (e.g.
+   touchscreen laptops) where the primary pointer is still a mouse */
+@media (any-pointer: coarse) and (hover: none) {
 	.obk-card {
 		user-select: none;
 		-webkit-user-select: none;

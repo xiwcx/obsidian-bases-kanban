@@ -1,4 +1,4 @@
-import type { App, BasesEntry, BasesPropertyId, Component, QueryController, ViewOption } from 'obsidian';
+import type { App, BasesEntry, BasesPropertyId, Component, HoverPopover, QueryController, ViewOption } from 'obsidian';
 import {
 	BasesView,
 	HTMLValue,
@@ -20,6 +20,7 @@ import {
 	DATA_ATTRIBUTES,
 	DEBOUNCE_DELAY,
 	EMPTY_STATE_MESSAGES,
+	HOVER_LINK_SOURCE_ID,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
 	SWIMLANE_KEY_SEPARATOR,
@@ -131,6 +132,7 @@ export async function renderPropertyValue(
 
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
+	hoverPopover: HoverPopover | null = null;
 
 	scrollEl: HTMLElement;
 	containerEl: HTMLElement;
@@ -209,6 +211,15 @@ export class KanbanView extends BasesView {
 			}
 		});
 
+		this.containerEl.on('mouseover', 'a.internal-link', (evt, linkEl) => {
+			if (!(evt instanceof MouseEvent)) return;
+			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
+			if (!href) return;
+			const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
+			const sourcePath = cardEl instanceof HTMLElement ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
+			this.triggerHoverPreview(href, sourcePath, evt, linkEl);
+		});
+
 		this._debouncedRender = debounce(() => {
 			try {
 				this.loadConfig();
@@ -228,6 +239,17 @@ export class KanbanView extends BasesView {
 		this.swimlaneByPropertyId = this.config.getAsPropertyId('swimlaneByProperty');
 		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
 		this.imagePropertyId = this.config.getAsPropertyId('imageProperty');
+	}
+
+	private triggerHoverPreview(linktext: string, sourcePath: string, event: MouseEvent, targetEl: HTMLElement): void {
+		this.app?.workspace.trigger('hover-link', {
+			event,
+			source: HOVER_LINK_SOURCE_ID,
+			hoverParent: this,
+			targetEl,
+			linktext,
+			sourcePath,
+		});
 	}
 
 	/**
@@ -1071,6 +1093,11 @@ export class KanbanView extends BasesView {
 		// after a drag reorders the DOM.
 		cardEl.addEventListener('mouseenter', () => cardEl.classList.add(CSS_CLASSES.CARD_HOVER));
 		cardEl.addEventListener('mouseleave', () => cardEl.classList.remove(CSS_CLASSES.CARD_HOVER));
+		cardEl.addEventListener('mouseover', (e) => {
+			if (e.target instanceof Element && e.target.closest('a')) return;
+			if (e.relatedTarget instanceof Element && cardEl.contains(e.relatedTarget)) return;
+			this.triggerHoverPreview(filePath, '', e, cardEl);
+		});
 
 		const clickHandler = (e: MouseEvent) => {
 			if (e.target instanceof Element && e.target.closest('a')) return;

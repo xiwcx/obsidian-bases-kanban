@@ -1,4 +1,5 @@
 import { Plugin } from 'obsidian';
+import { HOVER_LINK_SOURCE_ID } from './constants.ts';
 import { KanbanView, type LegacyData, isRecord, isColumnOrders, isColumnColors } from './kanbanView.ts';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
@@ -44,6 +45,11 @@ export default class KanbanBasesViewPlugin extends Plugin {
 		// first render. Once migrated, plugin.data.json is no longer consulted.
 		const raw: unknown = await this.loadData();
 		const legacyData = parseLegacyData(raw);
+
+		this.registerHoverLinkSource(HOVER_LINK_SOURCE_ID, {
+			display: 'Kanban',
+			defaultMod: true,
+		});
 
 		this.registerBasesView(KANBAN_VIEW_TYPE, {
 			name: 'Kanban',

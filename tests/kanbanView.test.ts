@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
-import { CSS_CLASSES, UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import { CSS_CLASSES, HOVER_LINK_SOURCE_ID, UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
@@ -2195,6 +2195,72 @@ describe('Internal Link Click Handling', () => {
 			'notes/Task A.md',
 			'Clicking card body should open the card note',
 		);
+	});
+});
+
+describe('Hover Preview Handling', () => {
+	let view: KanbanView;
+	let app: ReturnType<typeof createMockApp>;
+
+	beforeEach(() => {
+		app = createMockApp();
+		const scrollEl = createDivWithMethods();
+		const entries = createEntriesWithLinks();
+		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
+		view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+	});
+
+	test('Hovering a card triggers Page Preview for the card note', () => {
+		const card = view.containerEl.querySelector('[data-entry-path="notes/Task A.md"]') as HTMLElement;
+		assert.ok(card, 'Task A card should exist');
+
+		card.dispatchEvent(
+			new MouseEvent('mouseover', {
+				bubbles: true,
+				cancelable: true,
+				metaKey: true,
+				relatedTarget: view.containerEl,
+			}),
+		);
+
+		assert.strictEqual(app.workspace.trigger.calls.length, 1, 'hover-link should be triggered once');
+		assert.strictEqual(app.workspace.trigger.calls[0][0], 'hover-link');
+		const payload = app.workspace.trigger.calls[0][1] as any;
+		assert.strictEqual(payload.source, HOVER_LINK_SOURCE_ID);
+		assert.strictEqual(payload.linktext, 'notes/Task A.md');
+		assert.strictEqual(payload.sourcePath, '');
+		assert.strictEqual(payload.hoverParent, view);
+		assert.strictEqual(payload.targetEl, card);
+		assert.strictEqual(payload.event.metaKey, true);
+	});
+
+	test('Hovering an internal link triggers Page Preview for the linked note', () => {
+		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
+		assert.ok(link, 'Internal link should exist');
+
+		link.dispatchEvent(
+			new MouseEvent('mouseover', {
+				bubbles: true,
+				cancelable: true,
+				metaKey: true,
+				relatedTarget: view.containerEl,
+			}),
+		);
+
+		assert.strictEqual(app.workspace.trigger.calls.length, 1, 'hover-link should be triggered once');
+		assert.strictEqual(app.workspace.trigger.calls[0][0], 'hover-link');
+		const payload = app.workspace.trigger.calls[0][1] as any;
+		assert.strictEqual(payload.source, HOVER_LINK_SOURCE_ID);
+		assert.strictEqual(payload.linktext, 'Meeting Notes');
+		assert.strictEqual(payload.sourcePath, 'notes/Task A.md');
+		assert.strictEqual(payload.hoverParent, view);
+		assert.strictEqual(payload.targetEl, link);
+		assert.strictEqual(payload.event.metaKey, true);
 	});
 });
 

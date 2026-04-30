@@ -206,10 +206,11 @@ export function createMockFn(): MockFn {
 
 // Mock App
 export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
-	workspace: { openLinkText: MockFn };
+	workspace: { openLinkText: MockFn; trigger: MockFn };
 	fileManager: { processFrontMatter: MockFn; renameFile: MockFn };
 } {
 	const openLinkText = createMockFn();
+	const trigger = createMockFn();
 	const processFrontMatter = createMockFn();
 	const renameFile = createMockFn();
 	const markdownFiles: any[] = [];
@@ -217,6 +218,7 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 	return {
 		workspace: {
 			openLinkText,
+			trigger,
 		} as any,
 		fileManager: {
 			processFrontMatter,

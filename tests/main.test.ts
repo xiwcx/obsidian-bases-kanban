@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { describe, test } from 'node:test';
+import { HOVER_LINK_SOURCE_ID } from '../src/constants.ts';
 import { KanbanView } from '../src/kanbanView.ts';
 import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
 import { createDivWithMethods, createMockQueryController, setupTestEnvironment } from './helpers.ts';
@@ -14,6 +15,8 @@ describe('Plugin Registration', () => {
 		let registeredIcon: string | null = null;
 		let factoryController: any = null;
 		let factoryScrollEl: HTMLElement | null = null;
+		let registeredHoverSourceId: string | null = null;
+		let registeredHoverSourceInfo: any = null;
 
 		const mockApp = {} as any;
 		const plugin = new KanbanBasesViewPlugin(mockApp, {} as any);
@@ -42,6 +45,10 @@ describe('Plugin Registration', () => {
 
 			return view;
 		};
+		plugin.registerHoverLinkSource = function (id: string, info: any) {
+			registeredHoverSourceId = id;
+			registeredHoverSourceInfo = info;
+		};
 
 		// Call onload (it's async now)
 		await plugin.onload();
@@ -52,6 +59,12 @@ describe('Plugin Registration', () => {
 		assert.strictEqual(registeredIcon, 'columns', 'View icon should be "columns"');
 		assert.notStrictEqual(factoryController, null, 'Factory should receive controller');
 		assert.notStrictEqual(factoryScrollEl, null, 'Factory should receive scrollEl');
+		assert.strictEqual(registeredHoverSourceId, HOVER_LINK_SOURCE_ID, 'Hover link source should be registered');
+		assert.deepStrictEqual(
+			registeredHoverSourceInfo,
+			{ display: 'Kanban', defaultMod: true },
+			'Hover link source should require Mod by default',
+		);
 	});
 
 	test('Factory function returns KanbanView instance', async () => {

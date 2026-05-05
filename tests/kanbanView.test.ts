@@ -653,6 +653,76 @@ describe('Data Rendering - Card Rendering', () => {
 			'openLinkText should open in new leaf with Ctrl held',
 		);
 	});
+
+	test('Middle-click on card opens file in background and restores kanban focus', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		assert.ok(card, 'Card should exist');
+
+		const entryPath = card.getAttribute('data-entry-path');
+		const previousLeaf = app.workspace.mostRecentLeaf;
+		card.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+
+		assert.strictEqual(
+			app.workspace.openLinkText.calls.length,
+			0,
+			'middle-click should bypass openLinkText so it can keep focus on the current view',
+		);
+		assert.strictEqual(
+			app.workspace.getLeaf.calls.length,
+			1,
+			'getLeaf should be called once to create the background tab',
+		);
+		assert.strictEqual(app.workspace.getLeaf.calls[0][0], 'tab', "getLeaf should be called with 'tab'");
+		assert.strictEqual(app.workspace.openFile.calls.length, 1, 'openFile should be called on the new leaf');
+		assert.strictEqual(app.workspace.openFile.calls[0][0]?.path, entryPath, 'openFile should receive the card file');
+		assert.deepStrictEqual(
+			app.workspace.openFile.calls[0][1],
+			{ active: false },
+			'openFile should be called with active:false to keep focus on the kanban',
+		);
+		assert.strictEqual(
+			app.workspace.setActiveLeaf.calls.length,
+			1,
+			'setActiveLeaf should be called once to restore focus to the kanban',
+		);
+		assert.strictEqual(
+			app.workspace.setActiveLeaf.calls[0][0],
+			previousLeaf,
+			'setActiveLeaf should restore the previously active (kanban) leaf',
+		);
+		assert.deepStrictEqual(
+			app.workspace.setActiveLeaf.calls[0][1],
+			{ focus: false },
+			'setActiveLeaf should restore activeness without re-focusing (focus:true triggers an extra scroll-into-view that clamps image-card column scroll)',
+		);
+	});
+
+	test('Right-click on card does not open file', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		assert.ok(card, 'Card should exist');
+
+		card.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, button: 2 }));
+
+		assert.strictEqual(app.workspace.openLinkText.calls.length, 0, 'openLinkText should not be called for right-click');
+	});
 });
 
 describe('Data Rendering - Image cover property', () => {
@@ -2223,6 +2293,45 @@ describe('Internal Link Click Handling', () => {
 			'notes/Task A.md',
 			'Clicking card body should open the card note',
 		);
+	});
+
+	test('Middle-click on an internal link opens the linked note in a background tab', () => {
+		const meetingNotesFile = { path: 'notes/Meeting Notes.md', basename: 'Meeting Notes', extension: 'md' };
+		(app as any).metadataCache.getFirstLinkpathDest = (linkpath: string) =>
+			linkpath === 'Meeting Notes' ? meetingNotesFile : null;
+
+		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
+		assert.ok(link, 'Internal link should exist');
+
+		link.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
+
+		assert.strictEqual(
+			app.workspace.openLinkText.calls.length,
+			0,
+			'Middle-click bypasses openLinkText so it can open in background',
+		);
+		assert.strictEqual(app.workspace.getLeaf.calls.length, 1, 'getLeaf should be called once');
+		assert.strictEqual(app.workspace.getLeaf.calls[0][0], 'tab', "getLeaf should be called with 'tab'");
+		assert.strictEqual(
+			app.workspace.openFile.calls[0][0],
+			meetingNotesFile,
+			'openFile should be called with the resolved link target',
+		);
+		assert.deepStrictEqual(
+			app.workspace.openFile.calls[0][1],
+			{ active: false },
+			'openFile should be called with active:false (background)',
+		);
+	});
+
+	test('Right-click on an internal link does not open the linked note', () => {
+		const link = view.containerEl.querySelector('a.internal-link') as HTMLElement;
+		assert.ok(link, 'Internal link should exist');
+
+		link.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 2 }));
+
+		assert.strictEqual(app.workspace.getLeaf.calls.length, 0, 'Right-click should not create a new leaf');
+		assert.strictEqual(app.workspace.openLinkText.calls.length, 0, 'Right-click should not call openLinkText');
 	});
 });
 

@@ -206,11 +206,38 @@ export function createMockFn(): MockFn {
 
 // Mock App
 export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
-	workspace: { openLinkText: MockFn; trigger: MockFn };
+	workspace: {
+		openLinkText: MockFn;
+		trigger: MockFn;
+		getLeaf: MockFn;
+		openFile: MockFn;
+		setActiveLeaf: MockFn;
+		getMostRecentLeaf: MockFn;
+		mostRecentLeaf: unknown;
+	};
 	fileManager: { processFrontMatter: MockFn; renameFile: MockFn };
 } {
 	const openLinkText = createMockFn();
 	const trigger = createMockFn();
+	const openFile = createMockFn();
+	const setActiveLeaf = createMockFn();
+	const mostRecentLeaf = { __id: 'kanban-leaf' };
+	const getMostRecentLeafCalls: any[][] = [];
+	const getMostRecentLeaf = Object.assign(
+		(...args: any[]) => {
+			getMostRecentLeafCalls.push(args);
+			return mostRecentLeaf;
+		},
+		{ calls: getMostRecentLeafCalls, reset: () => (getMostRecentLeafCalls.length = 0) },
+	) as MockFn;
+	const getLeafCalls: any[][] = [];
+	const getLeaf = Object.assign(
+		(...args: any[]) => {
+			getLeafCalls.push(args);
+			return { openFile };
+		},
+		{ calls: getLeafCalls, reset: () => (getLeafCalls.length = 0) },
+	) as MockFn;
 	const processFrontMatter = createMockFn();
 	const renameFile = createMockFn();
 	const markdownFiles: any[] = [];
@@ -219,6 +246,11 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		workspace: {
 			openLinkText,
 			trigger,
+			getLeaf,
+			openFile,
+			setActiveLeaf,
+			getMostRecentLeaf,
+			mostRecentLeaf,
 		} as any,
 		fileManager: {
 			processFrontMatter,

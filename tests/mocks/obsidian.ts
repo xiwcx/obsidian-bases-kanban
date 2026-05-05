@@ -42,7 +42,12 @@ export interface QueryController {
 
 export interface App {
 	workspace: {
-		openLinkText(path: string, source: string, newLeaf: boolean): void;
+		openLinkText(path: string, source: string, newLeaf: boolean, openViewState?: { active?: boolean }): void;
+		getLeaf(newLeaf?: 'tab' | 'split' | 'window' | boolean): {
+			openFile(file: TFile, openViewState?: { active?: boolean }): Promise<void>;
+		};
+		getMostRecentLeaf(): unknown;
+		setActiveLeaf(leaf: unknown, params?: { focus?: boolean }): void;
 		trigger(name: string, ...data: unknown[]): void;
 	};
 	fileManager: {

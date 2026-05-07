@@ -1,7 +1,15 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
+import { Notice } from 'obsidian';
 import type { BasesPropertyId } from 'obsidian';
-import { CSS_CLASSES, HOVER_LINK_SOURCE_ID, SORTABLE_CONFIG, UNCATEGORIZED_LABEL } from '../src/constants.ts';
+import {
+	CSS_CLASSES,
+	HOVER_LINK_SOURCE_ID,
+	SORTABLE_CONFIG,
+	SORTABLE_GROUP,
+	SORTED_CARD_ORDER_NOTICE,
+	UNCATEGORIZED_LABEL,
+} from '../src/constants.ts';
 import { isCardOrders, KanbanView, renderPropertyValue } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
 import {
@@ -43,6 +51,8 @@ import {
 } from './helpers.ts';
 
 setupTestEnvironment();
+
+const noticeMessages = (): unknown[] => (Notice as unknown as { notices: unknown[] }).notices;
 
 describe('KanbanView Initialization', () => {
 	let scrollEl: HTMLElement;
@@ -965,6 +975,48 @@ describe('Drag and Drop - Sortable Initialization', () => {
 				SORTABLE_CONFIG.TOUCH_START_THRESHOLD,
 				'Card Sortable should have touchStartThreshold configured',
 			);
+		});
+	});
+
+	test('Card Sortable instances keep intra-column sorting enabled while Base sort is active', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const viewInstances = Array.from((view as any)._columnSortables.values());
+		assert.ok(viewInstances.length > 0, 'Sortable instances should be created');
+
+		viewInstances.forEach((instance: any) => {
+			assert.strictEqual(
+				instance.options.sort,
+				true,
+				'Card Sortable should allow same-column drag attempts so a sorted board can warn on reorder',
+			);
+			assert.strictEqual(instance.options.group, SORTABLE_GROUP, 'Card Sortable should still allow cross-column dragging');
+		});
+	});
+
+	test('Card Sortable instances allow intra-column sorting when Base sort is inactive', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const viewInstances = Array.from((view as any)._columnSortables.values());
+		assert.ok(viewInstances.length > 0, 'Sortable instances should be created');
+
+		viewInstances.forEach((instance: any) => {
+			assert.strictEqual(instance.options.sort, true, 'Card Sortable should allow same-column sorting');
 		});
 	});
 });
@@ -2490,6 +2542,7 @@ describe('Card Order - Persistence', () => {
 
 		toDoBody.insertBefore(cards[1], cards[0]);
 
+		const noticeStart = noticeMessages().length;
 		const mockEvent = { item: cards[1], from: toDoBody, to: toDoBody, oldIndex: 1, newIndex: 0 };
 		await (view as any).handleCardDrop(mockEvent);
 
@@ -2499,10 +2552,98 @@ describe('Card Order - Persistence', () => {
 			undefined,
 			'To Do card order should not be saved when Base sort is active',
 		);
+		assert.deepStrictEqual(noticeMessages().slice(noticeStart), [SORTED_CARD_ORDER_NOTICE]);
 
 		const cardPaths = Array.from(toDoBody.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
 		assert.strictEqual(cardPaths[0], 'Task 1.md', 'First card should snap back to sorted data order');
 		assert.strictEqual(cardPaths[1], 'Task 2.md', 'Second card should snap back to sorted data order');
+	});
+
+	test('Cross-column drop while Base sort is active does not show manual-order notice', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'Doing',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+		doingBody.appendChild(card);
+
+		const noticeStart = noticeMessages().length;
+		const mockEvent = { item: card, from: toDoBody, to: doingBody, oldIndex: 0, newIndex: 0 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
+	});
+
+	test('Same-column unchanged drop while Base sort is active does not show manual-order notice', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+
+		const noticeStart = noticeMessages().length;
+		const mockEvent = { item: card, from: toDoBody, to: toDoBody, oldIndex: 0, newIndex: 0 };
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
+	});
+
+	test('Same-column unchanged draggable index while Base sort is active does not show manual-order notice', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+
+		const noticeStart = noticeMessages().length;
+		const mockEvent = {
+			item: card,
+			from: toDoBody,
+			to: toDoBody,
+			oldIndex: 0,
+			newIndex: 1,
+			oldDraggableIndex: 0,
+			newDraggableIndex: 0,
+		};
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
 	});
 
 	test('Same-column drop does not call processFrontMatter', async () => {

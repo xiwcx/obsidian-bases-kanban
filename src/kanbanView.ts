@@ -23,6 +23,7 @@ import {
 	HOVER_LINK_SOURCE_ID,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
+	SORTED_CARD_ORDER_NOTICE,
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
@@ -1592,6 +1593,11 @@ export class KanbanView extends BasesView {
 			delayOnTouchOnly: true,
 			touchStartThreshold: SORTABLE_CONFIG.TOUCH_START_THRESHOLD,
 
+			// Keep same-column sorting enabled so Sortable can report whether the
+			// user actually tried to move a card. Sorted boards snap back in
+			// handleCardDrop after showing an action-specific notice.
+			sort: true,
+
 			dragClass: CSS_CLASSES.CARD_DRAGGING,
 			ghostClass: CSS_CLASSES.CARD_GHOST,
 			chosenClass: CSS_CLASSES.CARD_CHOSEN,
@@ -1666,6 +1672,9 @@ export class KanbanView extends BasesView {
 		// Same cell reorder: update prefs and persist
 		if (oldLaneValue === newLaneValue && oldColumnValue === newColumnValue) {
 			if (sortActive) {
+				if (this.didSortableIndexChange(evt)) {
+					new Notice(SORTED_CARD_ORDER_NOTICE, 4000);
+				}
 				this.render();
 				return;
 			}
@@ -1792,6 +1801,16 @@ export class KanbanView extends BasesView {
 	private reapplyActiveCard(): void {
 		if (!this._activeCardPath) return;
 		this.findCardEl(this._activeCardPath)?.classList.add(CSS_CLASSES.CARD_ACTIVE);
+	}
+
+	private didSortableIndexChange(evt: Sortable.SortableEvent): boolean {
+		if (evt.oldDraggableIndex !== undefined || evt.newDraggableIndex !== undefined) {
+			return evt.oldDraggableIndex !== evt.newDraggableIndex;
+		}
+		if (evt.oldIndex !== undefined || evt.newIndex !== undefined) {
+			return evt.oldIndex !== evt.newIndex;
+		}
+		return false;
 	}
 
 	private hasActiveSort(): boolean {

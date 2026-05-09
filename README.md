@@ -21,7 +21,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Custom Card Titles**: Display a frontmatter property as the card title instead of the file name — useful when files share a common name (e.g., `README.md`) across folders
 - **Cover Images**: Show a cover image on each card by picking a frontmatter property — mirrors Obsidian's native Cards view *Image property* with matching fit (cover/contain) and aspect-ratio controls, so one frontmatter field works for both views
 - **Property Word Wrap**: Toggle property text wrapping on cards to handle long property values
-- **Click to Open**: Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
+- **Card Detail Side Panel**: Click any card to open a persistent right-sidebar panel showing the note's title, frontmatter properties, and body — without leaving the board. Cmd/Ctrl+click opens the note in a new editor tab instead.
 - **Visual Feedback**: Clear visual indicators during drag operations
 - **Responsive Design**: Works well on different screen sizes
 
@@ -63,7 +63,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 5. Drag cards between columns to update the property value
 6. Click the `+` button in a column header to create a new card with that column value already set
 7. Optionally, set "New card folder" to choose where newly created cards should be saved
-8. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
+8. Click any card to open its note in the **Card Detail side panel** on the right (Cmd/Ctrl+click to open in a new editor tab instead)
 9. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
 10. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
 11. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
@@ -75,7 +75,7 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Three columns will appear: "To Do", "Doing", and "Done" (plus an "Uncategorized" column for notes without a status)
 - Drag cards between columns to change their status
 - Click a column's `+` button to create a new note with that status
-- Click any card to open the note (Cmd/Ctrl+click to open in new tab)
+- Click any card to open the note in the Card Detail side panel (Cmd/Ctrl+click to open in new tab)
 - Drag columns by their handle to reorder them - your order preference will be remembered
 
 If your base also has a "Priority" property with values "High", "Medium", and "Low":
@@ -99,6 +99,17 @@ If your notes have a frontmatter property pointing at a cover image (e.g., `cove
 - Use "Image fit" to choose between Cover (crop to fill) and Contain (letterbox)
 - Drag the "Image aspect ratio" slider to size the cover — wide banner on the left, tall portrait on the right
 - The same property value also works in Obsidian's built-in Cards view, so the two views stay in sync
+
+### Card Detail Side Panel
+
+Clicking a card opens a persistent right-sidebar panel — similar to Jira's issue detail view — so you can read and review the note without navigating away from the board.
+
+The panel shows:
+- **Title** with an *Open in editor* (↗) button to jump to the full editor
+- **Frontmatter properties** as a key-value table
+- **Note body** rendered as Markdown
+
+The panel persists across card clicks; clicking a different card simply swaps its content. To open the note in a new editor tab instead, use **Cmd/Ctrl+click**.
 
 ## Development
 

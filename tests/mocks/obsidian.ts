@@ -49,6 +49,10 @@ export interface App {
 		getMostRecentLeaf(): unknown;
 		setActiveLeaf(leaf: unknown, params?: { focus?: boolean }): void;
 		trigger(name: string, ...data: unknown[]): void;
+		getLeavesOfType(viewType: string): WorkspaceLeaf[];
+		getRightLeaf(split: boolean): WorkspaceLeaf | null;
+		revealLeaf(leaf: WorkspaceLeaf): void;
+		detachLeavesOfType(viewType: string): void;
 	};
 	fileManager: {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;
@@ -59,6 +63,11 @@ export interface App {
 		getFolderByPath(path: string): { path: string; name: string } | null;
 		getAbstractFileByPath(path: string): TFile | null;
 		getResourcePath(file: { path: string }): string;
+		read(file: TFile): Promise<string>;
+	};
+	metadataCache: {
+		getFirstLinkpathDest(linkpath: string, sourcePath: string): TFile | null;
+		getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null;
 	};
 }
 
@@ -98,6 +107,38 @@ export abstract class BasesView {
 	}
 }
 
+// WorkspaceLeaf — minimal surface used by CardDetailView
+export class WorkspaceLeaf {
+	app?: App;
+	view?: ItemView;
+	updateHeader(): void {}
+	async setViewState(_state: { type: string; active?: boolean }): Promise<void> {}
+}
+
+// ItemView — base class for side-panel views
+export abstract class ItemView {
+	app: App;
+	leaf: WorkspaceLeaf;
+	contentEl: HTMLElement;
+
+	constructor(leaf: WorkspaceLeaf) {
+		this.leaf = leaf;
+		this.contentEl = document.createElement('div');
+		// In the real Obsidian API the app comes from the leaf/workspace.
+		// Tests pass it in via leaf.app or by setting view.app directly.
+		this.app = (leaf as any).app ?? ({} as App);
+	}
+
+	abstract getViewType(): string;
+	abstract getDisplayText(): string;
+	getIcon(): string {
+		return '';
+	}
+
+	async onOpen(): Promise<void> {}
+	async onClose(): Promise<void> {}
+}
+
 export class Plugin {
 	app: App;
 	manifest: any;
@@ -115,6 +156,10 @@ export class Plugin {
 	}
 
 	registerHoverLinkSource?(id: string, info: any): void {
+		// Mock implementation
+	}
+
+	registerView?(viewType: string, factory: (leaf: WorkspaceLeaf) => ItemView): void {
 		// Mock implementation
 	}
 }

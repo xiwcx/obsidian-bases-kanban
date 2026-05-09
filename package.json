@@ -9,6 +9,7 @@
 	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
+		"dev:vault": "VAULT_PLUGIN_DIR=/Users/rickbowman/Documents/Personal/.obsidian/plugins/kanban-bases-view node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test tests/*.test.ts",

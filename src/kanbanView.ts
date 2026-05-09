@@ -1,4 +1,5 @@
 import type { App, BasesEntry, BasesPropertyId, Component, HoverPopover, QueryController, ViewOption } from 'obsidian';
+import { CardDetailView } from './cardDetailView.ts';
 import {
 	BasesView,
 	HTMLValue,
@@ -25,6 +26,7 @@ import {
 	SORTABLE_GROUP,
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
+	VIEW_TYPE_CARD_DETAIL,
 } from './constants.ts';
 import { QuickAddModal } from './quickAddModal.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
@@ -1118,10 +1120,17 @@ export class KanbanView extends BasesView {
 			this.setActiveCard(filePath);
 			if (!this.app?.workspace) return;
 			if (e.button === 1) {
+				// Middle-click: open in background tab
 				this.openInBackgroundTab(entry.file);
 				return;
 			}
-			void this.app.workspace.openLinkText(filePath, '', Keymap.isModEvent(e));
+			if (Keymap.isModEvent(e)) {
+				// Cmd/Ctrl-click: open in new tab / pane as before
+				void this.app.workspace.openLinkText(filePath, '', true);
+				return;
+			}
+			// Plain click: show in the detail side panel
+			void this.openCardDetail(entry.file);
 		};
 		cardEl.addEventListener('click', clickHandler);
 		cardEl.addEventListener('auxclick', clickHandler);
@@ -1697,6 +1706,30 @@ export class KanbanView extends BasesView {
 
 		this._prefs.columnOrder = order;
 		this._persistPrefs();
+	}
+
+	/**
+	 * Open (or reuse) the right-sidebar card detail panel and load the given
+	 * file into it. Creates the panel if it isn't already open.
+	 */
+	private async openCardDetail(file: TFile): Promise<void> {
+		if (!this.app?.workspace) return;
+		const { workspace } = this.app;
+
+		// Reuse an existing detail leaf; create one in the right sidebar if needed.
+		let leaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_DETAIL)[0];
+		if (!leaf) {
+			const rightLeaf = workspace.getRightLeaf(false);
+			if (!rightLeaf) return;
+			await rightLeaf.setViewState({ type: VIEW_TYPE_CARD_DETAIL, active: false });
+			leaf = rightLeaf;
+		}
+
+		await workspace.revealLeaf(leaf);
+
+		if (leaf.view instanceof CardDetailView) {
+			await leaf.view.openFile(file);
+		}
 	}
 
 	onClose(): void {

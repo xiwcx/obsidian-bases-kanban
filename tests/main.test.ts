@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, test } from 'node:test';
-import { HOVER_LINK_SOURCE_ID } from '../src/constants.ts';
+import { HOVER_LINK_SOURCE_ID, VIEW_TYPE_CARD_DETAIL } from '../src/constants.ts';
 import { KanbanView } from '../src/kanbanView.ts';
 import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
 import { createDivWithMethods, createMockQueryController, setupTestEnvironment } from './helpers.ts';
@@ -17,6 +17,7 @@ describe('Plugin Registration', () => {
 		let factoryScrollEl: HTMLElement | null = null;
 		let registeredHoverSourceId: string | null = null;
 		let registeredHoverSourceInfo: any = null;
+		let registeredDetailViewType: string | null = null;
 
 		const mockApp = {} as any;
 		const plugin = new KanbanBasesViewPlugin(mockApp, {} as any);
@@ -49,6 +50,9 @@ describe('Plugin Registration', () => {
 			registeredHoverSourceId = id;
 			registeredHoverSourceInfo = info;
 		};
+		plugin.registerView = function (viewType: string, _factory: any) {
+			registeredDetailViewType = viewType;
+		};
 
 		// Call onload (it's async now)
 		await plugin.onload();
@@ -65,6 +69,11 @@ describe('Plugin Registration', () => {
 			{ display: 'Kanban', defaultMod: true },
 			'Hover link source should require Mod by default',
 		);
+		assert.strictEqual(
+			registeredDetailViewType,
+			VIEW_TYPE_CARD_DETAIL,
+			'Card detail side panel view type should be registered',
+		);
 	});
 
 	test('Factory function returns KanbanView instance', async () => {
@@ -80,6 +89,7 @@ describe('Plugin Registration', () => {
 			factoryFn = options.factory;
 			return null;
 		};
+		plugin.registerView = function (_viewType: string, _factory: any) {};
 
 		await plugin.onload();
 
@@ -92,7 +102,6 @@ describe('Plugin Registration', () => {
 	test('Plugin unloads cleanly', () => {
 		const plugin = new KanbanBasesViewPlugin({} as any, {} as any);
 
-		// Should not throw
 		assert.doesNotThrow(() => {
 			plugin.onunload();
 		}, 'onunload should not throw');
@@ -113,6 +122,7 @@ describe('Legacy Data Parsing', () => {
 			capturedLegacyData = (view as any).legacyData;
 			return null;
 		};
+		plugin.registerView = function (_viewType: string, _factory: any) {};
 
 		await plugin.onload();
 		return capturedLegacyData;

@@ -1,5 +1,6 @@
 import { Plugin } from 'obsidian';
-import { HOVER_LINK_SOURCE_ID } from './constants.ts';
+import { CardDetailView } from './cardDetailView.ts';
+import { HOVER_LINK_SOURCE_ID, VIEW_TYPE_CARD_DETAIL } from './constants.ts';
 import { KanbanView, type LegacyData, isRecord, isColumnOrders, isColumnColors } from './kanbanView.ts';
 
 export const KANBAN_VIEW_TYPE = 'kanban-view';
@@ -51,6 +52,9 @@ export default class KanbanBasesViewPlugin extends Plugin {
 			defaultMod: true,
 		});
 
+		// Register the card detail side panel view
+		this.registerView(VIEW_TYPE_CARD_DETAIL, (leaf) => new CardDetailView(leaf));
+
 		this.registerBasesView(KANBAN_VIEW_TYPE, {
 			name: 'Kanban',
 			icon: 'columns',
@@ -61,7 +65,5 @@ export default class KanbanBasesViewPlugin extends Plugin {
 		});
 	}
 
-	onunload() {
-		// Cleanup if needed
-	}
+	onunload() {}
 }

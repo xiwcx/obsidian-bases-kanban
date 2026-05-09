@@ -8,6 +8,9 @@ export const UNCATEGORIZED_LABEL = 'Uncategorized';
 /** Source id registered with Obsidian's Page Preview core plugin */
 export const HOVER_LINK_SOURCE_ID = 'kanban-bases-view';
 
+/** View type for the card detail side panel */
+export const VIEW_TYPE_CARD_DETAIL = 'kanban-card-detail';
+
 /** Color palette for column accents, using Obsidian design system variables */
 export const COLOR_PALETTE = [
 	{ name: 'red', cssVar: 'var(--color-red)' },
@@ -110,6 +113,21 @@ export const CSS_CLASSES = {
 	QUICK_ADD_FORM: 'obk-quick-add-form',
 	QUICK_ADD_INPUT: 'obk-quick-add-input',
 	QUICK_ADD_ACTIONS: 'obk-quick-add-actions',
+
+	// Card detail side panel
+	DETAIL_VIEW: 'obk-detail-view',
+	DETAIL_PLACEHOLDER: 'obk-detail-placeholder',
+	DETAIL_HEADER: 'obk-detail-header',
+	DETAIL_TITLE: 'obk-detail-title',
+	DETAIL_ACTIONS: 'obk-detail-actions',
+	DETAIL_OPEN_BTN: 'obk-detail-open-btn',
+	DETAIL_PROPERTIES: 'obk-detail-properties',
+	DETAIL_PROPERTY_ROW: 'obk-detail-property-row',
+	DETAIL_PROPERTY_KEY: 'obk-detail-property-key',
+	DETAIL_PROPERTY_VALUE: 'obk-detail-property-value',
+	DETAIL_DIVIDER: 'obk-detail-divider',
+	DETAIL_BODY: 'obk-detail-body',
+	DETAIL_EMPTY: 'obk-detail-empty',
 
 	// Color picker
 	COLUMN_COLOR_BTN: 'obk-column-color-btn',

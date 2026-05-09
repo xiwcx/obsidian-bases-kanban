@@ -608,6 +608,137 @@
 	background: var(--background-modifier-border);
 }
 
+/* ── Card Detail Side Panel ─────────────────────────────────────────────── */
+
+.obk-detail-view {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	height: 100%;
+	box-sizing: border-box;
+	overflow-y: auto;
+}
+
+.obk-detail-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px 20px;
+	color: var(--text-muted);
+	font-style: italic;
+	text-align: center;
+}
+
+/* Header: title + actions row */
+.obk-detail-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.obk-detail-title {
+	flex: 1;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+	color: var(--text-normal);
+	line-height: 1.4;
+	word-break: break-word;
+}
+
+.obk-detail-actions {
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.obk-detail-open-btn {
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	padding: 0;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition:
+		background 0.1s ease,
+		color 0.1s ease;
+}
+
+.obk-detail-open-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.obk-detail-open-btn .svg-icon {
+	width: 15px;
+	height: 15px;
+}
+
+/* Properties table */
+.obk-detail-properties {
+	background: var(--background-secondary);
+	border-radius: 6px;
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.obk-detail-property-row {
+	display: flex;
+	gap: 8px;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.obk-detail-property-key {
+	color: var(--text-muted);
+	flex-shrink: 0;
+	min-width: 80px;
+	font-weight: 500;
+}
+
+.obk-detail-property-value {
+	color: var(--text-normal);
+	flex: 1;
+	word-break: break-word;
+}
+
+/* Divider between properties and body */
+.obk-detail-divider {
+	border: none;
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 0;
+	flex-shrink: 0;
+}
+
+/* Rendered markdown body */
+.obk-detail-body {
+	flex: 1;
+	font-size: var(--font-ui-small);
+	line-height: 1.6;
+	color: var(--text-normal);
+	min-height: 0;
+}
+
+.obk-detail-body > *:first-child {
+	margin-top: 0;
+}
+
+.obk-detail-empty {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+/* ── End Card Detail Side Panel ─────────────────────────────────────────── */
+
 /* Sortable placeholder */
 .obk-sortable-ghost {
 	opacity: 0.4;

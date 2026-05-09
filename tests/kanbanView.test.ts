@@ -9,6 +9,7 @@ import {
 	SORTABLE_GROUP,
 	SORTED_CARD_ORDER_NOTICE,
 	UNCATEGORIZED_LABEL,
+	VIEW_TYPE_CARD_DETAIL,
 } from '../src/constants.ts';
 import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
@@ -670,7 +671,7 @@ describe('Data Rendering - Card Rendering', () => {
 		);
 	});
 
-	test('Card click handler opens file in workspace', () => {
+	test('Card plain click opens card detail side panel (not openLinkText)', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
@@ -683,20 +684,20 @@ describe('Data Rendering - Card Rendering', () => {
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
 		assert.ok(card, 'Card should exist');
 
-		const entryPath = card.getAttribute('data-entry-path');
 		card.click();
 
-		// Verify openLinkText was called in current leaf
-		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called');
+		// Plain click should NOT call openLinkText — it opens the detail panel instead
 		assert.strictEqual(
-			app.workspace.openLinkText.calls[0][0],
-			entryPath,
-			'openLinkText should be called with entry path',
+			app.workspace.openLinkText.calls.length,
+			0,
+			'plain click should not call openLinkText; detail panel is used instead',
 		);
+		// getLeavesOfType should be called to find or create the detail leaf
+		assert.strictEqual(app.workspace.getLeavesOfType.calls.length, 1, 'getLeavesOfType should be called');
 		assert.strictEqual(
-			app.workspace.openLinkText.calls[0][2],
-			false,
-			'openLinkText should open in current leaf without modifier',
+			app.workspace.getLeavesOfType.calls[0][0],
+			VIEW_TYPE_CARD_DETAIL,
+			'getLeavesOfType should look up the card detail panel view type',
 		);
 	});
 
@@ -716,6 +717,7 @@ describe('Data Rendering - Card Rendering', () => {
 		const entryPath = card.getAttribute('data-entry-path');
 		card.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
 
+		// Modifier-click should still use openLinkText (open in new tab / pane)
 		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called');
 		assert.strictEqual(
 			app.workspace.openLinkText.calls[0][0],
@@ -2405,7 +2407,7 @@ describe('Internal Link Click Handling', () => {
 		);
 	});
 
-	test('Clicking the card body (not a link) still opens the note', () => {
+	test('Clicking the card body (not a link) opens the card detail panel', () => {
 		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card')) as HTMLElement[];
 		const taskACard = cards.find((c) => c.getAttribute('data-entry-path') === 'notes/Task A.md');
 		assert.ok(taskACard, 'Task A card should exist');
@@ -2415,11 +2417,17 @@ describe('Internal Link Click Handling', () => {
 
 		title.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called once');
+		// Plain click should open the detail panel, not call openLinkText directly
+		assert.strictEqual(app.workspace.openLinkText.calls.length, 0, 'openLinkText should not be called for plain click');
 		assert.strictEqual(
-			app.workspace.openLinkText.calls[0][0],
-			'notes/Task A.md',
-			'Clicking card body should open the card note',
+			app.workspace.getLeavesOfType.calls.length,
+			1,
+			'getLeavesOfType should be called to find detail panel',
+		);
+		assert.strictEqual(
+			app.workspace.getLeavesOfType.calls[0][0],
+			VIEW_TYPE_CARD_DETAIL,
+			'getLeavesOfType should look up the card detail panel',
 		);
 	});
 

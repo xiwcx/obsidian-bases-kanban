@@ -20,6 +20,7 @@ export interface CardCallbacks {
 	onHoverPreview: (linktext: string, sourcePath: string, event: MouseEvent, targetEl: HTMLElement) => void;
 	onSetActiveCard: (path: string | null) => void;
 	onOpenInBackgroundTab: (file: TFile) => void;
+	onOpenCardDetail: (file: TFile) => void;
 }
 
 export function computeCardFingerprint(entry: BasesEntry, ctx: CardRenderCtx): string {
@@ -142,7 +143,13 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 			cb.onOpenInBackgroundTab(entry.file);
 			return;
 		}
-		void ctx.app.workspace.openLinkText(filePath, '', Keymap.isModEvent(e));
+		if (Keymap.isModEvent(e)) {
+			// Cmd/Ctrl-click: open in new tab as before
+			void ctx.app.workspace.openLinkText(filePath, '', true);
+			return;
+		}
+		// Plain click: show in the detail side panel
+		cb.onOpenCardDetail(entry.file);
 	};
 	cardEl.addEventListener('click', clickHandler);
 	cardEl.addEventListener('auxclick', clickHandler);

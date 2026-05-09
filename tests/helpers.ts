@@ -165,6 +165,34 @@ if (!EventProto.instanceOf) {
 	};
 }
 
+if (!HTMLElementProto.addClass) {
+	HTMLElementProto.addClass = function (...classes: string[]): void {
+		for (const cls of classes) {
+			if (cls) this.classList.add(cls);
+		}
+	};
+}
+
+if (!HTMLElementProto.removeClass) {
+	HTMLElementProto.removeClass = function (...classes: string[]): void {
+		for (const cls of classes) {
+			if (cls) this.classList.remove(cls);
+		}
+	};
+}
+
+if (!HTMLElementProto.toggleClass) {
+	HTMLElementProto.toggleClass = function (cls: string, value?: boolean): boolean {
+		return this.classList.toggle(cls, value);
+	};
+}
+
+if (!HTMLElementProto.hasClass) {
+	HTMLElementProto.hasClass = function (cls: string): boolean {
+		return this.classList.contains(cls);
+	};
+}
+
 // Mock TFile
 export function createMockTFile(path: string, basename?: string, parent?: { path: string; name: string }): TFile {
 	return {
@@ -261,6 +289,21 @@ export function createMockFn(): MockFn {
 	return fn;
 }
 
+// Create a minimal mock WorkspaceLeaf with a controllable view
+export function createMockWorkspaceLeaf(app?: any): {
+	app: any;
+	view: { openFile: MockFn };
+	updateHeader: MockFn;
+	setViewState: MockFn;
+} {
+	return {
+		app,
+		view: { openFile: createMockFn() },
+		updateHeader: createMockFn(),
+		setViewState: createMockFn(),
+	};
+}
+
 // Mock App
 export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
 	workspace: {
@@ -271,8 +314,14 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		setActiveLeaf: MockFn;
 		getMostRecentLeaf: MockFn;
 		mostRecentLeaf: unknown;
+		getLeavesOfType: MockFn;
+		getRightLeaf: MockFn;
+		revealLeaf: MockFn;
+		detachLeavesOfType: MockFn;
+		mockRightLeaf: ReturnType<typeof createMockWorkspaceLeaf>;
 	};
 	fileManager: { processFrontMatter: MockFn; renameFile: MockFn };
+	vault: { read: MockFn };
 } {
 	const openLinkText = createMockFn();
 	const trigger = createMockFn();
@@ -295,9 +344,35 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		},
 		{ calls: getLeafCalls, reset: () => (getLeafCalls.length = 0) },
 	) as MockFn;
+
+	// Detail panel workspace helpers
+	const mockRightLeaf = createMockWorkspaceLeaf();
+	const getLeavesOfTypeCalls: any[][] = [];
+	const getLeavesOfType = Object.assign(
+		(...args: any[]) => {
+			getLeavesOfTypeCalls.push(args);
+			return []; // no existing detail leaf by default
+		},
+		{ calls: getLeavesOfTypeCalls, reset: () => (getLeavesOfTypeCalls.length = 0) },
+	) as MockFn;
+	const getRightLeafCalls: any[][] = [];
+	const getRightLeaf = Object.assign(
+		(...args: any[]) => {
+			getRightLeafCalls.push(args);
+			return mockRightLeaf;
+		},
+		{ calls: getRightLeafCalls, reset: () => (getRightLeafCalls.length = 0) },
+	) as MockFn;
+	const revealLeaf = createMockFn();
+	const detachLeavesOfType = createMockFn();
+
 	const processFrontMatter = createMockFn();
 	const renameFile = createMockFn();
 	const markdownFiles: any[] = [];
+	const read = createMockFn();
+
+	// Default file cache: no frontmatter
+	let fileCacheMap: Map<string, { frontmatter?: Record<string, unknown> }> = new Map();
 
 	return {
 		workspace: {
@@ -309,6 +384,11 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 			getMostRecentLeaf,
 			mostRecentLeaf,
 			getActiveFile: (): null => null,
+			getLeavesOfType,
+			getRightLeaf,
+			revealLeaf,
+			detachLeavesOfType,
+			mockRightLeaf,
 		} as any,
 		fileManager: {
 			processFrontMatter,
@@ -316,12 +396,18 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		} as any,
 		metadataCache: {
 			getFirstLinkpathDest: (linkpath: string, _sourcePath: string) => imageFiles[linkpath] ?? null,
+			getFileCache: (file: TFile) => fileCacheMap.get(file.path) ?? null,
+			// Expose setter so tests can configure per-file frontmatter
+			_setFileCache: (path: string, cache: { frontmatter?: Record<string, unknown> }) => {
+				fileCacheMap.set(path, cache);
+			},
 		} as any,
 		vault: {
 			getMarkdownFiles: () => markdownFiles,
 			getFolderByPath: (path: string) => ({ path, name: path.split('/').pop() ?? path }),
 			getAbstractFileByPath: (path: string) => markdownFiles.find((file) => file.path === path) ?? null,
 			getResourcePath: (file: { path: string }) => `app://fake/${file.path}`,
+			read,
 		} as any,
 		renderContext: { hoverPopover: null } as any,
 	} as any;

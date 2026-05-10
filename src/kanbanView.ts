@@ -1595,7 +1595,7 @@ export class KanbanView extends BasesView {
 
 			// Keep same-column sorting enabled so Sortable can report whether the
 			// user actually tried to move a card. Sorted boards snap back in
-			// handleCardDrop after showing an action-specific notice.
+			// handleCardDrop after optionally showing an action-specific notice.
 			sort: true,
 
 			dragClass: CSS_CLASSES.CARD_DRAGGING,

@@ -416,19 +416,32 @@ describe('Data Rendering - Column Rendering', () => {
 		]);
 	});
 
-	test('quick add creates file directly in the configured folder', async () => {
+	test('quick add does not move when Bases creates directly in the configured folder', async () => {
 		const entries = createEntriesWithStatus();
+		const createdFile = createMockTFile('energy/New Task.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base')];
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		controller.config.set('quickAddFolder', 'energy');
 
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
 		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createdFile];
+		};
 
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
@@ -436,6 +449,156 @@ describe('Data Rendering - Column Rendering', () => {
 			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls, []);
+	});
+
+	test('quick add moves the created file when Bases ignores the configured folder', async () => {
+		const entries = createEntriesWithStatus();
+		const createdFile = createMockTFile('dashboards/New Task.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base')];
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'energy');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createdFile];
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
+	});
+
+	test('quick add moves wrong-folder suffixed files to the requested target name when it is free', async () => {
+		const entries = createEntriesWithStatus();
+		const createdFile = createMockTFile('dashboards/New Task 1.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base')];
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'energy');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createdFile];
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
+	});
+
+	test('quick add picks the next target filename when the configured folder already has a collision', async () => {
+		const entries = createEntriesWithStatus();
+		const existingTarget = createMockTFile('energy/New Task.md');
+		const createdFile = createMockTFile('dashboards/New Task.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base'), existingTarget];
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'energy');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createdFile];
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task 1.md']);
+	});
+
+	test('quick add waits for async Bases file creation before moving the card', async () => {
+		const entries = createEntriesWithStatus();
+		const createdFile = createMockTFile('dashboards/New Task.md');
+		let markdownFiles = [createMockTFile('dashboards/maintenance-board.base')];
+		let createHandler: (() => void) | null = null;
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'energy');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'energy' ? { path, name: 'energy' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+		(app.vault as any).on = (name: string, handler: () => void) => {
+			if (name === 'create') createHandler = handler;
+			return { name };
+		};
+		(app.vault as any).offref = () => {};
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			window.setTimeout(() => {
+				markdownFiles = [...markdownFiles, createdFile];
+				createHandler?.();
+			}, 10);
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});
 
 	test('quick add closes the native Base new item popover', async () => {

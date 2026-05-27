@@ -1,6 +1,5 @@
 import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
 import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
-import { CardDetailView } from './cardDetailView.ts';
 import {
 	createCard as createCardEl,
 	computeCardFingerprint,
@@ -43,7 +42,6 @@ import {
 	SORTED_CARD_ORDER_NOTICE,
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
-	VIEW_TYPE_CARD_DETAIL,
 } from './constants.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
@@ -1413,27 +1411,12 @@ export class KanbanView extends BasesView {
 		return [...ordered, ...unsaved];
 	}
 
-	/**
-	 * Open (or reuse) the right-sidebar card detail panel and load the given
-	 * file into it. Creates the panel if it isn't already open.
-	 */
 	private async openCardDetail(file: TFile): Promise<void> {
 		if (!this.app?.workspace) return;
-		const { workspace } = this.app;
-
-		// Reuse an existing detail leaf; create one in the right sidebar if needed.
-		let leaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_DETAIL)[0];
-		if (!leaf) {
-			const rightLeaf = workspace.getRightLeaf(false);
-			if (!rightLeaf) return;
-			await rightLeaf.setViewState({ type: VIEW_TYPE_CARD_DETAIL, active: false });
-			leaf = rightLeaf;
-		}
-
-		await workspace.revealLeaf(leaf);
-
-		if (leaf.view instanceof CardDetailView) {
-			await leaf.view.openFile(file);
+		const rightLeaf = this.app.workspace.getRightLeaf(false);
+		if (rightLeaf) {
+			await rightLeaf.openFile(file);
+			await this.app.workspace.revealLeaf(rightLeaf);
 		}
 	}
 

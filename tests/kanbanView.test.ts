@@ -9,7 +9,6 @@ import {
 	SORTABLE_GROUP,
 	SORTED_CARD_ORDER_NOTICE,
 	UNCATEGORIZED_LABEL,
-	VIEW_TYPE_CARD_DETAIL,
 } from '../src/constants.ts';
 import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
 import { normalizePropertyValue } from '../src/utils/grouping.ts';
@@ -686,18 +685,19 @@ describe('Data Rendering - Card Rendering', () => {
 
 		card.click();
 
-		// Plain click should NOT call openLinkText — it opens the detail panel instead
+		// Plain click should NOT call openLinkText — it opens the native right leaf instead
 		assert.strictEqual(
 			app.workspace.openLinkText.calls.length,
 			0,
-			'plain click should not call openLinkText; detail panel is used instead',
+			'plain click should not call openLinkText; native right leaf is used instead',
 		);
-		// getLeavesOfType should be called to find or create the detail leaf
-		assert.strictEqual(app.workspace.getLeavesOfType.calls.length, 1, 'getLeavesOfType should be called');
+		// getRightLeaf should be called to obtain the right sidebar leaf
+		assert.strictEqual(app.workspace.getRightLeaf.calls.length, 1, 'getRightLeaf should be called');
+		// openFile should be called on the returned leaf
 		assert.strictEqual(
-			app.workspace.getLeavesOfType.calls[0][0],
-			VIEW_TYPE_CARD_DETAIL,
-			'getLeavesOfType should look up the card detail panel view type',
+			app.workspace.mockRightLeaf.openFile.calls.length,
+			1,
+			'openFile should be called on the right leaf',
 		);
 	});
 
@@ -2417,17 +2417,17 @@ describe('Internal Link Click Handling', () => {
 
 		title.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-		// Plain click should open the detail panel, not call openLinkText directly
+		// Plain click should open the native right leaf, not call openLinkText directly
 		assert.strictEqual(app.workspace.openLinkText.calls.length, 0, 'openLinkText should not be called for plain click');
 		assert.strictEqual(
-			app.workspace.getLeavesOfType.calls.length,
+			app.workspace.getRightLeaf.calls.length,
 			1,
-			'getLeavesOfType should be called to find detail panel',
+			'getRightLeaf should be called to obtain the right sidebar leaf',
 		);
 		assert.strictEqual(
-			app.workspace.getLeavesOfType.calls[0][0],
-			VIEW_TYPE_CARD_DETAIL,
-			'getLeavesOfType should look up the card detail panel',
+			app.workspace.mockRightLeaf.openFile.calls.length,
+			1,
+			'openFile should be called on the right leaf',
 		);
 	});
 

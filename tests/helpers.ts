@@ -292,12 +292,14 @@ export function createMockFn(): MockFn {
 // Create a minimal mock WorkspaceLeaf with a controllable view
 export function createMockWorkspaceLeaf(app?: any): {
 	app: any;
+	openFile: MockFn;
 	view: { openFile: MockFn };
 	updateHeader: MockFn;
 	setViewState: MockFn;
 } {
 	return {
 		app,
+		openFile: createMockFn(),
 		view: { openFile: createMockFn() },
 		updateHeader: createMockFn(),
 		setViewState: createMockFn(),
@@ -314,10 +316,8 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		setActiveLeaf: MockFn;
 		getMostRecentLeaf: MockFn;
 		mostRecentLeaf: unknown;
-		getLeavesOfType: MockFn;
 		getRightLeaf: MockFn;
 		revealLeaf: MockFn;
-		detachLeavesOfType: MockFn;
 		mockRightLeaf: ReturnType<typeof createMockWorkspaceLeaf>;
 	};
 	fileManager: { processFrontMatter: MockFn; renameFile: MockFn };
@@ -347,14 +347,6 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 
 	// Detail panel workspace helpers
 	const mockRightLeaf = createMockWorkspaceLeaf();
-	const getLeavesOfTypeCalls: any[][] = [];
-	const getLeavesOfType = Object.assign(
-		(...args: any[]) => {
-			getLeavesOfTypeCalls.push(args);
-			return []; // no existing detail leaf by default
-		},
-		{ calls: getLeavesOfTypeCalls, reset: () => (getLeavesOfTypeCalls.length = 0) },
-	) as MockFn;
 	const getRightLeafCalls: any[][] = [];
 	const getRightLeaf = Object.assign(
 		(...args: any[]) => {
@@ -364,7 +356,6 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 		{ calls: getRightLeafCalls, reset: () => (getRightLeafCalls.length = 0) },
 	) as MockFn;
 	const revealLeaf = createMockFn();
-	const detachLeavesOfType = createMockFn();
 
 	const processFrontMatter = createMockFn();
 	const renameFile = createMockFn();
@@ -384,10 +375,8 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 			getMostRecentLeaf,
 			mostRecentLeaf,
 			getActiveFile: (): null => null,
-			getLeavesOfType,
 			getRightLeaf,
 			revealLeaf,
-			detachLeavesOfType,
 			mockRightLeaf,
 		} as any,
 		fileManager: {

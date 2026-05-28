@@ -701,6 +701,37 @@ describe('Data Rendering - Card Rendering', () => {
 		);
 	});
 
+	test('Clicking multiple cards reuses the same leaf (no new tabs)', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cards = Array.from(view.containerEl.querySelectorAll('.obk-card')) as HTMLElement[];
+		assert.ok(cards.length >= 2, 'Need at least two cards');
+
+		// First click — creates the leaf
+		cards[0].click();
+		assert.strictEqual(app.workspace.getRightLeaf.calls.length, 1, 'getRightLeaf called on first click');
+
+		// Second click on a different card — should reuse the same leaf
+		cards[1].click();
+		assert.strictEqual(
+			app.workspace.getRightLeaf.calls.length,
+			1,
+			'getRightLeaf should NOT be called again on second click',
+		);
+		assert.strictEqual(
+			app.workspace.mockRightLeaf.openFile.calls.length,
+			2,
+			'openFile called twice — once per card click',
+		);
+	});
+
 	test('Ctrl+click on card opens file in new leaf', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);

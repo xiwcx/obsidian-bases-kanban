@@ -1,4 +1,4 @@
-import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
+import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption, WorkspaceLeaf } from 'obsidian';
 import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
 import {
 	createCard as createCardEl,
@@ -104,6 +104,7 @@ export class KanbanView extends BasesView {
 	private swimlaneColumnSortables: Map<string | null, Sortable> = new Map();
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
+	private _detailLeaf: WorkspaceLeaf | null = null;
 
 	/**
 	 * In-memory display preferences — the single source of truth during a session.
@@ -1413,11 +1414,17 @@ export class KanbanView extends BasesView {
 
 	private async openCardDetail(file: TFile): Promise<void> {
 		if (!this.app?.workspace) return;
-		const rightLeaf = this.app.workspace.getRightLeaf(false);
-		if (rightLeaf) {
-			await rightLeaf.openFile(file);
-			await this.app.workspace.revealLeaf(rightLeaf);
+		const { workspace } = this.app;
+
+		// Reuse the cached leaf if still attached; leaf.parent is null once the
+		// user closes the panel, so that's our signal to request a new one.
+		if (!this._detailLeaf?.parent) {
+			this._detailLeaf = workspace.getRightLeaf(false);
 		}
+		if (!this._detailLeaf) return;
+
+		await this._detailLeaf.openFile(file);
+		await workspace.revealLeaf(this._detailLeaf);
 	}
 
 	onClose(): void {
@@ -1425,6 +1432,7 @@ export class KanbanView extends BasesView {
 		this.destroySortables();
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
+		this._detailLeaf = null;
 	}
 
 	/**

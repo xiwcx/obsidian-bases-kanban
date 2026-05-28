@@ -289,13 +289,16 @@ export function createMockFn(): MockFn {
 	return fn;
 }
 
-// Create a minimal mock WorkspaceLeaf with a controllable view
+// Create a minimal mock WorkspaceLeaf with a controllable view.
+// `parent` is non-null by default (simulates an attached leaf). Tests can set
+// it to null to simulate the user closing the panel.
 export function createMockWorkspaceLeaf(app?: any): {
 	app: any;
 	openFile: MockFn;
 	view: { openFile: MockFn };
 	updateHeader: MockFn;
 	setViewState: MockFn;
+	parent: {} | null;
 } {
 	return {
 		app,
@@ -303,6 +306,7 @@ export function createMockWorkspaceLeaf(app?: any): {
 		view: { openFile: createMockFn() },
 		updateHeader: createMockFn(),
 		setViewState: createMockFn(),
+		parent: {},
 	};
 }
 

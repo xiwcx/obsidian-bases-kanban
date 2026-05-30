@@ -670,11 +670,31 @@ describe('Data Rendering - Card Rendering', () => {
 		);
 	});
 
+	test('Card plain click calls openLinkText when openInSidebar is off (default)', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		// openInSidebar not set — defaults to false (upstream behaviour)
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
+		assert.ok(card, 'Card should exist');
+		card.click();
+
+		assert.strictEqual(app.workspace.openLinkText.calls.length, 1, 'openLinkText should be called for plain click');
+		assert.strictEqual(app.workspace.getRightLeaf.calls.length, 0, 'getRightLeaf should NOT be called');
+	});
+
 	test('Card plain click opens card detail side panel (not openLinkText)', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.get = (key: string) => (key === 'openInSidebar' ? true : null);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -706,6 +726,7 @@ describe('Data Rendering - Card Rendering', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.get = (key: string) => (key === 'openInSidebar' ? true : null);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2391,6 +2412,7 @@ describe('Internal Link Click Handling', () => {
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
+		controller.config.get = (key: string) => (key === 'openInSidebar' ? true : null);
 		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);

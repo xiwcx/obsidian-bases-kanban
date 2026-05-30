@@ -12,6 +12,7 @@ export interface CardRenderCtx {
 	imageFit: string;
 	imageAspectRatio: number;
 	wrapValues: boolean;
+	openInSidebar: boolean;
 	order: BasesPropertyId[];
 	getDisplayName: (id: BasesPropertyId) => string;
 }
@@ -143,13 +144,18 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 			cb.onOpenInBackgroundTab(entry.file);
 			return;
 		}
-		if (Keymap.isModEvent(e)) {
-			// Cmd/Ctrl-click: open in new tab as before
-			void ctx.app.workspace.openLinkText(filePath, '', true);
-			return;
+		if (ctx.openInSidebar) {
+			if (Keymap.isModEvent(e)) {
+				// Cmd/Ctrl-click: open in new tab
+				void ctx.app.workspace.openLinkText(filePath, '', true);
+				return;
+			}
+			// Plain click: show in the right-sidebar panel
+			cb.onOpenCardDetail(entry.file);
+		} else {
+			// Default upstream behaviour: open in pane (new tab on Cmd/Ctrl)
+			void ctx.app.workspace.openLinkText(filePath, '', Keymap.isModEvent(e));
 		}
-		// Plain click: show in the detail side panel
-		cb.onOpenCardDetail(entry.file);
 	};
 	cardEl.addEventListener('click', clickHandler);
 	cardEl.addEventListener('auxclick', clickHandler);

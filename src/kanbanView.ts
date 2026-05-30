@@ -119,6 +119,7 @@ export class KanbanView extends BasesView {
 	 */
 	private _lastOrderKey: string = '';
 	private _lastWrapValue: boolean | null = null;
+	private _lastOpenInSidebar: boolean | null = null;
 	private _lastCardTitlePropertyId: BasesPropertyId | null | undefined = undefined;
 	private _lastImagePropertyId: BasesPropertyId | null | undefined = undefined;
 	private _lastImageFit: string | undefined = undefined;
@@ -454,6 +455,10 @@ export class KanbanView extends BasesView {
 			const wrapChanged = currentWrapValue !== this._lastWrapValue;
 			this._lastWrapValue = currentWrapValue;
 
+			const currentOpenInSidebar = this.config?.get('openInSidebar') === true;
+			const openInSidebarChanged = currentOpenInSidebar !== this._lastOpenInSidebar;
+			this._lastOpenInSidebar = currentOpenInSidebar;
+
 			const currentCardTitlePropertyId = this.cardTitlePropertyId;
 			const cardTitleChanged = currentCardTitlePropertyId !== this._lastCardTitlePropertyId;
 			this._lastCardTitlePropertyId = currentCardTitlePropertyId;
@@ -483,6 +488,7 @@ export class KanbanView extends BasesView {
 			const optionsChanged =
 				orderChanged ||
 				wrapChanged ||
+				openInSidebarChanged ||
 				cardTitleChanged ||
 				imagePropertyChanged ||
 				imageFitChanged ||
@@ -1022,6 +1028,7 @@ export class KanbanView extends BasesView {
 			imageFit: this._lastImageFit ?? 'cover',
 			imageAspectRatio: this._lastImageAspectRatio ?? 0.5,
 			wrapValues: this._lastWrapValue ?? false,
+			openInSidebar: this._lastOpenInSidebar ?? false,
 			order: this.config?.getOrder() ?? [],
 			getDisplayName: (id) => this.config?.getDisplayName(id) ?? id,
 		};
@@ -1512,6 +1519,11 @@ export class KanbanView extends BasesView {
 				displayName: 'Wrap property values',
 				type: 'toggle',
 				key: 'wrapPropertyValues',
+			},
+			{
+				displayName: 'Open cards in right sidebar',
+				type: 'toggle',
+				key: 'openInSidebar',
 			},
 		];
 	}

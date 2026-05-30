@@ -990,6 +990,7 @@ export class KanbanView extends BasesView {
 			prefs: { columnColors: this._prefs.columnColors },
 			dragging: this._dragging,
 			cardFingerprints: this._cardFingerprints,
+			metadataCache: this.app?.metadataCache ?? null,
 		};
 	}
 

@@ -40,6 +40,20 @@ export interface QueryController {
 	app?: App;
 }
 
+export interface FrontMatterCache {
+	aliases?: string | string[];
+	[key: string]: unknown;
+}
+
+export interface CachedMetadata {
+	frontmatter?: FrontMatterCache;
+}
+
+export interface MetadataCache {
+	getFirstLinkpathDest(linkpath: string, sourcePath: string): TFile | null;
+	getFileCache(file: TFile): CachedMetadata | null;
+}
+
 export interface App {
 	workspace: {
 		openLinkText(path: string, source: string, newLeaf: boolean, openViewState?: { active?: boolean }): void;
@@ -55,6 +69,7 @@ export interface App {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;
 		renameFile(file: TFile, newPath: string): Promise<void>;
 	};
+	metadataCache: MetadataCache;
 	vault: {
 		getMarkdownFiles(): TFile[];
 		getFolderByPath(path: string): { path: string; name: string } | null;

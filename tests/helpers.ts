@@ -262,7 +262,10 @@ export function createMockFn(): MockFn {
 }
 
 // Mock App
-export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
+export function createMockApp(
+	imageFiles: Record<string, { path: string }> = {},
+	noteAliases: Record<string, string[]> = {},
+): App & {
 	workspace: {
 		openLinkText: MockFn;
 		trigger: MockFn;
@@ -315,7 +318,17 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 			renameFile,
 		} as any,
 		metadataCache: {
-			getFirstLinkpathDest: (linkpath: string, _sourcePath: string) => imageFiles[linkpath] ?? null,
+			getFirstLinkpathDest: (linkpath: string, _sourcePath: string) => {
+				if (imageFiles[linkpath]) return imageFiles[linkpath];
+				if (noteAliases[linkpath]) return { path: `${linkpath}.md` };
+				return null;
+			},
+			getFileCache: (file: { path: string }) => {
+				const linkpath = file.path.replace(/\.md$/, '');
+				const aliases = noteAliases[linkpath];
+				if (aliases) return { frontmatter: { aliases } };
+				return null;
+			},
 		} as any,
 		vault: {
 			getMarkdownFiles: () => markdownFiles,

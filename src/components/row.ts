@@ -1,6 +1,7 @@
 import { setIcon } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES, UNCATEGORIZED_LABEL } from '../constants.ts';
 import type { BasesEntry } from 'obsidian';
+import { resolveWikilinkDisplay } from '../utils/wikilink.ts';
 import { createColumn, type ColumnRenderCtx, type ColumnCallbacks } from './column.ts';
 
 export interface RowRenderCtx extends ColumnRenderCtx {
@@ -57,8 +58,9 @@ export function buildSwimlaneElement(
 	const headerEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
 	const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE });
 	dragHandle.textContent = '⋮⋮';
-	dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneValue}`);
-	headerEl.createSpan({ text: laneValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
+	const laneDisplay = resolveWikilinkDisplay(laneValue, ctx.metadataCache);
+	dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneDisplay}`);
+	headerEl.createSpan({ text: laneDisplay, cls: CSS_CLASSES.SWIMLANE_TITLE });
 	const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
 	headerEl.createSpan({ text: `${laneCount}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
 	const toggleBtn = headerEl.createEl('button', {

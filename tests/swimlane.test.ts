@@ -292,6 +292,63 @@ describe('Swimlane rendering behavior', () => {
 	});
 });
 
+describe('Swimlane wikilink alias rendering', () => {
+	function createWikilinkSwimlaneView(noteAliases: Record<string, string[]> = {}): {
+		view: KanbanView;
+		controller: any;
+		scrollEl: HTMLElement;
+	} {
+		const entries: BasesEntry[] = [
+			createMockBasesEntry(createMockTFile('Task A.md'), {
+				[PROPERTY_STATUS]: 'To Do',
+				[PROPERTY_ASSIGNEE]: '[[Note Title]]',
+			}),
+			createMockBasesEntry(createMockTFile('Task B.md'), {
+				[PROPERTY_STATUS]: 'Done',
+				[PROPERTY_ASSIGNEE]: '[[Note Title|Custom Alias]]',
+			}),
+		];
+		const scrollEl = createDivWithMethods();
+		const controller: any = createMockQueryController(entries, TEST_PROPERTIES);
+		const app = createMockApp({}, noteAliases);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'swimlaneByProperty') return PROPERTY_ASSIGNEE;
+			return null;
+		};
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		return { view, controller, scrollEl };
+	}
+
+	function getSwimlaneTitle(view: KanbanView, laneRawValue: string): string | null {
+		const lane = view.containerEl.querySelector<HTMLElement>(
+			`.${CSS_CLASSES.SWIMLANE}[${DATA_ATTRIBUTES.SWIMLANE_VALUE}="${laneRawValue}"]`,
+		);
+		if (!lane) return null;
+		return lane.querySelector(`.${CSS_CLASSES.SWIMLANE_TITLE}`)?.textContent ?? null;
+	}
+
+	test('[[Note Title]] displays as "Note Title" in swimlane header', () => {
+		const { view } = createWikilinkSwimlaneView();
+		triggerDataUpdate(view);
+		assert.strictEqual(getSwimlaneTitle(view, '[[Note Title]]'), 'Note Title');
+	});
+
+	test('[[Note Title|Custom Alias]] displays as "Custom Alias" in swimlane header', () => {
+		const { view } = createWikilinkSwimlaneView();
+		triggerDataUpdate(view);
+		assert.strictEqual(getSwimlaneTitle(view, '[[Note Title|Custom Alias]]'), 'Custom Alias');
+	});
+
+	test('first frontmatter alias is used when wikilink has no pipe alias', () => {
+		const { view } = createWikilinkSwimlaneView({ 'Note Title': ['Friendly Name'] });
+		triggerDataUpdate(view);
+		assert.strictEqual(getSwimlaneTitle(view, '[[Note Title]]'), 'Friendly Name');
+	});
+});
+
 describe('Swimlane patch path', () => {
 	test('second render reuses existing lane elements (no full teardown)', () => {
 		const { view } = createSwimlaneView(() => PROPERTY_PRIORITY);

@@ -30,24 +30,37 @@ export function resolveWikilinkDisplay(value: string, metadataCache: MetadataCac
 	const target = rawTarget.replace(/[#^].*$/, '').trim();
 
 	if (metadataCache && target) {
-		try {
-			const file = metadataCache.getFirstLinkpathDest(target, '');
-			if (file) {
-				const cache = metadataCache.getFileCache(file);
-				const aliases = cache?.frontmatter?.aliases;
-				if (Array.isArray(aliases)) {
-					const first = aliases.find((a) => typeof a === 'string' && a.trim().length > 0);
-					if (typeof first === 'string') return first.trim();
-				} else if (typeof aliases === 'string' && aliases.trim().length > 0) {
-					return aliases.trim();
-				}
-			}
-		} catch (error) {
-			console.warn('resolveWikilinkDisplay: metadataCache lookup failed', error);
-		}
+		const aliasFromCache = lookupFrontmatterAlias(metadataCache, target);
+		if (aliasFromCache) return aliasFromCache;
 	}
 
 	const parts = target.split('/');
 	const last = parts[parts.length - 1];
 	return last || target || value;
+}
+
+function lookupFrontmatterAlias(metadataCache: MetadataCache, target: string): string | undefined {
+	try {
+		const file = metadataCache.getFirstLinkpathDest(target, '');
+		if (!file) return undefined;
+		const cache = metadataCache.getFileCache(file);
+		const frontmatter: unknown = cache?.frontmatter;
+		if (!frontmatter || typeof frontmatter !== 'object') return undefined;
+		const aliases = (frontmatter as Record<string, unknown>).aliases;
+		return firstNonEmptyAlias(aliases);
+	} catch (error) {
+		console.warn('resolveWikilinkDisplay: metadataCache lookup failed', error);
+		return undefined;
+	}
+}
+
+function firstNonEmptyAlias(aliases: unknown): string | undefined {
+	if (Array.isArray(aliases)) {
+		for (const a of aliases) {
+			if (typeof a === 'string' && a.trim().length > 0) return a.trim();
+		}
+		return undefined;
+	}
+	if (typeof aliases === 'string' && aliases.trim().length > 0) return aliases.trim();
+	return undefined;
 }

@@ -46,8 +46,8 @@ function lookupFrontmatterAlias(metadataCache: MetadataCache, target: string): s
 		const cache = metadataCache.getFileCache(file);
 		const frontmatter: unknown = cache?.frontmatter;
 		if (!frontmatter || typeof frontmatter !== 'object') return undefined;
-		const aliases = (frontmatter as Record<string, unknown>).aliases;
-		return firstNonEmptyAlias(aliases);
+		if (!('aliases' in frontmatter)) return undefined;
+		return firstNonEmptyAlias(frontmatter.aliases);
 	} catch (error) {
 		console.warn('resolveWikilinkDisplay: metadataCache lookup failed', error);
 		return undefined;

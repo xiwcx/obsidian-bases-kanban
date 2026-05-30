@@ -1047,6 +1047,7 @@ export class KanbanView extends BasesView {
 			dragging: this._dragging,
 			cardFingerprints: this._cardFingerprints,
 			globallyEmptyColumns: this._globallyEmptyColumns,
+			metadataCache: this.app?.metadataCache ?? null,
 		};
 	}
 

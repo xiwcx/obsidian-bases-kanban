@@ -12,30 +12,6 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = process.argv[2] === 'production';
 
-// When VAULT_PLUGIN_DIR is set (e.g. via the dev:vault npm script), build
-// output goes directly into the installed plugin folder so Obsidian picks
-// up changes immediately after a hot-reload (Cmd+R or the plugin toggle).
-const vaultDir = process.env.VAULT_PLUGIN_DIR ?? null;
-const outfile = vaultDir ? `${vaultDir}/main.js` : 'dist/main.js';
-
-// Post-build plugin: copies manifest.json + styles.css into the vault dir
-// on every rebuild so the full plugin stays in sync during watch mode.
-const syncToVaultPlugin = {
-	name: 'sync-to-vault',
-	setup(build) {
-		build.onEnd(() => {
-			if (!vaultDir) return;
-			try {
-				copyFileSync('styles.css', `${vaultDir}/styles.css`);
-				copyFileSync('manifest.json', `${vaultDir}/manifest.json`);
-				process.stdout.write(`[sync-to-vault] Synced → ${vaultDir}\n`);
-			} catch (e) {
-				process.stderr.write(`[sync-to-vault] Copy failed: ${e.message}\n`);
-			}
-		});
-	},
-};
-
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -63,8 +39,7 @@ const context = await esbuild.context({
 	logLevel: 'info',
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
-	outfile,
-	plugins: [syncToVaultPlugin],
+	outfile: 'dist/main.js',
 });
 
 if (prod) {

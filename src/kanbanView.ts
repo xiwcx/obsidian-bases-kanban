@@ -32,6 +32,7 @@ import type { TFile } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
 	COLOR_PALETTE,
+	CONFIG_KEYS,
 	CSS_CLASSES,
 	DATA_ATTRIBUTES,
 	DEBOUNCE_DELAY,
@@ -46,6 +47,7 @@ import {
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
+import { type TriggerRule, findMatchingTrigger, applyTrigger } from './utils/triggers.ts';
 
 export interface LegacyData {
 	columnOrders: Record<string, string[]>;
@@ -85,6 +87,10 @@ export function isCardOrders(value: unknown): value is Record<string, Record<str
 
 export function isCollapsedLanes(value: unknown): value is Record<string, string[]> {
 	return isStringArrayRecord(value);
+}
+
+function isTriggerRuleArray(value: unknown): value is TriggerRule[] {
+	return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item.when === 'string');
 }
 
 export class KanbanView extends BasesView {
@@ -150,6 +156,8 @@ export class KanbanView extends BasesView {
 	 */
 	private _dragging = false;
 	private _activeCardPath: string | null = null;
+	private _columnTriggers: TriggerRule[] = [];
+	private _swimlaneTriggers: TriggerRule[] = [];
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
@@ -211,6 +219,14 @@ export class KanbanView extends BasesView {
 		this.swimlaneByPropertyId = this.config.getAsPropertyId('swimlaneByProperty');
 		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
 		this.imagePropertyId = this.config.getAsPropertyId('imageProperty');
+		this._loadTriggers();
+	}
+
+	private _loadTriggers(): void {
+		const rawColumn = this.config?.get(CONFIG_KEYS.COLUMN_TRIGGERS);
+		this._columnTriggers = isTriggerRuleArray(rawColumn) ? rawColumn : [];
+		const rawSwimlane = this.config?.get(CONFIG_KEYS.SWIMLANE_TRIGGERS);
+		this._swimlaneTriggers = isTriggerRuleArray(rawSwimlane) ? rawSwimlane : [];
 	}
 
 	private triggerHoverPreview(linktext: string, sourcePath: string, event: MouseEvent, targetEl: HTMLElement): void {
@@ -1111,6 +1127,7 @@ export class KanbanView extends BasesView {
 			prefsPropertyId: this._prefsPropertyId,
 			prefsSwimlanePropertyId: this._prefsSwimlanePropertyId,
 			quickAddFolder: this.getQuickAddFolder(),
+			columnTriggers: this._columnTriggers,
 		};
 	}
 
@@ -1301,6 +1318,26 @@ export class KanbanView extends BasesView {
 						delete frontmatter[swimlanePropertyName];
 					} else {
 						frontmatter[swimlanePropertyName] = swimlaneValueToSet;
+					}
+				}
+
+				// Column triggers
+				const columnTrigger = findMatchingTrigger(this._columnTriggers, {
+					oldValue: oldColumnValue,
+					newValue: newColumnValue,
+				});
+				if (columnTrigger) {
+					applyTrigger(frontmatter, columnTrigger);
+				}
+
+				// Swimlane triggers
+				if (swimlaneActive && oldLaneValue !== newLaneValue) {
+					const swimTrigger = findMatchingTrigger(this._swimlaneTriggers, {
+						oldValue: oldLaneValue,
+						newValue: newLaneValue ?? '',
+					});
+					if (swimTrigger) {
+						applyTrigger(frontmatter, swimTrigger);
 					}
 				}
 			});

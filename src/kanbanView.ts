@@ -402,6 +402,10 @@ export class KanbanView extends BasesView {
 				: this.groupEntriesByProperty(entries, this.groupByPropertyId);
 			const sortActive = this.hasActiveSort();
 
+			if (!sortActive) {
+				this.reconcileCardOrdersFromEntries(groupedByLane, groupedEntries);
+			}
+
 			// Apply manual card order only when the Base itself is not sorted.
 			// When sorting is active, Bases has already ordered `entries`.
 			if (!sortActive && groupedByLane) {
@@ -507,6 +511,47 @@ export class KanbanView extends BasesView {
 			this.reapplyActiveCard();
 		} catch (error) {
 			console.error('KanbanView error:', error);
+		}
+	}
+
+	private reconcileCardOrdersFromEntries(
+		groupedByLane: Map<string, Map<string, BasesEntry[]>> | null,
+		groupedEntries: Map<string, BasesEntry[]>,
+	): void {
+		if (Object.keys(this._prefs.cardOrders).length === 0) return;
+
+		const keepSavedOrder = (entries: BasesEntry[], savedOrder: string[] = []): string[] => {
+			const livePaths = entries.map((entry) => entry.file.path);
+			const liveSet = new Set(livePaths);
+			const ordered = savedOrder.filter((path) => liveSet.has(path));
+			const orderedSet = new Set(ordered);
+
+			return [...ordered, ...livePaths.filter((path) => !orderedSet.has(path))];
+		};
+
+		const nextCardOrders: Record<string, string[]> = {};
+
+		if (groupedByLane) {
+			groupedByLane.forEach((columns, laneValue) => {
+				const columnValues = new Set([...this._prefs.columnOrder, ...columns.keys()]);
+
+				columnValues.forEach((columnValue) => {
+					const key = this.cardOrderKey(laneValue, columnValue);
+					nextCardOrders[key] = keepSavedOrder(columns.get(columnValue) ?? [], this._prefs.cardOrders[key]);
+				});
+			});
+		} else {
+			const columnValues = new Set([...this._prefs.columnOrder, ...groupedEntries.keys()]);
+
+			columnValues.forEach((columnValue) => {
+				const key = this.cardOrderKey(null, columnValue);
+				nextCardOrders[key] = keepSavedOrder(groupedEntries.get(columnValue) ?? [], this._prefs.cardOrders[key]);
+			});
+		}
+
+		if (JSON.stringify(this._prefs.cardOrders) !== JSON.stringify(nextCardOrders)) {
+			this._prefs.cardOrders = nextCardOrders;
+			this._persistPrefs();
 		}
 	}
 

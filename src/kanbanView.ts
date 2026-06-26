@@ -852,6 +852,14 @@ export class KanbanView extends BasesView {
 					s.destroy();
 					this._columnSortables.delete(key);
 				}
+				// A column whose card Sortable was still deferred (never dragged) lives
+				// only in _deferredSortableListeners; clear it so removing the column
+				// doesn't leak the detached card body and its pointerdown handler.
+				const deferred = this._deferredSortableListeners.get(key);
+				if (deferred) {
+					deferred.el.removeEventListener('pointerdown', deferred.handler);
+					this._deferredSortableListeners.delete(key);
+				}
 				colEl.remove();
 				existingColumns.delete(colValue);
 			}

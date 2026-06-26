@@ -3552,6 +3552,41 @@ describe('Empty Column Persistence - Remove column action', () => {
 			'Removing the column should clear its deferred sortable listener (no detached-node leak)',
 		);
 	});
+
+	test('Dropping the Uncategorized column on a patch clears its deferred sortable listener', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view); // full rebuild: To Do, Doing, Done
+
+		// An entry with no status creates an Uncategorized column on a later (patch)
+		// render, so it takes the deferred-attach path.
+		const noStatus = createMockBasesEntry(createMockTFile('Task N.md'), {});
+		controller.data.data = [...entries, noStatus];
+		triggerDataUpdate(view);
+
+		const deferred = (view as any)._deferredSortableListeners as Map<string, unknown>;
+		assert.ok(deferred.has(UNCATEGORIZED_LABEL), 'Precondition: Uncategorized column has a pending deferred listener');
+
+		// Removing that entry empties Uncategorized, which render() drops from the
+		// column order entirely — exercising the _patchColumns removal block (not the
+		// remove-button / detachColumn path).
+		controller.data.data = [...entries];
+		triggerDataUpdate(view);
+
+		assert.ok(
+			!view.containerEl.querySelector(`[data-column-value="${UNCATEGORIZED_LABEL}"]`),
+			'Precondition: Uncategorized column should be removed from the DOM',
+		);
+		assert.ok(
+			!deferred.has(UNCATEGORIZED_LABEL),
+			'Dropping the column should clear its deferred sortable listener (no detached-node leak)',
+		);
+	});
 });
 
 // ---------------------------------------------------------------------------

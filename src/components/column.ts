@@ -99,6 +99,7 @@ export function createColumn(
 export function patchColumnCards(
 	columnEl: HTMLElement,
 	newEntries: BasesEntry[],
+	showRemoveButton: boolean,
 	ctx: ColumnRenderCtx,
 	cb: ColumnCallbacks,
 ): void {
@@ -108,13 +109,16 @@ export function patchColumnCards(
 	const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
 	if (countEl) countEl.textContent = `${newEntries.length}`;
 
+	// Whether the remove button is shown is decided by the caller from the
+	// board-wide entry counts, not this column's local count. In swimlane mode a
+	// column can be empty in one lane while holding cards in another, so the local
+	// `newEntries.length` is not a reliable signal of global emptiness.
 	const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
 	const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 	const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
-	const isInSwimlane = !!columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`);
-	if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue && !isInSwimlane) {
+	if (headerEl && showRemoveButton && !existingRemoveBtn && columnValue) {
 		headerEl.appendChild(createRemoveButton(ctx.doc, columnValue, () => cb.onRemoveColumn(columnValue, columnEl)));
-	} else if (newEntries.length > 0 && existingRemoveBtn) {
+	} else if (!showRemoveButton && existingRemoveBtn) {
 		existingRemoveBtn.remove();
 	}
 

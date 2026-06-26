@@ -45,6 +45,7 @@ export function buildSwimlaneElement(
 	laneValue: string,
 	laneEntries: Map<string, BasesEntry[]>,
 	orderedColumnValues: string[],
+	globallyEmptyColumns: Set<string>,
 	ctx: RowRenderCtx,
 	cb: RowCallbacks,
 ): HTMLElement {
@@ -81,7 +82,7 @@ export function buildSwimlaneElement(
 			columnValue,
 			laneEntries.get(columnValue) ?? [],
 			{
-				showRemoveButton: false,
+				showRemoveButton: globallyEmptyColumns.has(columnValue),
 				swimlaneValue: laneValue,
 			},
 			ctx,

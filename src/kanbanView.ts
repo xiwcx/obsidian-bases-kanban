@@ -125,6 +125,10 @@ export class KanbanView extends BasesView {
 	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
 	private _lastQuickAddFolder: string | null | undefined = undefined;
 	private _cardFingerprints: Map<string, string> = new Map();
+	// Column values empty across the whole board (every swimlane). Recomputed each
+	// render() and read via _buildColumnCtx so components can show a remove button
+	// without the board-wide map being threaded through every render function.
+	private _globallyEmptyColumns: Set<string> = new Set();
 	private _deferredSortableListeners: Map<string, { el: HTMLElement; handler: () => void }> = new Map();
 
 	private _prefs: {
@@ -503,15 +507,16 @@ export class KanbanView extends BasesView {
 			// board — across every swimlane, not just one. Such columns only persist
 			// because they're saved in columnOrder, so they get a remove button.
 			// groupedEntries is the board-wide flat map (lanes merged), so a value
-			// absent from it has zero entries board-wide.
-			const globallyEmptyColumns = new Set(
+			// absent from it has zero entries board-wide. Stored on the instance so it
+			// reaches components via _buildColumnCtx rather than threaded positionally.
+			this._globallyEmptyColumns = new Set(
 				orderedValues.filter((value) => (groupedEntries.get(value)?.length ?? 0) === 0),
 			);
 
 			if (!existingBoard || modeChanged || groupChanged || optionsChanged) {
-				this.fullRebuild(orderedValues, lanes, hasSwimlanes, globallyEmptyColumns);
+				this.fullRebuild(orderedValues, lanes, hasSwimlanes);
 			} else {
-				this.patchBoard(orderedValues, lanes, hasSwimlanes, globallyEmptyColumns);
+				this.patchBoard(orderedValues, lanes, hasSwimlanes);
 			}
 			this.reapplyActiveCard();
 		} catch (error) {
@@ -545,7 +550,6 @@ export class KanbanView extends BasesView {
 		orderedColumnValues: string[],
 		lanes: Map<string | null, Map<string, BasesEntry[]>>,
 		hasSwimlanes: boolean,
-		globallyEmptyColumns: Set<string>,
 	): void {
 		this.containerEl.empty();
 		this.containerEl.classList.toggle(CSS_CLASSES.VIEW_CONTAINER_WITH_SWIMLANES, hasSwimlanes);
@@ -574,7 +578,7 @@ export class KanbanView extends BasesView {
 			const orderedLanes = this.getOrderedSwimlaneValues(liveLaneValues);
 			orderedLanes.forEach((laneValue) => {
 				const laneEntries = lanes.get(laneValue) ?? new Map<string, BasesEntry[]>();
-				const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues, globallyEmptyColumns);
+				const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues);
 				boardEl.appendChild(laneEl);
 				const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
 				if (bodyEl) this.swimlaneColumnSortables.set(laneValue, this._createColumnSortable(bodyEl));
@@ -615,13 +619,11 @@ export class KanbanView extends BasesView {
 		laneValue: string,
 		laneEntries: Map<string, BasesEntry[]>,
 		orderedColumnValues: string[],
-		globallyEmptyColumns: Set<string>,
 	): HTMLElement {
 		return buildSwimlaneElementEl(
 			laneValue,
 			laneEntries,
 			orderedColumnValues,
-			globallyEmptyColumns,
 			this._buildRowCtx(),
 			this._buildRowCallbacks(),
 		);
@@ -700,7 +702,6 @@ export class KanbanView extends BasesView {
 		orderedColumnValues: string[],
 		lanes: Map<string | null, Map<string, BasesEntry[]>>,
 		hasSwimlanes: boolean,
-		globallyEmptyColumns: Set<string>,
 	): void {
 		const boardEl = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
 		if (!boardEl) {
@@ -768,7 +769,7 @@ export class KanbanView extends BasesView {
 			orderedLanes.forEach((laneValue) => {
 				const laneEntries = lanes.get(laneValue) ?? new Map<string, BasesEntry[]>();
 				if (!existingLanes.has(laneValue)) {
-					const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues, globallyEmptyColumns);
+					const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues);
 					boardEl.appendChild(laneEl);
 					existingLanes.set(laneValue, laneEl);
 					const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
@@ -788,7 +789,7 @@ export class KanbanView extends BasesView {
 						}
 						// Patch columns within lane body
 						const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
-						if (bodyEl) this._patchColumns(bodyEl, orderedColumnValues, laneEntries, laneValue, globallyEmptyColumns);
+						if (bodyEl) this._patchColumns(bodyEl, orderedColumnValues, laneEntries, laneValue);
 					}
 				}
 			});
@@ -803,7 +804,7 @@ export class KanbanView extends BasesView {
 		} else {
 			// Null lane: columns are direct children of boardEl
 			const colEntries = lanes.get(null) ?? new Map<string, BasesEntry[]>();
-			this._patchColumns(boardEl, orderedColumnValues, colEntries, null, globallyEmptyColumns);
+			this._patchColumns(boardEl, orderedColumnValues, colEntries, null);
 		}
 
 		// Defer scroll restoration to the next frame so layout has finalized.
@@ -832,7 +833,6 @@ export class KanbanView extends BasesView {
 		orderedColumnValues: string[],
 		groupedEntries: Map<string, BasesEntry[]>,
 		laneValue: string | null,
-		globallyEmptyColumns: Set<string>,
 	): void {
 		// Index existing columns
 		const existingColumns = new Map<string, HTMLElement>();
@@ -861,8 +861,7 @@ export class KanbanView extends BasesView {
 		orderedColumnValues.forEach((colValue) => {
 			const entries = groupedEntries.get(colValue) ?? [];
 			if (!existingColumns.has(colValue)) {
-				const options = { showRemoveButton: globallyEmptyColumns.has(colValue), swimlaneValue: laneValue };
-				const colEl = this.createColumn(colValue, entries, options);
+				const colEl = this.createColumn(colValue, entries, { swimlaneValue: laneValue });
 				containerEl.appendChild(colEl);
 				existingColumns.set(colValue, colEl);
 				const cardBody = colEl.querySelector<HTMLElement>(
@@ -885,7 +884,7 @@ export class KanbanView extends BasesView {
 				}
 			} else {
 				const colEl = existingColumns.get(colValue);
-				if (colEl) this.patchColumnCards(colEl, entries, globallyEmptyColumns.has(colValue));
+				if (colEl) this.patchColumnCards(colEl, entries);
 			}
 		});
 
@@ -900,8 +899,8 @@ export class KanbanView extends BasesView {
 		return computeCardFingerprint(entry, this._buildCardCtx());
 	}
 
-	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[], showRemoveButton: boolean): void {
-		patchColumnCardsEl(columnEl, newEntries, showRemoveButton, this._buildColumnCtx(), this._buildColumnCallbacks());
+	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
+		patchColumnCardsEl(columnEl, newEntries, this._buildColumnCtx(), this._buildColumnCallbacks());
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -1004,6 +1003,7 @@ export class KanbanView extends BasesView {
 			prefs: { columnColors: this._prefs.columnColors },
 			dragging: this._dragging,
 			cardFingerprints: this._cardFingerprints,
+			globallyEmptyColumns: this._globallyEmptyColumns,
 		};
 	}
 
@@ -1020,7 +1020,7 @@ export class KanbanView extends BasesView {
 	private createColumn(
 		value: string,
 		entries: BasesEntry[],
-		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
+		options: { swimlaneValue?: string | null } = {},
 	): HTMLElement {
 		return createColumnEl(value, entries, options, this._buildColumnCtx(), this._buildColumnCallbacks());
 	}

@@ -1168,10 +1168,24 @@ export class KanbanView extends BasesView {
 		// Sortable keys are the bare value in flat mode or `${lane}${SEP}${value}` in
 		// swimlane mode; the separator anchors the suffix so only this column matches.
 		const suffix = `${SWIMLANE_KEY_SEPARATOR}${value}`;
+		const matchesColumn = (key: string) => key === value || key.endsWith(suffix);
+
 		for (const key of [...this._columnSortables.keys()]) {
-			if (key === value || key.endsWith(suffix)) {
+			if (matchesColumn(key)) {
 				this._columnSortables.get(key)?.destroy();
 				this._columnSortables.delete(key);
+			}
+		}
+
+		// A column added during a patch defers its card Sortable until the first
+		// pointerdown, living only in _deferredSortableListeners until then. Without
+		// this, removing such a column (never dragged) would leak its detached card
+		// body and handler until the next full rebuild clears them.
+		for (const key of [...this._deferredSortableListeners.keys()]) {
+			if (matchesColumn(key)) {
+				const deferred = this._deferredSortableListeners.get(key);
+				deferred?.el.removeEventListener('pointerdown', deferred.handler);
+				this._deferredSortableListeners.delete(key);
 			}
 		}
 

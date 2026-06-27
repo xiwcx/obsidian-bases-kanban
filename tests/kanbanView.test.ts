@@ -51,6 +51,7 @@ import {
 	setupTestEnvironment,
 	triggerDataUpdate,
 } from './helpers.ts';
+import { StringValue } from './mocks/obsidian.ts';
 
 setupTestEnvironment();
 
@@ -3141,6 +3142,66 @@ describe('Card Order - Persistence', () => {
 		// Should preserve dragged order, not revert to original Bases order
 		assert.strictEqual(reRenderedPaths[0], originalSecond, 'Dragged card should remain first after re-render');
 		assert.strictEqual(reRenderedPaths[1], originalFirst, 'Original first card should remain second after re-render');
+	});
+
+	test('Re-render reconciles card order when entry status changes outside drag-drop', () => {
+		const statuses: Record<string, string> = {
+			'Task 1.md': 'To Do',
+			'Task 2.md': 'To Do',
+			'Task 3.md': 'Doing',
+		};
+		const entries = Object.keys(statuses).map((path) => {
+			const entry = createMockBasesEntry(createMockTFile(path), { [PROPERTY_STATUS]: statuses[path] });
+			(entry as any).getValue = (propId: string) => {
+				if (propId === PROPERTY_STATUS) return new StringValue(statuses[path]);
+				return null;
+			};
+			return entry;
+		});
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: {
+				'To Do': ['Task 2.md', 'Task 1.md'],
+				Doing: ['Ghost.md', 'Task 3.md'],
+			},
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		statuses['Task 1.md'] = 'Doing';
+		triggerDataUpdate(view);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(savedOrders[PROPERTY_STATUS]['To Do'], ['Task 2.md']);
+		assert.deepStrictEqual(savedOrders[PROPERTY_STATUS].Doing, ['Task 3.md', 'Task 1.md']);
+	});
+
+	test('Re-render does not reconcile card order while Base sort is active', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: {
+				'To Do': ['Ghost.md', 'Task 2.md'],
+			},
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			savedOrders[PROPERTY_STATUS]['To Do'],
+			['Ghost.md', 'Task 2.md'],
+			'Sorted Bases should not rewrite manual cardOrders during render',
+		);
 	});
 });
 

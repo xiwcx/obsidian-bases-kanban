@@ -13,6 +13,7 @@ import {
 	setupTestEnvironment,
 	triggerDataUpdate,
 } from './helpers.ts';
+import { StringValue } from './mocks/obsidian.ts';
 
 setupTestEnvironment();
 
@@ -289,6 +290,59 @@ describe('Swimlane rendering behavior', () => {
 			'Swimlane card order should not leak into flat card order',
 		);
 		assert.deepStrictEqual(savedOrders[scopedKey][`High${SWIMLANE_KEY_SEPARATOR}To Do`], ['Task B.md', 'Task A.md']);
+	});
+
+	test('swimlane card order is reconciled when an entry changes lane outside drag-drop', () => {
+		const priorities: Record<string, string> = {
+			'Task A.md': 'High',
+			'Task B.md': 'High',
+			'Task C.md': 'Low',
+		};
+		const statuses: Record<string, string> = {
+			'Task A.md': 'To Do',
+			'Task B.md': 'To Do',
+			'Task C.md': 'Done',
+		};
+		const entries = Object.keys(priorities).map((path) => {
+			const entry = createMockBasesEntry(createMockTFile(path), {
+				[PROPERTY_STATUS]: statuses[path],
+				[PROPERTY_PRIORITY]: priorities[path],
+			});
+			(entry as any).getValue = (propId: string) => {
+				if (propId === PROPERTY_STATUS) return new StringValue(statuses[path]);
+				if (propId === PROPERTY_PRIORITY) return new StringValue(priorities[path]);
+				return null;
+			};
+			return entry;
+		});
+		const controller: any = createMockQueryController(entries, TEST_PROPERTIES);
+		const app = createMockApp();
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'swimlaneByProperty') return PROPERTY_PRIORITY;
+			return null;
+		};
+		const scopedKey = `${PROPERTY_STATUS}${SWIMLANE_KEY_SEPARATOR}${PROPERTY_PRIORITY}`;
+		controller.config.set('cardOrders', {
+			[scopedKey]: {
+				[`High${SWIMLANE_KEY_SEPARATOR}To Do`]: ['Task B.md', 'Task A.md'],
+				[`Low${SWIMLANE_KEY_SEPARATOR}To Do`]: ['Ghost.md'],
+			},
+		});
+
+		const scrollEl = createDivWithMethods();
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		priorities['Task B.md'] = 'Low';
+		triggerDataUpdate(view);
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(savedOrders[scopedKey][`High${SWIMLANE_KEY_SEPARATOR}To Do`], ['Task A.md']);
+		assert.deepStrictEqual(savedOrders[scopedKey][`Low${SWIMLANE_KEY_SEPARATOR}To Do`], ['Task B.md']);
+		assert.strictEqual(savedOrders[PROPERTY_STATUS], undefined, 'Swimlane reconciliation should not write flat order');
 	});
 });
 

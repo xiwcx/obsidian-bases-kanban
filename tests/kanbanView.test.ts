@@ -3514,6 +3514,79 @@ describe('Empty Column Persistence - Remove column action', () => {
 			'Sortable instance should be removed after column is removed',
 		);
 	});
+
+	test('Removing a column added via the patch path clears its deferred sortable listener', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view); // full rebuild: To Do, Doing, Done
+
+		// A new "Review" column appears on a later (patch) render, so it takes the
+		// deferred-attach path and lives only in _deferredSortableListeners until a
+		// card in it is first dragged.
+		const reviewEntry = createMockBasesEntry(createMockTFile('Task R.md'), { [PROPERTY_STATUS]: 'Review' });
+		controller.data.data = [...entries, reviewEntry];
+		triggerDataUpdate(view);
+
+		const deferred = (view as any)._deferredSortableListeners as Map<string, unknown>;
+		assert.ok(deferred.has('Review'), 'Precondition: patch-added column has a pending deferred listener');
+		assert.ok(!(view as any)._columnSortables.has('Review'), 'Precondition: deferred column has no sortable yet');
+
+		// Empty the column (still persisted in columnOrder) so it becomes globally
+		// empty and offers a remove button — without ever firing the deferred attach.
+		controller.data.data = [...entries];
+		triggerDataUpdate(view);
+
+		const removeBtn = view.containerEl.querySelector(
+			'[data-column-value="Review"] .obk-column-remove-btn',
+		) as HTMLElement;
+		assert.ok(removeBtn, 'Precondition: emptied column should show a remove button');
+		removeBtn.click();
+
+		assert.ok(
+			!deferred.has('Review'),
+			'Removing the column should clear its deferred sortable listener (no detached-node leak)',
+		);
+	});
+
+	test('Dropping the Uncategorized column on a patch clears its deferred sortable listener', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view); // full rebuild: To Do, Doing, Done
+
+		// An entry with no status creates an Uncategorized column on a later (patch)
+		// render, so it takes the deferred-attach path.
+		const noStatus = createMockBasesEntry(createMockTFile('Task N.md'), {});
+		controller.data.data = [...entries, noStatus];
+		triggerDataUpdate(view);
+
+		const deferred = (view as any)._deferredSortableListeners as Map<string, unknown>;
+		assert.ok(deferred.has(UNCATEGORIZED_LABEL), 'Precondition: Uncategorized column has a pending deferred listener');
+
+		// Removing that entry empties Uncategorized, which render() drops from the
+		// column order entirely — exercising the _patchColumns removal block (not the
+		// remove-button / detachColumn path).
+		controller.data.data = [...entries];
+		triggerDataUpdate(view);
+
+		assert.ok(
+			!view.containerEl.querySelector(`[data-column-value="${UNCATEGORIZED_LABEL}"]`),
+			'Precondition: Uncategorized column should be removed from the DOM',
+		);
+		assert.ok(
+			!deferred.has(UNCATEGORIZED_LABEL),
+			'Dropping the column should clear its deferred sortable listener (no detached-node leak)',
+		);
+	});
 });
 
 // ---------------------------------------------------------------------------

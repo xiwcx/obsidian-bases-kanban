@@ -9,6 +9,10 @@ export interface ColumnRenderCtx {
 	prefs: { columnColors: Record<string, string> };
 	dragging: boolean;
 	cardFingerprints: Map<string, string>;
+	// Column values that are empty across the whole board (every swimlane). These
+	// persist only because they're saved in columnOrder, so they get a remove
+	// button. Board-wide, so it can't be derived from a single column's entries.
+	globallyEmptyColumns: Set<string>;
 }
 
 export interface ColumnCallbacks {
@@ -51,7 +55,7 @@ export function createRemoveButton(doc: Document, value: string, onRemove: () =>
 export function createColumn(
 	value: string,
 	entries: BasesEntry[],
-	options: { showRemoveButton?: boolean; swimlaneValue?: string | null },
+	options: { swimlaneValue?: string | null },
 	ctx: ColumnRenderCtx,
 	cb: ColumnCallbacks,
 ): HTMLElement {
@@ -82,7 +86,7 @@ export function createColumn(
 		headerEl.appendChild(cb.createAddButton(value, options.swimlaneValue ?? null));
 	}
 
-	if (entries.length === 0 && options.showRemoveButton !== false) {
+	if (ctx.globallyEmptyColumns.has(value)) {
 		headerEl.appendChild(createRemoveButton(ctx.doc, value, () => cb.onRemoveColumn(value, columnEl)));
 	}
 
@@ -108,13 +112,16 @@ export function patchColumnCards(
 	const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
 	if (countEl) countEl.textContent = `${newEntries.length}`;
 
+	// The remove button reflects board-wide emptiness, not this column's local
+	// count: in swimlane mode a column can be empty in one lane while holding cards
+	// in another, so `newEntries.length` is not a reliable signal of global emptiness.
 	const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
 	const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 	const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
-	const isInSwimlane = !!columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`);
-	if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue && !isInSwimlane) {
+	const showRemoveButton = !!columnValue && ctx.globallyEmptyColumns.has(columnValue);
+	if (headerEl && showRemoveButton && !existingRemoveBtn && columnValue) {
 		headerEl.appendChild(createRemoveButton(ctx.doc, columnValue, () => cb.onRemoveColumn(columnValue, columnEl)));
-	} else if (newEntries.length > 0 && existingRemoveBtn) {
+	} else if (!showRemoveButton && existingRemoveBtn) {
 		existingRemoveBtn.remove();
 	}
 

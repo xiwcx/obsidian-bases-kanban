@@ -81,7 +81,6 @@ export function buildSwimlaneElement(
 			columnValue,
 			laneEntries.get(columnValue) ?? [],
 			{
-				showRemoveButton: false,
 				swimlaneValue: laneValue,
 			},
 			ctx,

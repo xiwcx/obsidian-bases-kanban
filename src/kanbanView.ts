@@ -131,6 +131,10 @@ export class KanbanView extends BasesView {
 	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
 	private _lastQuickAddFolder: string | null | undefined = undefined;
 	private _cardFingerprints: Map<string, string> = new Map();
+	// Column values empty across the whole board (every swimlane). Recomputed each
+	// render() and read via _buildColumnCtx so components can show a remove button
+	// without the board-wide map being threaded through every render function.
+	private _globallyEmptyColumns: Set<string> = new Set();
 	private _deferredSortableListeners: Map<string, { el: HTMLElement; handler: () => void }> = new Map();
 
 	private _prefs: {
@@ -515,6 +519,16 @@ export class KanbanView extends BasesView {
 			const existingIsSwimlane = existingBoard?.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES) ?? false;
 			const modeChanged = hasSwimlanes !== existingIsSwimlane;
 
+			// A column is "globally empty" when no entry has its value anywhere on the
+			// board — across every swimlane, not just one. Such columns only persist
+			// because they're saved in columnOrder, so they get a remove button.
+			// groupedEntries is the board-wide flat map (lanes merged), so a value
+			// absent from it has zero entries board-wide. Stored on the instance so it
+			// reaches components via _buildColumnCtx rather than threaded positionally.
+			this._globallyEmptyColumns = new Set(
+				orderedValues.filter((value) => (groupedEntries.get(value)?.length ?? 0) === 0),
+			);
+
 			if (!existingBoard || modeChanged || groupChanged || optionsChanged) {
 				this.fullRebuild(orderedValues, lanes, hasSwimlanes);
 			} else {
@@ -854,6 +868,14 @@ export class KanbanView extends BasesView {
 					s.destroy();
 					this._columnSortables.delete(key);
 				}
+				// A column whose card Sortable was still deferred (never dragged) lives
+				// only in _deferredSortableListeners; clear it so removing the column
+				// doesn't leak the detached card body and its pointerdown handler.
+				const deferred = this._deferredSortableListeners.get(key);
+				if (deferred) {
+					deferred.el.removeEventListener('pointerdown', deferred.handler);
+					this._deferredSortableListeners.delete(key);
+				}
 				colEl.remove();
 				existingColumns.delete(colValue);
 			}
@@ -863,8 +885,7 @@ export class KanbanView extends BasesView {
 		orderedColumnValues.forEach((colValue) => {
 			const entries = groupedEntries.get(colValue) ?? [];
 			if (!existingColumns.has(colValue)) {
-				const options = laneValue !== null ? { showRemoveButton: false as const, swimlaneValue: laneValue } : {};
-				const colEl = this.createColumn(colValue, entries, options);
+				const colEl = this.createColumn(colValue, entries, { swimlaneValue: laneValue });
 				containerEl.appendChild(colEl);
 				existingColumns.set(colValue, colEl);
 				const cardBody = colEl.querySelector<HTMLElement>(
@@ -1006,6 +1027,7 @@ export class KanbanView extends BasesView {
 			prefs: { columnColors: this._prefs.columnColors },
 			dragging: this._dragging,
 			cardFingerprints: this._cardFingerprints,
+			globallyEmptyColumns: this._globallyEmptyColumns,
 		};
 	}
 
@@ -1022,7 +1044,7 @@ export class KanbanView extends BasesView {
 	private createColumn(
 		value: string,
 		entries: BasesEntry[],
-		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
+		options: { swimlaneValue?: string | null } = {},
 	): HTMLElement {
 		return createColumnEl(value, entries, options, this._buildColumnCtx(), this._buildColumnCallbacks());
 	}
@@ -1156,12 +1178,44 @@ export class KanbanView extends BasesView {
 	}
 
 	private detachColumn(value: string, colEl: HTMLElement): void {
-		const sortable = this._columnSortables.get(value);
-		if (sortable) {
-			sortable.destroy();
-			this._columnSortables.delete(value);
+		// In swimlane mode a single column value is rendered once per lane, so there
+		// are N DOM nodes and N sortable instances keyed by cardOrderKey(lane, value).
+		// Remove every DOM node and tear down every matching sortable, not just the
+		// one node/key passed in.
+		const boardEl = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
+		const columnEls: HTMLElement[] = [];
+		if (boardEl) {
+			boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((el) => {
+				if (el.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) === value) columnEls.push(el);
+			});
 		}
-		colEl.remove();
+
+		// Sortable keys are the bare value in flat mode or `${lane}${SEP}${value}` in
+		// swimlane mode; the separator anchors the suffix so only this column matches.
+		const suffix = `${SWIMLANE_KEY_SEPARATOR}${value}`;
+		const matchesColumn = (key: string) => key === value || key.endsWith(suffix);
+
+		for (const key of [...this._columnSortables.keys()]) {
+			if (matchesColumn(key)) {
+				this._columnSortables.get(key)?.destroy();
+				this._columnSortables.delete(key);
+			}
+		}
+
+		// A column added during a patch defers its card Sortable until the first
+		// pointerdown, living only in _deferredSortableListeners until then. Without
+		// this, removing such a column (never dragged) would leak its detached card
+		// body and handler until the next full rebuild clears them.
+		for (const key of [...this._deferredSortableListeners.keys()]) {
+			if (matchesColumn(key)) {
+				const deferred = this._deferredSortableListeners.get(key);
+				deferred?.el.removeEventListener('pointerdown', deferred.handler);
+				this._deferredSortableListeners.delete(key);
+			}
+		}
+
+		if (columnEls.length > 0) columnEls.forEach((el) => el.remove());
+		else colEl.remove();
 	}
 
 	private removeColumn(value: string, columnEl: HTMLElement): void {

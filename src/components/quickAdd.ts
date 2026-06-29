@@ -2,6 +2,7 @@ import type { App, BasesPropertyId, EventRef, TFile } from 'obsidian';
 import { Notice, normalizePath, parsePropertyId, setIcon } from 'obsidian';
 import { QuickAddModal } from '../quickAddModal.ts';
 import { CSS_CLASSES, UNCATEGORIZED_LABEL } from '../constants.ts';
+import { type TriggerRule, findMatchingTrigger, applyTrigger } from '../utils/triggers.ts';
 
 export interface QuickAddCtx {
 	app: App;
@@ -9,6 +10,7 @@ export interface QuickAddCtx {
 	prefsPropertyId: BasesPropertyId | null;
 	prefsSwimlanePropertyId: BasesPropertyId | null;
 	quickAddFolder: string | null;
+	columnTriggers: TriggerRule[];
 }
 
 export interface QuickAddCallbacks {
@@ -188,11 +190,21 @@ export async function createQuickAddCard(
 			frontmatter[columnPropertyName] = columnValue;
 		}
 
-		if (!swimlaneValue || !swimlanePropertyName) return;
-		if (swimlaneValue === UNCATEGORIZED_LABEL) {
-			delete frontmatter[swimlanePropertyName];
-		} else {
-			frontmatter[swimlanePropertyName] = swimlaneValue;
+		if (swimlaneValue && swimlanePropertyName) {
+			if (swimlaneValue === UNCATEGORIZED_LABEL) {
+				delete frontmatter[swimlanePropertyName];
+			} else {
+				frontmatter[swimlanePropertyName] = swimlaneValue;
+			}
+		}
+
+		// Column triggers — new card transitioning from "not existing" to this column
+		const columnTrigger = findMatchingTrigger(ctx.columnTriggers, {
+			oldValue: null,
+			newValue: columnValue,
+		});
+		if (columnTrigger) {
+			applyTrigger(frontmatter, columnTrigger);
 		}
 	};
 

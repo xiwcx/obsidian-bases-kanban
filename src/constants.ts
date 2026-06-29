@@ -129,6 +129,18 @@ export const SORTABLE_CONFIG = {
 /** Debounce delay in ms for onDataUpdated renders */
 export const DEBOUNCE_DELAY = 50;
 
+/** Config keys for trigger rules stored in .base file config */
+export const CONFIG_KEYS = {
+	COLUMN_TRIGGERS: 'columnTriggers',
+	SWIMLANE_TRIGGERS: 'swimlaneTriggers',
+} as const;
+
+/** Template variables supported in trigger values */
+export const TEMPLATE_VARIABLES = {
+	TODAY: '{{today}}',
+	NOW: '{{now}}',
+} as const;
+
 /** Empty state messages */
 export const EMPTY_STATE_MESSAGES = {
 	NO_ENTRIES: 'No entries found. Add some notes to your base.',

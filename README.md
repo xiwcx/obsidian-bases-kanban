@@ -20,6 +20,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Property Display**: Selected properties are shown on each card for at-a-glance context
 - **Custom Card Titles**: Display a frontmatter property as the card title instead of the file name — useful when files share a common name (e.g., `README.md`) across folders
 - **Cover Images**: Show a cover image on each card by picking a frontmatter property — mirrors Obsidian's native Cards view *Image property* with matching fit (cover/contain) and aspect-ratio controls, so one frontmatter field works for both views
+- **Column Triggers**: Automatically set or clear frontmatter properties when a card enters a specific column or swimlane — stamp dates, update statuses, or clear fields without manual edits
 - **Property Word Wrap**: Toggle property text wrapping on cards to handle long property values
 - **Click to Open**: Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
 - **Visual Feedback**: Clear visual indicators during drag operations
@@ -98,6 +99,89 @@ If your notes have a frontmatter property pointing at a cover image (e.g., `cove
 - Use "Image fit" to choose between Cover (crop to fill) and Contain (letterbox)
 - Drag the "Image aspect ratio" slider to size the cover — wide banner on the left, tall portrait on the right
 - The same property value also works in Obsidian's built-in Cards view, so the two views stay in sync
+
+### Column Triggers
+
+Column triggers automatically set or clear frontmatter properties when a card moves to a specific column (or swimlane). This eliminates manual date-stamping and keeps metadata consistent with card position.
+
+#### Configuration
+
+Triggers are configured directly in the `.base` file. Open the `.base` file in a text editor and add `columnTriggers` and/or `swimlaneTriggers` arrays to the view config:
+
+```yaml
+columnTriggers:
+  - when: "Done"
+    set:
+      completed_on: "{{today}}"
+  - when: "In Progress"
+    set:
+      started_on: "{{today}}"
+  - when: "todo"
+    clear:
+      - started_on
+      - completed_on
+```
+
+```yaml
+swimlaneTriggers:
+  - when: "focus"
+    set:
+      focus_date: "{{today}}"
+```
+
+#### Rule Structure
+
+Each trigger rule has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `when` | string | The column (or swimlane) value that activates the trigger |
+| `set` | object | Properties to set on the note's frontmatter (key-value pairs) |
+| `clear` | array | Property names to remove from the note's frontmatter |
+
+A single rule can include both `set` and `clear`.
+
+#### Template Variables
+
+Use template variables in `set` values for dynamic content:
+
+| Variable | Resolves to | Example |
+|----------|-------------|---------|
+| `{{today}}` | Current date in `YYYY-MM-DD` format | `2025-06-11` |
+| `{{now}}` | Current datetime in ISO 8601 (no timezone) | `2025-06-11T14:30:00` |
+
+#### Behavior
+
+- **Triggers only fire on transitions** — moving a card to the same column it's already in (e.g., reordering within a column) does not fire any trigger.
+- **`set` overwrites** — if the property already has a value, it is replaced with the fresh template value.
+- **`clear` deletes** — the listed property keys are removed from frontmatter entirely.
+- **Quick-add** — creating a card via the `+` button fires column triggers (the card is transitioning from "not existing" to the column).
+- **First match wins** — if multiple rules share the same `when` value, only the first one in the array applies.
+- **No trigger on load** — triggers never fire from data updates or re-renders, only from explicit drag-drop and quick-add actions.
+- **Empty config** — if `columnTriggers` or `swimlaneTriggers` is not defined or is an empty array, behavior is unchanged from before.
+
+#### Example Workflow
+
+Given this configuration:
+
+```yaml
+columnTriggers:
+  - when: "Done"
+    set:
+      completed_on: "{{today}}"
+  - when: "In Progress"
+    set:
+      started_on: "{{today}}"
+  - when: "todo"
+    clear:
+      - started_on
+      - completed_on
+```
+
+1. Drag a card from "todo" to "In Progress" → `started_on: 2025-06-11` is added to its frontmatter
+2. Drag it from "In Progress" to "Done" → `completed_on: 2025-06-11` is added
+3. Drag it back to "todo" → both `started_on` and `completed_on` are removed
+4. Click `+` in the "In Progress" column → new card gets `started_on: 2025-06-11` immediately
 
 ## Development
 

@@ -430,6 +430,115 @@ describe('Swimlane patch path', () => {
 	});
 });
 
+describe('Swimlane Triggers', () => {
+	test('lane transition fires swimlane trigger', async () => {
+		const scrollEl = createDivWithMethods();
+		const entries = createSwimlaneEntries();
+		const controller: any = createMockQueryController(entries, TEST_PROPERTIES);
+		const app: any = createMockApp();
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'swimlaneByProperty') return PROPERTY_PRIORITY;
+			return null;
+		};
+		controller.config.set('swimlaneTriggers', [{ when: 'Low', set: { deprioritized_on: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Find card in High lane / To Do column, move it to Low lane / To Do column
+		const highLane = getLane(view, 'High');
+		const lowLane = getLane(view, 'Low');
+		const toDoColumnInHigh = getColumnWithin(highLane, 'To Do');
+		const toDoColumnInLow = getColumnWithin(lowLane, 'To Do');
+		const highBody = toDoColumnInHigh.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`) as HTMLElement;
+		const lowBody = toDoColumnInLow.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`) as HTMLElement;
+		const card = highBody.querySelector(`.${CSS_CLASSES.CARD}`) as HTMLElement;
+
+		assert.ok(card, 'Card should exist in High lane To Do column');
+
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = {};
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: highBody,
+			to: lowBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		// Column didn't change (To Do → To Do) but lane changed (High → Low)
+		assert.strictEqual(capturedFrontmatters[0].priority, 'Low');
+		assert.strictEqual(typeof capturedFrontmatters[0].deprioritized_on, 'string');
+		assert.match(capturedFrontmatters[0].deprioritized_on as string, /^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	test('column + lane transition fires both triggers', async () => {
+		const scrollEl = createDivWithMethods();
+		const entries = createSwimlaneEntries();
+		const controller: any = createMockQueryController(entries, TEST_PROPERTIES);
+		const app: any = createMockApp();
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'swimlaneByProperty') return PROPERTY_PRIORITY;
+			return null;
+		};
+		controller.config.set('columnTriggers', [{ when: 'Done', set: { completed_on: '{{today}}' } }]);
+		controller.config.set('swimlaneTriggers', [{ when: 'Low', set: { deprioritized_on: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Move from High lane / To Do column to Low lane / Done column
+		const highLane = getLane(view, 'High');
+		const lowLane = getLane(view, 'Low');
+		const toDoColumnInHigh = getColumnWithin(highLane, 'To Do');
+		const doneColumnInLow = getColumnWithin(lowLane, 'Done');
+		const highToDoBody = toDoColumnInHigh.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`) as HTMLElement;
+		const lowDoneBody = doneColumnInLow.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`) as HTMLElement;
+		const card = highToDoBody.querySelector(`.${CSS_CLASSES.CARD}`) as HTMLElement;
+
+		assert.ok(card, 'Card should exist in High lane To Do column');
+
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = {};
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: highToDoBody,
+			to: lowDoneBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		assert.strictEqual(capturedFrontmatters[0].status, 'Done');
+		assert.strictEqual(capturedFrontmatters[0].priority, 'Low');
+		assert.strictEqual(typeof capturedFrontmatters[0].completed_on, 'string');
+		assert.match(capturedFrontmatters[0].completed_on as string, /^\d{4}-\d{2}-\d{2}$/);
+		assert.strictEqual(typeof capturedFrontmatters[0].deprioritized_on, 'string');
+		assert.match(capturedFrontmatters[0].deprioritized_on as string, /^\d{4}-\d{2}-\d{2}$/);
+	});
+});
+
 describe('Swimlane empty-column remove button (#90)', () => {
 	const swimlaneProperty = () => PROPERTY_PRIORITY;
 

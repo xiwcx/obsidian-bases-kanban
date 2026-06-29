@@ -4046,3 +4046,261 @@ describe('patchColumnCards - property value reactivity', () => {
 		assert.strictEqual(countEl?.textContent, '1', 'Column count should remain 1 after a property-only update');
 	});
 });
+
+describe('Column Triggers - Card Drop', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+	let sortableMock: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+		sortableMock = mockSortable();
+		(global as any).Sortable = sortableMock.Sortable;
+		addClosestPolyfill(document.createElement('div'));
+	});
+
+	test('card drop to new column fires matching trigger and writes frontmatter', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnTriggers', [{ when: 'Doing', set: { started_on: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('To Do'),
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('Doing'),
+		) as HTMLElement;
+
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		// Override processFrontMatter to capture the callback's effect
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = {};
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: toDoBody,
+			to: doingBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		assert.strictEqual(capturedFrontmatters[0].status, 'Doing');
+		assert.strictEqual(typeof capturedFrontmatters[0].started_on, 'string');
+		assert.match(capturedFrontmatters[0].started_on as string, /^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	test('card drop to same column does NOT fire trigger', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnTriggers', [{ when: 'To Do', set: { touched: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('To Do'),
+		) as HTMLElement;
+
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		app.fileManager.processFrontMatter.calls.length = 0;
+
+		const mockEvent = {
+			item: card,
+			from: toDoBody,
+			to: toDoBody,
+			oldIndex: 0,
+			newIndex: 1,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		// Same column reorder — processFrontMatter should not be called
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 0);
+	});
+
+	test('card drop with no matching rule leaves frontmatter unchanged beyond group-by property', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnTriggers', [{ when: 'Done', set: { completed_on: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('To Do'),
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('Doing'),
+		) as HTMLElement;
+
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = {};
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: toDoBody,
+			to: doingBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		// Only the group-by property is set; no trigger-added keys
+		assert.strictEqual(capturedFrontmatters[0].status, 'Doing');
+		assert.strictEqual(capturedFrontmatters[0].completed_on, undefined);
+	});
+
+	test('clear rule removes specified properties from frontmatter', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnTriggers', [{ when: 'To Do', clear: ['started_on', 'completed_on'] }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const doingColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('Doing'),
+		) as HTMLElement;
+		const toDoColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('To Do'),
+		) as HTMLElement;
+
+		const card = doingColumn.querySelector('.obk-card') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = { started_on: '2025-01-01', completed_on: '2025-01-10' };
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: doingBody,
+			to: toDoBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		assert.strictEqual(capturedFrontmatters[0].status, 'To Do');
+		assert.strictEqual(capturedFrontmatters[0].started_on, undefined);
+		assert.strictEqual(capturedFrontmatters[0].completed_on, undefined);
+	});
+
+	test('quick-add into a column with triggers sets properties on new card', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
+		controller.config.set('columnTriggers', [{ when: 'Doing', set: { started_on: '{{today}}' } }]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		const calls = (view as any).createFileForViewCalls;
+		assert.strictEqual(calls.length, 1);
+		assert.strictEqual(calls[0].frontmatter.status, 'Doing');
+		assert.strictEqual(typeof calls[0].frontmatter.started_on, 'string');
+		assert.match(calls[0].frontmatter.started_on as string, /^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	test('multiple rules: only first match applies', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnTriggers', [
+			{ when: 'Doing', set: { first: 'yes' } },
+			{ when: 'Doing', set: { second: 'yes' } },
+		]);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('To Do'),
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find((col) =>
+			col.getAttribute('data-column-value')?.includes('Doing'),
+		) as HTMLElement;
+
+		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		const capturedFrontmatters: Record<string, unknown>[] = [];
+		app.fileManager.processFrontMatter = async (_file: any, cb: (fm: Record<string, unknown>) => void) => {
+			const fm: Record<string, unknown> = {};
+			cb(fm);
+			capturedFrontmatters.push(fm);
+		};
+
+		const mockEvent = {
+			item: card,
+			from: toDoBody,
+			to: doingBody,
+			oldIndex: 0,
+			newIndex: 0,
+		};
+
+		await (view as any).handleCardDrop(mockEvent);
+
+		assert.strictEqual(capturedFrontmatters.length, 1);
+		assert.strictEqual(capturedFrontmatters[0].first, 'yes');
+		assert.strictEqual(capturedFrontmatters[0].second, undefined);
+	});
+});

@@ -304,6 +304,14 @@ export class KanbanView extends BasesView {
 	 *
 	 * Change guards skip config.set() when the value hasn't changed, preventing
 	 * spurious onDataUpdated() triggers.
+	 *
+	 * The stored value must be a snapshot, never the live _prefs object. Handing
+	 * _prefs straight to set() aliases it into the config: later mutations of
+	 * _prefs then also mutate the config value in place, so the guard below ends up
+	 * comparing an object with itself, always finds them equal, and never calls
+	 * set() again. Obsidian is never told the Base changed, so nothing is written
+	 * until the view closes and the config is serialised wholesale — which looks
+	 * exactly like "card order only saves on close".
 	 */
 	private _persistConfigKey<T>(
 		key: string,
@@ -315,7 +323,7 @@ export class KanbanView extends BasesView {
 		const raw = this.config?.get(key);
 		const all: Record<string, T> = guard(raw) ? raw : {};
 		if (JSON.stringify(all[storageKey]) !== JSON.stringify(newValue)) {
-			this.config?.set(key, { ...all, [storageKey]: newValue });
+			this.config?.set(key, { ...all, [storageKey]: structuredClone(newValue) });
 		}
 	}
 
@@ -405,6 +413,16 @@ export class KanbanView extends BasesView {
 				? this.flattenLanes(groupedByLane)
 				: this.groupEntriesByProperty(entries, this.groupByPropertyId);
 			const sortActive = this.hasActiveSort();
+
+			// Drop card order entries that the live data proves wrong before they
+			// are applied, so a stale path cannot keep pinning a card's old slot.
+			if (
+				!sortActive &&
+				!this._dragging &&
+				this._pruneCardOrders(this.buildLivePathToKey(groupedByLane, groupedEntries))
+			) {
+				this._persistPrefs();
+			}
 
 			// Apply manual card order only when the Base itself is not sorted.
 			// When sorting is active, Bases has already ordered `entries`.
@@ -1455,6 +1473,65 @@ export class KanbanView extends BasesView {
 		// Include all saved columns (even empty ones); append any new live values.
 		const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
 		return [...this._prefs.columnOrder, ...newValues];
+	}
+
+	/**
+	 * Map every entry in the current dataset to the cardOrders key of the cell it
+	 * actually occupies right now.
+	 */
+	private buildLivePathToKey(
+		groupedByLane: Map<string, Map<string, BasesEntry[]>> | null,
+		groupedEntries: Map<string, BasesEntry[]>,
+	): Map<string, string> {
+		const livePathToKey = new Map<string, string>();
+		if (groupedByLane) {
+			groupedByLane.forEach((columns, laneValue) => {
+				columns.forEach((cellEntries, columnValue) => {
+					const key = this.cardOrderKey(laneValue, columnValue);
+					cellEntries.forEach((entry) => livePathToKey.set(entry.file.path, key));
+				});
+			});
+		} else {
+			groupedEntries.forEach((columnEntries, columnValue) => {
+				const key = this.cardOrderKey(null, columnValue);
+				columnEntries.forEach((entry) => livePathToKey.set(entry.file.path, key));
+			});
+		}
+		return livePathToKey;
+	}
+
+	/**
+	 * Remove card order entries that no longer describe where a card lives.
+	 *
+	 * A card's cell is derived from its group-by property, which can change
+	 * without any drag: a script rewrites the frontmatter, another device syncs,
+	 * or the user edits the note directly. handleCardDrop only rewrites the two
+	 * cells it sees, so those paths linger in their old cell's list indefinitely
+	 * and every later drag rewrites the accumulated cruft back into the Base.
+	 *
+	 * Pruning is deliberately conservative — a path is only dropped when the live
+	 * data positively places it somewhere else. A path that is merely absent from
+	 * the dataset is kept, because absence is ambiguous: the card may be hidden by
+	 * the Base's own filters, or the query may not have caught up yet, and its
+	 * manual order has to survive both. Entries for deleted files therefore linger,
+	 * which is harmless — applyCardOrder skips paths it cannot resolve — and is a
+	 * far better failure mode than silently dropping a live card's slot.
+	 *
+	 * @returns true if anything changed and prefs need persisting.
+	 */
+	private _pruneCardOrders(livePathToKey: Map<string, string>): boolean {
+		let changed = false;
+		for (const [key, paths] of Object.entries(this._prefs.cardOrders)) {
+			const kept = paths.filter((path) => {
+				const liveKey = livePathToKey.get(path);
+				return liveKey === undefined || liveKey === key;
+			});
+			if (kept.length !== paths.length) {
+				this._prefs.cardOrders[key] = kept;
+				changed = true;
+			}
+		}
+		return changed;
 	}
 
 	private applyCardOrder(entries: BasesEntry[], savedOrder: string[]): BasesEntry[] {

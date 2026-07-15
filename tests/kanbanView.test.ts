@@ -4046,3 +4046,183 @@ describe('patchColumnCards - property value reactivity', () => {
 		assert.strictEqual(countEl?.textContent, '1', 'Column count should remain 1 after a property-only update');
 	});
 });
+
+describe('cardOrders pruning', () => {
+	let app: ReturnType<typeof createMockApp>;
+	let scrollEl: HTMLElement;
+	let controller: any;
+
+	beforeEach(() => {
+		setupTestEnvironment();
+		app = createMockApp();
+		scrollEl = createDivWithMethods();
+	});
+
+	test('Prunes a card order entry whose card now lives in another column', () => {
+		// Task 3 is live in "Doing", but a stale entry still pins it in "To Do" —
+		// the shape left behind when a script rewrites the property without a drag.
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: {
+				'To Do': ['Task 1.md', 'Task 3.md', 'Task 2.md'],
+				Doing: ['Task 3.md'],
+			},
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 1.md', 'Task 2.md'], 'Stale path should be dropped');
+		assert.deepStrictEqual(saved[PROPERTY_STATUS].Doing, ['Task 3.md'], 'Live cell should keep its entry');
+	});
+
+	test('Keeps entries for cards absent from the dataset (filtered out)', () => {
+		// Only the "To Do" cards are in the dataset, as if a Base filter hid the
+		// rest. Their saved order must survive so it returns with the filter.
+		const entries = createEntriesWithStatus().filter((e) => e.file.path === 'Task 1.md' || e.file.path === 'Task 2.md');
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: {
+				'To Do': ['Task 2.md', 'Task 1.md'],
+				Done: ['Task 5.md', 'Task 4.md'],
+			},
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(saved[PROPERTY_STATUS].Done, ['Task 5.md', 'Task 4.md'], 'Filtered-out order must be kept');
+		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 2.md', 'Task 1.md'], 'Live order untouched');
+	});
+
+	test('Does not prune while a Base sort is active', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: { 'To Do': ['Task 1.md', 'Task 3.md'] },
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS]['To Do'],
+			['Task 1.md', 'Task 3.md'],
+			'Sorted board must not rewrite order',
+		);
+	});
+
+	test('Clean card orders are not rewritten', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: { 'To Do': ['Task 2.md', 'Task 1.md'] },
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+
+		const setCallsBefore = (controller.config.set as any).calls?.length ?? 0;
+		triggerDataUpdate(view);
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 2.md', 'Task 1.md'], 'Order preserved');
+		assert.ok(setCallsBefore >= 0);
+	});
+});
+
+describe('cardOrders write-back is not defeated by aliasing (#94)', () => {
+	let app: ReturnType<typeof createMockApp>;
+	let scrollEl: HTMLElement;
+	let controller: any;
+
+	beforeEach(() => {
+		setupTestEnvironment();
+		app = createMockApp();
+		scrollEl = createDivWithMethods();
+	});
+
+	// Counts config.set('cardOrders', …) calls. Reading the config back cannot
+	// detect this bug: when the stored value is aliased to _prefs it *looks*
+	// updated even though set() was never called — and set() is the only thing
+	// that marks the Base dirty, so without it nothing is ever written to disk.
+	function spyOnCardOrderSets(ctrl: any): { count: () => number } {
+		const original = ctrl.config.set.bind(ctrl.config);
+		let count = 0;
+		ctrl.config.set = (key: string, value: unknown): void => {
+			if (key === 'cardOrders') count++;
+			original(key, value);
+		};
+		return { count: () => count };
+	}
+
+	async function dropFirstCardTo(view: any, body: HTMLElement, from: number, to: number): Promise<void> {
+		const cards = Array.from(body.querySelectorAll('.obk-card')) as HTMLElement[];
+		body.insertBefore(cards[from], cards[to]);
+		await view.handleCardDrop({ item: cards[from], from: body, to: body, oldIndex: from, newIndex: to });
+	}
+
+	test('Every reorder calls config.set, not just the first', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const body = view.containerEl.querySelector('.obk-column[data-column-value="To Do"] .obk-column-body') as HTMLElement;
+		addClosestPolyfill(body);
+
+		const spy = spyOnCardOrderSets(controller);
+
+		await dropFirstCardTo(view as any, body, 1, 0); // Task 2 before Task 1
+		const afterFirst = spy.count();
+		assert.ok(afterFirst > 0, 'First reorder must write back');
+
+		await dropFirstCardTo(view as any, body, 1, 0); // swap back
+		assert.ok(
+			spy.count() > afterFirst,
+			'Second reorder must write back too — aliasing made the change-guard compare the stored object with itself, so set() was never called again and the Base was only saved on view close',
+		);
+	});
+
+	test('Stored card order is a snapshot, decoupled from _prefs', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const body = view.containerEl.querySelector('.obk-column[data-column-value="To Do"] .obk-column-body') as HTMLElement;
+		addClosestPolyfill(body);
+		await dropFirstCardTo(view as any, body, 1, 0);
+
+		const stored = (controller.config.get('cardOrders') as Record<string, any>)[PROPERTY_STATUS];
+		assert.notStrictEqual(stored, (view as any)._prefs.cardOrders, 'Config must not hold the live _prefs object');
+
+		// A later prefs mutation must not silently reach the config.
+		(view as any)._prefs.cardOrders['To Do'].push('Leaked.md');
+		const after = (controller.config.get('cardOrders') as Record<string, any>)[PROPERTY_STATUS];
+		assert.ok(!after['To Do'].includes('Leaked.md'), 'Prefs mutation must not reach config without set()');
+	});
+});

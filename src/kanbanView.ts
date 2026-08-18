@@ -1138,7 +1138,7 @@ export class KanbanView extends BasesView {
 
 	private _buildQuickAddCallbacks(): QuickAddCallbacks {
 		return {
-			createFileForView: (path, setFm) => this.createFileForView(path, setFm),
+			createFileForView: (baseFileName, setFm) => this.createFileForView(baseFileName, setFm),
 		};
 	}
 

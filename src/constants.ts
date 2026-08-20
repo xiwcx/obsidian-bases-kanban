@@ -25,9 +25,6 @@ export type ColorName = (typeof COLOR_PALETTE)[number]['name'];
 /** Sortable.js group name for kanban columns */
 export const SORTABLE_GROUP = 'obk-columns';
 
-/** Notice shown when Base sorting prevents manual card ordering */
-export const SORTED_CARD_ORDER_NOTICE = '⚠️ Sort is active. Clear it to manually reorder cards within a column.';
-
 /** Data attribute names */
 export const DATA_ATTRIBUTES = {
 	COLUMN_VALUE: 'data-column-value',
@@ -133,4 +130,5 @@ export const DEBOUNCE_DELAY = 50;
 export const EMPTY_STATE_MESSAGES = {
 	NO_ENTRIES: 'No entries found. Add some notes to your base.',
 	NO_PROPERTIES: 'No properties found in entries.',
+	CARD_ORDER_PROPERTY_INVALID: 'Card order must use a writable note property that is not used for grouping.',
 } as const;

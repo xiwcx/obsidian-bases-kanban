@@ -1,5 +1,5 @@
 import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
-import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
+import { BasesView, Keymap, Menu, Notice, normalizePath, parsePropertyId, setIcon } from 'obsidian';
 import {
 	createCard as createCardEl,
 	computeCardFingerprint,
@@ -37,6 +37,7 @@ import {
 	DEBOUNCE_DELAY,
 	EMPTY_STATE_MESSAGES,
 	HOVER_LINK_SOURCE_ID,
+	PIN_FLAT_LANE_KEY,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
 	SORTED_CARD_ORDER_NOTICE,
@@ -85,6 +86,27 @@ export function isCardOrders(value: unknown): value is Record<string, Record<str
 
 export function isCollapsedLanes(value: unknown): value is Record<string, string[]> {
 	return isStringArrayRecord(value);
+}
+
+/**
+ * Pinned-column state: persisted as Record<storageKey, Record<laneValue, pin>>,
+ * where storageKey is the group-by (or group+swimlane composite) property id and
+ * laneValue is a swimlane value (or PIN_FLAT_LANE_KEY in flat mode). Each pin
+ * holds at most one left and one right column value.
+ */
+export function isPinnedColumns(
+	value: unknown,
+): value is Record<string, Record<string, { left: string | null; right: string | null }>> {
+	if (!isRecord(value) || Array.isArray(value)) return false;
+	return Object.values(value).every((inner) => {
+		if (!isRecord(inner) || Array.isArray(inner)) return false;
+		return Object.values(inner).every(
+			(pin) =>
+				isRecord(pin) &&
+				(pin.left === null || typeof pin.left === 'string') &&
+				(pin.right === null || typeof pin.right === 'string'),
+		);
+	});
 }
 
 export class KanbanView extends BasesView {
@@ -137,12 +159,14 @@ export class KanbanView extends BasesView {
 		cardOrders: Record<string, string[]>;
 		columnColors: Record<string, string>;
 		collapsedLanes: Set<string>;
+		pinnedColumns: Record<string, { left: string | null; right: string | null }>;
 	} = {
 		columnOrder: [],
 		swimlaneOrder: [],
 		cardOrders: {},
 		columnColors: {}, // columnValue → colorName
 		collapsedLanes: new Set(),
+		pinnedColumns: {}, // laneValue (or PIN_FLAT_LANE_KEY) → { left, right } columnValue pins
 	};
 	private _prefsPropertyId: BasesPropertyId | null = null;
 	private _prefsSwimlanePropertyId: BasesPropertyId | null = null;
@@ -196,6 +220,16 @@ export class KanbanView extends BasesView {
 			this.triggerHoverPreview(href, sourcePath, evt, linkEl);
 		});
 
+		// Right-click a column header → pin/unpin context menu. Pin state is
+		// resolved per swimlane (flat mode = single implicit lane). The header
+		// pin indicator (shown only on pinned columns) unpinns via onUnpinColumn.
+		this.containerEl.on('contextmenu', `.${CSS_CLASSES.COLUMN_HEADER}`, (evt, headerEl) => {
+			const colEl = headerEl.closest(`.${CSS_CLASSES.COLUMN}`);
+			if (!colEl?.instanceOf(HTMLElement)) return;
+			evt.preventDefault();
+			this.openColumnContextMenu(evt, colEl);
+		});
+
 		this._debouncedRender = debounce(() => {
 			try {
 				this.loadConfig();
@@ -235,6 +269,27 @@ export class KanbanView extends BasesView {
 	 */
 	private cardOrderKey(swimlaneValue: string | null, columnValue: string): string {
 		return swimlaneValue === null ? columnValue : `${swimlaneValue}${SWIMLANE_KEY_SEPARATOR}${columnValue}`;
+	}
+
+	/**
+	 * Key for pinned-column state per swimlane value. Flat mode (no swimlanes)
+	 * collapses to a single implicit lane via PIN_FLAT_LANE_KEY.
+	 */
+	private pinLaneKey(swimlaneValue: string | null): string {
+		return swimlaneValue === null ? PIN_FLAT_LANE_KEY : swimlaneValue;
+	}
+
+	/**
+	 * Read a column's value and (if any) its swimlane value off the DOM. Returns
+	 * null when the column has no value attribute. Shared by the pin menu, the
+	 * unpin click handler, and the pinned-class apply pass.
+	 */
+	private resolveColumnContext(colEl: HTMLElement): { value: string; swimlaneValue: string | null } | null {
+		const value = colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+		if (!value) return null;
+		const laneEl = colEl.closest(`[${DATA_ATTRIBUTES.SWIMLANE_VALUE}]`);
+		const swimlaneValue = laneEl?.instanceOf(HTMLElement) ? laneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
+		return { value, swimlaneValue };
 	}
 
 	private swimlanePrefsKey(groupPropertyId: BasesPropertyId, swimlanePropertyId: BasesPropertyId): string {
@@ -296,6 +351,16 @@ export class KanbanView extends BasesView {
 		const allSwimlaneOrders = isColumnOrders(rawSwimlaneOrders) ? rawSwimlaneOrders : {};
 		this._prefs.swimlaneOrder =
 			swimlaneScopedKey && allSwimlaneOrders[swimlaneScopedKey] ? [...allSwimlaneOrders[swimlaneScopedKey]] : [];
+
+		// Pinned columns — scoped by group+swimlane property (same scope as
+		// cardOrders), keyed per lane value within that scope. Deep-copy so
+		// in-memory mutation never leaks into the config object directly.
+		const rawPinned = this.config?.get('pinnedColumns');
+		const allPinned = isPinnedColumns(rawPinned) ? rawPinned : {};
+		const savedPinned = allPinned[swimlaneScopedKey ?? propertyId] ?? {};
+		this._prefs.pinnedColumns = Object.fromEntries(
+			Object.entries(savedPinned).map(([lane, pin]) => [lane, { left: pin.left ?? null, right: pin.right ?? null }]),
+		);
 	}
 
 	/**
@@ -341,6 +406,12 @@ export class KanbanView extends BasesView {
 			swimlaneScopedKey ?? this._prefsPropertyId,
 		);
 		this._persistConfigKey('columnColors', isColumnColors, this._prefs.columnColors, this._prefsPropertyId);
+		this._persistConfigKey(
+			'pinnedColumns',
+			isPinnedColumns,
+			this._prefs.pinnedColumns,
+			swimlaneScopedKey ?? this._prefsPropertyId,
+		);
 
 		if (swimlaneScopedKey) {
 			this._persistConfigKey('swimlaneOrders', isColumnOrders, this._prefs.swimlaneOrder, swimlaneScopedKey);
@@ -537,6 +608,7 @@ export class KanbanView extends BasesView {
 				this.patchBoard(orderedValues, lanes, hasSwimlanes);
 			}
 			this.reapplyActiveCard();
+			this.applyPinnedColumnClasses();
 		} catch (error) {
 			console.error('KanbanView error:', error);
 		}
@@ -652,6 +724,11 @@ export class KanbanView extends BasesView {
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
 			draggable: `.${CSS_CLASSES.COLUMN}`,
+			// Pinned columns are positionally locked, so exclude them from
+			// drag. `filter` is evaluated at drag-start, so pin toggles (which
+			// only flip these classes) take effect without rebuilding Sortable.
+			filter: `.${CSS_CLASSES.COLUMN_PINNED_LEFT}, .${CSS_CLASSES.COLUMN_PINNED_RIGHT}`,
+			preventOnFilter: false,
 			ghostClass: CSS_CLASSES.COLUMN_GHOST,
 			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
 			onStart: () => {
@@ -1224,6 +1301,145 @@ export class KanbanView extends BasesView {
 		this._prefs.columnOrder = this._prefs.columnOrder.filter((v) => v !== value);
 		this._persistPrefs();
 		this.detachColumn(value, columnEl);
+	}
+
+	/**
+	 * Pin (or unpin, on toggle) a column to one side within a given swimlane.
+	 * One slot per side per lane: assigning a side overwrites that lane's
+	 * previous holder. A column can only hold one side at a time, so pinning it
+	 * to one side clears it from the other. columnOrder is never touched, so
+	 * unpinning returns the column to its real flow position.
+	 */
+	private setColumnPin(value: string, side: 'left' | 'right', swimlaneValue: string | null): void {
+		const key = this.pinLaneKey(swimlaneValue);
+		const pins = this._prefs.pinnedColumns[key] ?? { left: null, right: null };
+		const other = side === 'left' ? 'right' : 'left';
+		if (pins[side] === value) {
+			pins[side] = null; // toggle off
+		} else {
+			pins[side] = value;
+			if (pins[other] === value) pins[other] = null;
+		}
+		if (pins.left === null && pins.right === null) {
+			delete this._prefs.pinnedColumns[key];
+		} else {
+			this._prefs.pinnedColumns[key] = pins;
+		}
+		this._persistPrefs();
+		// Pin state is purely visual (class + indicator swap + CSS order), so skip
+		// the full render() — which regroups every entry — and just reapply the
+		// pin classes/instantly. Keeps pin/unpin snappy on large bases.
+		this.applyPinnedColumnClasses();
+	}
+
+	/** Clear whichever side a column is pinned to within a swimlane. */
+	private unsetColumnPin(value: string, swimlaneValue: string | null): void {
+		const key = this.pinLaneKey(swimlaneValue);
+		const pins = this._prefs.pinnedColumns[key];
+		if (!pins) return;
+		if (pins.left === value) pins.left = null;
+		if (pins.right === value) pins.right = null;
+		if (pins.left === null && pins.right === null) {
+			delete this._prefs.pinnedColumns[key];
+		} else {
+			this._prefs.pinnedColumns[key] = pins;
+		}
+		this._persistPrefs();
+		this.applyPinnedColumnClasses();
+	}
+
+	/**
+	 * Apply pinned-left/right classes to every column based on its swimlane's pin
+	 * state. Run after every render so both full rebuilds and patches reflect the
+	 * current pins. Flat-mode columns (no swimlane ancestor) key off the flat lane.
+	 */
+	private applyPinnedColumnClasses(): void {
+		const columns = this.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`);
+		columns.forEach((colEl) => {
+			const ctx = this.resolveColumnContext(colEl);
+			if (!ctx) return;
+			const { value, swimlaneValue } = ctx;
+			const pins = this._prefs.pinnedColumns[this.pinLaneKey(swimlaneValue)] ?? { left: null, right: null };
+			const isPinned = pins.left === value || pins.right === value;
+			colEl.classList.toggle(CSS_CLASSES.COLUMN_PINNED_LEFT, pins.left === value);
+			colEl.classList.toggle(CSS_CLASSES.COLUMN_PINNED_RIGHT, pins.right === value);
+			this.syncPinIndicator(colEl, isPinned, value, swimlaneValue);
+		});
+	}
+
+	/**
+	 * Add/remove the pinned-status indicator on a column header. The indicator
+	 * uses Obsidian's native tab-header status classes so it inherits the built-in
+	 * pinned-icon look (no plugin CSS). Mirroring Obsidian's pinned tabs, it
+	 * replaces the drag handle while pinned (a pinned column can't be dragged
+	 * anyway): the handle is removed and the pin icon takes its slot at the front
+	 * of the header. Unpinning restores the drag handle. The handle is removed
+	 * outright (not [hidden]) so the swap is robust regardless of CSS context.
+	 * Click unpins (matches the "Unpin" aria-label); right-click opens the menu.
+	 */
+	private syncPinIndicator(colEl: HTMLElement, isPinned: boolean, value: string, swimlaneValue: string | null): void {
+		const headerEl = colEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
+		if (!headerEl) return;
+		const dragHandle = headerEl.querySelector(`.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`);
+		const existing = headerEl.querySelector('.workspace-tab-header-status-container');
+		if (!isPinned) {
+			existing?.remove();
+			// Restore the drag handle that was removed while pinned.
+			if (!dragHandle) {
+				const restored = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
+				restored.textContent = '⋮⋮';
+				headerEl.insertBefore(restored, headerEl.firstChild);
+			}
+			return;
+		}
+		// Pinned: remove the drag handle (unusable while pinned) and show the pin.
+		dragHandle?.remove();
+		if (existing) return; // pin indicator already present
+		const pinContainer = headerEl.createDiv({ cls: 'workspace-tab-header-status-container' });
+		const pinIcon = pinContainer.createDiv({
+			cls: 'workspace-tab-header-status-icon mod-pinned',
+			attr: { 'aria-label': 'Unpin' },
+		});
+		setIcon(pinIcon, 'pin');
+		pinIcon.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.unsetColumnPin(value, swimlaneValue);
+		});
+		// Take the drag handle's slot at the front of the header.
+		headerEl.insertBefore(pinContainer, headerEl.firstChild);
+	}
+
+	/** Build and show the pin context menu for a column (right-click on the header). */
+	private openColumnContextMenu(evt: MouseEvent, colEl: HTMLElement): void {
+		const ctx = this.resolveColumnContext(colEl);
+		if (!ctx) return;
+		const { value, swimlaneValue } = ctx;
+		const pins = this._prefs.pinnedColumns[this.pinLaneKey(swimlaneValue)] ?? { left: null, right: null };
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle('Pin to left')
+				.setIcon('pin')
+				.setChecked(pins.left === value)
+				.onClick(() => this.setColumnPin(value, 'left', swimlaneValue)),
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle('Pin to right')
+				.setIcon('pin')
+				.setChecked(pins.right === value)
+				.onClick(() => this.setColumnPin(value, 'right', swimlaneValue)),
+		);
+		menu.addSeparator();
+		const isPinned = pins.left === value || pins.right === value;
+		menu.addItem((item) =>
+			item
+				.setTitle('Unpin')
+				.setIcon('pin-off')
+				.setDisabled(!isPinned)
+				.onClick(() => this.unsetColumnPin(value, swimlaneValue)),
+		);
+		menu.showAtMouseEvent(evt);
 	}
 
 	private attachCardSortable(body: HTMLElement, value: string): void {

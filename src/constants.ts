@@ -44,6 +44,15 @@ export const DATA_ATTRIBUTES = {
  */
 export const SWIMLANE_KEY_SEPARATOR = '\u001F';
 
+/**
+ * Reserved map key for pinned-column state in flat mode (no swimlanes).
+ * Pinned columns are keyed per swimlane value; flat mode has a single implicit
+ * lane, so a NUL-prefixed sentinel is used. Real swimlane values come from
+ * property values / UNCATEGORIZED_LABEL (all printable), so a NUL prefix cannot
+ * collide with them.
+ */
+export const PIN_FLAT_LANE_KEY = ' flat';
+
 /** CSS class names */
 export const CSS_CLASSES = {
 	// Container
@@ -79,6 +88,8 @@ export const CSS_CLASSES = {
 	COLUMN_DRAGGING: 'obk-column-dragging',
 	COLUMN_GHOST: 'obk-column-ghost',
 	COLUMN_ADD_BTN: 'obk-column-add-btn',
+	COLUMN_PINNED_LEFT: 'obk-column--pinned-left',
+	COLUMN_PINNED_RIGHT: 'obk-column--pinned-right',
 
 	// Card
 	CARD: 'obk-card',

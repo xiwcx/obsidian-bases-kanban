@@ -371,7 +371,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'cards/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 	});
 
@@ -388,7 +388,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		await (view as any).createQuickAddCard('New Task', UNCATEGORIZED_LABEL, null);
 
-		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'cards/New Task', frontmatter: {} }]);
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'New Task', frontmatter: {} }]);
 	});
 
 	test('quick add sets both column and swimlane properties when used inside a lane', async () => {
@@ -410,7 +410,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
 			{
-				baseFileName: 'cards/New Lane Task',
+				baseFileName: 'New Lane Task',
 				frontmatter: { status: 'Doing', priority: 'High' },
 			},
 		]);
@@ -446,8 +446,42 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
+		assert.deepStrictEqual(app.fileManager.renameFile.calls, []);
+	});
+
+	test('quick add asks Bases for a bare file name so no folder tree is created', async () => {
+		const entries = createEntriesWithStatus();
+		let markdownFiles = [createMockTFile('RootFolder/Tasks/maintenance-board.base')];
+
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'RootFolder/Tasks');
+
+		(app.vault as any).getMarkdownFiles = () => markdownFiles;
+		(app.vault as any).getFolderByPath = (path: string) => (path === 'RootFolder/Tasks' ? { path, name: 'Tasks' } : null);
+		(app.vault as any).getAbstractFileByPath = (path: string) => markdownFiles.find((file) => file.path === path) ?? null;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+		(view as any).createFileForView = async (
+			baseFileName: string,
+			frontmatterProcessor?: (frontmatter: Record<string, unknown>) => void,
+		) => {
+			const frontmatter: Record<string, unknown> = {};
+			frontmatterProcessor?.(frontmatter);
+			(view as any).createFileForViewCalls.push({ baseFileName, frontmatter });
+			markdownFiles = [...markdownFiles, createMockTFile(`RootFolder/Tasks/${baseFileName}.md`)];
+		};
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		const [call] = (view as any).createFileForViewCalls;
+		assert.strictEqual(call.baseFileName, 'New Task');
+		assert.ok(!call.baseFileName.includes('/'), 'Bases must receive a bare file name, not a path');
 		assert.deepStrictEqual(app.fileManager.renameFile.calls, []);
 	});
 
@@ -481,7 +515,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});
@@ -516,7 +550,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});
@@ -552,7 +586,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task 1.md']);
 	});
@@ -596,7 +630,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});

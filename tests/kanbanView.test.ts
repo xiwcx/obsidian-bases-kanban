@@ -7,7 +7,6 @@ import {
 	HOVER_LINK_SOURCE_ID,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
-	SORTED_CARD_ORDER_NOTICE,
 	UNCATEGORIZED_LABEL,
 } from '../src/constants.ts';
 import { isCardOrders, KanbanView } from '../src/kanbanView.ts';
@@ -46,6 +45,7 @@ import {
 	createMockBasesEntry,
 	createMockQueryController,
 	createMockTFile,
+	mockGroupByProperty,
 	mockSortable,
 	setupKanbanViewWithApp,
 	setupTestEnvironment,
@@ -147,7 +147,7 @@ describe('Data Rendering - Empty States', () => {
 		setupKanbanViewWithApp(view, app);
 
 		// Set a property ID that doesn't exist in the empty properties list
-		controllerNoProps.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controllerNoProps.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
 		const emptyState = view.containerEl.querySelector('.obk-empty-state');
@@ -175,7 +175,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -196,7 +196,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		const entries = createEntriesWithEmptyValues();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -214,7 +214,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		const entries = createEntriesWithEmptyValues();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -242,7 +242,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -272,7 +272,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -291,7 +291,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -306,7 +306,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -331,7 +331,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -361,7 +361,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -379,7 +379,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithEmptyValues();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -423,7 +423,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'energy');
 
 		(app.vault as any).getMarkdownFiles = () => markdownFiles;
@@ -458,7 +458,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'energy');
 
 		(app.vault as any).getMarkdownFiles = () => markdownFiles;
@@ -493,7 +493,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'energy');
 
 		(app.vault as any).getMarkdownFiles = () => markdownFiles;
@@ -529,7 +529,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'energy');
 
 		(app.vault as any).getMarkdownFiles = () => markdownFiles;
@@ -565,7 +565,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'energy');
 
 		(app.vault as any).getMarkdownFiles = () => markdownFiles;
@@ -605,7 +605,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -625,7 +625,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
@@ -649,7 +649,7 @@ describe('Data Rendering - Column Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('quickAddFolder', 'missing');
 		(app.vault as any).getFolderByPath = (): null => null;
 
@@ -837,7 +837,7 @@ describe('Data Rendering - Card Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -867,7 +867,7 @@ describe('Data Rendering - Card Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -896,7 +896,7 @@ describe('Data Rendering - Card Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -948,7 +948,7 @@ describe('Data Rendering - Card Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1091,7 +1091,7 @@ describe('Data Rendering - Board Rendering', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1112,6 +1112,50 @@ describe('Data Rendering - Board Rendering', () => {
 		const allCards = view.containerEl.querySelectorAll('.obk-card');
 		assert.strictEqual(allCards.length, entries.length, 'All entries should appear as cards');
 	});
+
+	test('visible card order property controls card order and keeps missing values last', () => {
+		const orderProperty = 'note.rank' as BasesPropertyId;
+		const entries = [
+			createMockBasesEntry(createMockTFile('Second.md'), { [PROPERTY_STATUS]: 'Watching', [orderProperty]: 2 }),
+			createMockBasesEntry(createMockTFile('Missing.md'), { [PROPERTY_STATUS]: 'Watching' }),
+			createMockBasesEntry(createMockTFile('Tenth.md'), { [PROPERTY_STATUS]: 'Watching', [orderProperty]: 10 }),
+		];
+		controller = createMockQueryController(entries, [...TEST_PROPERTIES, orderProperty]);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'cardOrderProperty') return orderProperty;
+			return null;
+		};
+		controller.config.set('cardOrderProperty', orderProperty);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const titles = Array.from(view.containerEl.querySelectorAll('.obk-card-title')).map((title) => title.textContent);
+		assert.deepStrictEqual(titles, ['Second', 'Tenth', 'Missing']);
+	});
+
+	test('card order property cannot overwrite the group property', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty' || key === 'cardOrderProperty') return PROPERTY_STATUS;
+			return null;
+		};
+		controller.config.set('cardOrderProperty', PROPERTY_STATUS);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			view.containerEl.querySelector('.obk-empty-state')?.textContent,
+			'Card order must use a writable note property that is not used for grouping.',
+		);
+	});
 });
 
 describe('Drag and Drop - Sortable Initialization', () => {
@@ -1130,7 +1174,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1159,7 +1203,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1182,7 +1226,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1210,7 +1254,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
 
 		const view = new KanbanView(controller, scrollEl);
@@ -1234,7 +1278,7 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1267,7 +1311,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1312,7 +1356,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1350,7 +1394,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1410,7 +1454,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1439,7 +1483,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1477,7 +1521,7 @@ describe('Data Updates', () => {
 		const entries = createEntriesWithStatus();
 		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1508,7 +1552,7 @@ describe('Data Updates', () => {
 		const entries = createEntriesWithMixedProperties();
 		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getDisplayName = (id: string) => id;
 		controller.config.getOrder = (): string[] => [PROPERTY_STATUS];
 
@@ -1530,7 +1574,7 @@ describe('Data Updates', () => {
 		const entries = createEntriesWithMixedProperties();
 		const controller = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getDisplayName = (id: string) => id;
 		controller.config.getOrder = (): string[] => [PROPERTY_PRIORITY];
 
@@ -1583,7 +1627,7 @@ describe('Cleanup', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1621,7 +1665,7 @@ describe('Column Reordering - Drag Handle', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1643,7 +1687,7 @@ describe('Column Reordering - Drag Handle', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1672,7 +1716,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1687,7 +1731,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1709,7 +1753,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1751,7 +1795,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -1785,7 +1829,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Set saved order
 		const savedOrder = ['Done', 'Doing', 'To Do'];
@@ -1807,7 +1851,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Set saved order with only some columns
 		const savedOrder = ['Done', 'Doing'];
@@ -1835,7 +1879,7 @@ describe('Column Reordering - Order Persistence', () => {
 		controller.app = app;
 
 		// Set initial property and order
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		const savedOrder = ['Done', 'Doing', 'To Do'];
 		controller.config.set('columnOrders', { [PROPERTY_STATUS]: savedOrder });
 
@@ -1849,11 +1893,11 @@ describe('Column Reordering - Order Persistence', () => {
 		assert.deepStrictEqual(renderedOrder, savedOrder, 'Initial order should match saved order');
 
 		// Switch to different property
-		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 		triggerDataUpdate(view);
 
 		// Switch back to original property
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
 		// Verify order is preserved
@@ -1874,7 +1918,7 @@ describe('Column Reordering - Order Persistence', () => {
 		});
 
 		// Test status property
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		const view1 = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view1, app);
 		triggerDataUpdate(view1);
@@ -1884,7 +1928,7 @@ describe('Column Reordering - Order Persistence', () => {
 		assert.strictEqual(order1[0], 'Done', 'Status order should be respected');
 
 		// Test priority property
-		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 		const view2 = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view2, app);
 		triggerDataUpdate(view2);
@@ -1899,7 +1943,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// No saved order (config has no columnOrders set — returns null by default)
 
@@ -1919,7 +1963,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// No saved order (config returns null by default)
 
@@ -1950,7 +1994,7 @@ describe('Column Order Normalization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Saved order should be normalized strings (as they are when saved from column values)
 		const savedOrder = ['Done', 'Doing', 'To Do'];
@@ -1977,7 +2021,7 @@ describe('Column Order Normalization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Saved order should be normalized strings
 		const savedOrder = ['Done', 'To Do', 'Doing'];
@@ -2000,7 +2044,7 @@ describe('Column Order Normalization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Saved order with only some columns (normalized strings)
 		const savedOrder = ['Done'];
@@ -2029,7 +2073,7 @@ describe('Column Order Normalization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Old format with invalid saved data (JSON strings won't match column values)
 		// This simulates old data that might have been saved incorrectly
@@ -2062,7 +2106,7 @@ describe('Column Order Normalization', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Saved order with invalid JSON (should fall back to string value)
 		const savedOrder = ['{invalid json}', 'To Do'];
@@ -2095,7 +2139,7 @@ describe('Data Rendering - Card Properties', () => {
 		const entries = createEntriesWithMixedProperties();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY];
 		controller.config.getDisplayName = (id: string): string => id;
 
@@ -2127,7 +2171,7 @@ describe('Data Rendering - Card Properties', () => {
 		const entries = createEntriesWithMixedProperties();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY];
 		controller.config.getDisplayName = (id: string): string => id;
 
@@ -2150,7 +2194,7 @@ describe('Data Rendering - Card Properties', () => {
 		];
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = (): string[] => [PROPERTY_STATUS, PROPERTY_PRIORITY, PROPERTY_CATEGORY];
 		controller.config.getDisplayName = (id: string): string => id;
 
@@ -2167,7 +2211,7 @@ describe('Data Rendering - Card Properties', () => {
 		const entries = createEntriesWithMixedProperties();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = (): string => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		// getOrder already returns [] by default in createMockQueryController
 
 		const view = new KanbanView(controller, scrollEl);
@@ -2196,7 +2240,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2214,7 +2258,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		controller.config.set('columnColors', {
 			[PROPERTY_STATUS]: { 'To Do': 'red' },
@@ -2247,7 +2291,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2272,7 +2316,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2293,7 +2337,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2347,7 +2391,7 @@ describe('Column Colors', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		controller.config.set('columnColors', {
 			[PROPERTY_STATUS]: { 'To Do': 'blue' },
@@ -2384,7 +2428,7 @@ describe('Legacy Data Migration', () => {
 		app = createMockApp();
 		controller = createMockQueryController(createEntriesWithStatus(), TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 	});
 
 	test('migrates column order from legacy data on first render', () => {
@@ -2477,7 +2521,7 @@ describe('Property Value Rendering', () => {
 		const entries = createEntriesWithLinks();
 		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
 		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2519,7 +2563,7 @@ describe('Internal Link Click Handling', () => {
 		const entries = createEntriesWithLinks();
 		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
 		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2652,7 +2696,7 @@ describe('Hover Preview Handling', () => {
 		const entries = createEntriesWithLinks();
 		const controller = createMockQueryController(entries, [PROPERTY_STATUS, PROPERTY_RELATED]) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_RELATED];
 		view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2747,7 +2791,7 @@ describe('Card Order - Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2779,11 +2823,11 @@ describe('Card Order - Persistence', () => {
 		assert.strictEqual(columnOrder[1], cards[0].getAttribute('data-entry-path'), 'Original first card should be second');
 	});
 
-	test('Same-column drop does not save card order while Base sort is active', async () => {
+	test('Same-column drop saves implicit card order even while Base sort is active', async () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
 
 		const view = new KanbanView(controller, scrollEl);
@@ -2798,7 +2842,6 @@ describe('Card Order - Persistence', () => {
 
 		toDoBody.insertBefore(cards[1], cards[0]);
 
-		const noticeStart = noticeMessages().length;
 		const mockEvent = {
 			item: cards[1],
 			from: toDoBody,
@@ -2809,122 +2852,116 @@ describe('Card Order - Persistence', () => {
 		await (view as any).handleCardDrop(mockEvent);
 
 		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>> | null;
-		assert.strictEqual(
-			savedOrders?.[PROPERTY_STATUS]?.['To Do'],
-			undefined,
-			'To Do card order should not be saved when Base sort is active',
-		);
-		assert.deepStrictEqual(noticeMessages().slice(noticeStart), [SORTED_CARD_ORDER_NOTICE]);
-
-		const cardPaths = Array.from(toDoBody.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
-		assert.strictEqual(cardPaths[0], 'Task 1.md', 'First card should snap back to sorted data order');
-		assert.strictEqual(cardPaths[1], 'Task 2.md', 'Second card should snap back to sorted data order');
+		assert.deepStrictEqual(savedOrders?.[PROPERTY_STATUS]?.['To Do'], ['Task 2.md', 'Task 1.md']);
 	});
 
-	test('Cross-column drop while Base sort is active does not show manual-order notice', async () => {
+	test('Same-column drop writes clean integers to the visible card order property', async () => {
 		const entries = createEntriesWithStatus();
+		const orderProperty = 'note.rank' as BasesPropertyId;
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'cardOrderProperty') return orderProperty;
+			return null;
+		};
+		controller.config.set('cardOrderProperty', orderProperty);
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const cards = Array.from(toDoBody.querySelectorAll('.obk-card')) as HTMLElement[];
+
+		toDoBody.insertBefore(cards[1], cards[0]);
+
+		app.fileManager.processFrontMatter.calls.length = 0;
+		await (view as any).handleCardDrop({
+			item: cards[1],
+			from: toDoBody,
+			to: toDoBody,
+			oldIndex: 1,
+			newIndex: 0,
+		});
+
+		const savedOrders = controller.config.get('cardOrders') as Record<string, Record<string, string[]>> | null;
+		assert.strictEqual(savedOrders?.[PROPERTY_STATUS]?.['To Do'], undefined);
+
+		const writes = app.fileManager.processFrontMatter.calls.map(
+			([file, update]: [any, (frontmatter: Record<string, unknown>) => void]) => {
+				const frontmatter: Record<string, unknown> = {};
+				update(frontmatter);
+				return [file.path, frontmatter.rank];
+			},
+		);
+		assert.deepStrictEqual(writes, [
+			['Task 2.md', 1],
+			['Task 1.md', 2],
+		]);
+	});
+
+	test('Cross-column drop renumbers both columns with the visible card order property', async () => {
+		const entries = createEntriesWithStatus();
+		const orderProperty = 'note.rank' as BasesPropertyId;
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'cardOrderProperty') return orderProperty;
+			return null;
+		};
+		controller.config.set('cardOrderProperty', orderProperty);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const toDoColumn = Array.from(columns).find(
-			(col) => col.getAttribute('data-column-value') === 'To Do',
-		) as HTMLElement;
-		const doingColumn = Array.from(columns).find(
-			(col) => col.getAttribute('data-column-value') === 'Doing',
-		) as HTMLElement;
-		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
-		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
-
+		const toDoBody = Array.from(columns)
+			.find((column) => column.getAttribute('data-column-value') === 'To Do')
+			?.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = Array.from(columns)
+			.find((column) => column.getAttribute('data-column-value') === 'Doing')
+			?.querySelector('.obk-column-body') as HTMLElement;
 		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
 		doingBody.appendChild(card);
 
-		const noticeStart = noticeMessages().length;
-		const mockEvent = {
+		app.fileManager.processFrontMatter.calls.length = 0;
+		await (view as any).handleCardDrop({
 			item: card,
 			from: toDoBody,
 			to: doingBody,
 			oldIndex: 0,
 			newIndex: 0,
-		};
-		await (view as any).handleCardDrop(mockEvent);
+		});
 
-		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
-	});
-
-	test('Same-column unchanged drop while Base sort is active does not show manual-order notice', async () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
-		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
-			(col) => col.getAttribute('data-column-value') === 'To Do',
-		) as HTMLElement;
-		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
-		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
-
-		const noticeStart = noticeMessages().length;
-		const mockEvent = {
-			item: card,
-			from: toDoBody,
-			to: toDoBody,
-			oldIndex: 0,
-			newIndex: 0,
-		};
-		await (view as any).handleCardDrop(mockEvent);
-
-		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
-	});
-
-	test('Same-column unchanged draggable index while Base sort is active does not show manual-order notice', async () => {
-		const entries = createEntriesWithStatus();
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
-		const toDoColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find(
-			(col) => col.getAttribute('data-column-value') === 'To Do',
-		) as HTMLElement;
-		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
-		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
-
-		const noticeStart = noticeMessages().length;
-		const mockEvent = {
-			item: card,
-			from: toDoBody,
-			to: toDoBody,
-			oldIndex: 0,
-			newIndex: 1,
-			oldDraggableIndex: 0,
-			newDraggableIndex: 0,
-		};
-		await (view as any).handleCardDrop(mockEvent);
-
-		assert.deepStrictEqual(noticeMessages().slice(noticeStart), []);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 3);
+		const orderWrites = app.fileManager.processFrontMatter.calls
+			.map(([file, update]: [any, (frontmatter: Record<string, unknown>) => void]) => {
+				const frontmatter: Record<string, unknown> = {};
+				update(frontmatter);
+				return [file.path, frontmatter.rank];
+			})
+			.filter(([, rank]: [string, unknown]) => rank !== undefined);
+		assert.deepStrictEqual(
+			new Map(orderWrites),
+			new Map([
+				['Task 1.md', 2],
+				['Task 2.md', 1],
+				['Task 3.md', 1],
+			]),
+		);
 	});
 
 	test('Same-column drop does not call processFrontMatter', async () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -2953,7 +2990,7 @@ describe('Card Order - Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3002,7 +3039,7 @@ describe('Card Order - Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Save reversed order: Task 2.md before Task 1.md
 		controller.config.set('cardOrders', {
@@ -3022,11 +3059,11 @@ describe('Card Order - Persistence', () => {
 		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Second card should be Task 1 per saved order');
 	});
 
-	test('Base sort takes precedence over saved card order', () => {
+	test('Saved implicit card order takes precedence over Base sort', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		controller.config.set('sort', [{ property: 'file.mtime', direction: 'DESC' }]);
 		controller.config.set('cardOrders', {
@@ -3042,15 +3079,15 @@ describe('Card Order - Persistence', () => {
 		) as HTMLElement;
 		const cardPaths = Array.from(toDoColumn.querySelectorAll('.obk-card')).map((c) => c.getAttribute('data-entry-path'));
 
-		assert.strictEqual(cardPaths[0], 'Task 1.md', 'First card should follow the sorted data order');
-		assert.strictEqual(cardPaths[1], 'Task 2.md', 'Second card should follow the sorted data order');
+		assert.strictEqual(cardPaths[0], 'Task 2.md', 'First card should follow the dragged card order');
+		assert.strictEqual(cardPaths[1], 'Task 1.md', 'Second card should follow the dragged card order');
 	});
 
 	test('Re-render applies saved card order (patch path)', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Set order before first render so _loadPrefs picks it up
 		controller.config.set('cardOrders', {
@@ -3077,7 +3114,7 @@ describe('Card Order - Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		// Saved order only mentions Task 2; Task 1 is new/unknown
 		controller.config.set('cardOrders', {
@@ -3101,7 +3138,7 @@ describe('Card Order - Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3162,7 +3199,7 @@ describe('Empty Column Persistence - Saved columns restored', () => {
 		const entries = createEntriesWithStatus(); // To Do, Doing, Done
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3181,7 +3218,7 @@ describe('Empty Column Persistence - Saved columns restored', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3199,7 +3236,7 @@ describe('Empty Column Persistence - Saved columns restored', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3218,7 +3255,7 @@ describe('Empty Column Persistence - Saved columns restored', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', UNCATEGORIZED_LABEL],
 		});
@@ -3254,7 +3291,7 @@ describe('Empty Column Persistence - Eager order save', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		// No saved order
 
 		const view = new KanbanView(controller, scrollEl);
@@ -3271,7 +3308,7 @@ describe('Empty Column Persistence - Eager order save', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3301,7 +3338,7 @@ describe('Empty Column Persistence - Remove button visibility', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3318,7 +3355,7 @@ describe('Empty Column Persistence - Remove button visibility', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3336,7 +3373,7 @@ describe('Empty Column Persistence - Remove button visibility', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3359,7 +3396,7 @@ describe('Empty Column Persistence - Remove button visibility', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3384,7 +3421,7 @@ describe('Empty Column Persistence - Remove button visibility', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3424,7 +3461,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3450,7 +3487,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3470,7 +3507,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3493,7 +3530,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done', 'In Progress'],
 		});
@@ -3519,7 +3556,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3557,7 +3594,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3611,7 +3648,7 @@ describe('Column persistence when group-by property disappears from allPropertie
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3634,7 +3671,7 @@ describe('Column persistence when group-by property disappears from allPropertie
 		const entries = createEntriesWithMixedProperties(); // has both STATUS and PRIORITY values
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done'],
 		});
@@ -3660,7 +3697,7 @@ describe('Column persistence when group-by property disappears from allPropertie
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.set('columnOrders', {
 			[PROPERTY_STATUS]: ['To Do', 'Doing', 'Done'],
 		});
@@ -3685,7 +3722,7 @@ describe('Column persistence when group-by property disappears from allPropertie
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3709,7 +3746,7 @@ describe('Column persistence when group-by property disappears from allPropertie
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3824,7 +3861,7 @@ describe('setActiveCard and reapplyActiveCard', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		app = createMockApp();
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 	});
 
 	test('setActiveCard adds obk-card--active to the target card', () => {
@@ -3917,7 +3954,7 @@ describe('patchColumnCards - _dragging flag', () => {
 		});
 		const controller = createMockQueryController([a, b], TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3944,7 +3981,7 @@ describe('patchColumnCards - _dragging flag', () => {
 		});
 		const controller = createMockQueryController([a, b], TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -3986,7 +4023,7 @@ describe('patchColumnCards - property value reactivity', () => {
 		});
 		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		controller.config.getOrder = () => [PROPERTY_STATUS, PROPERTY_PRIORITY];
 
 		const view = new KanbanView(controller, scrollEl);
@@ -4013,7 +4050,7 @@ describe('patchColumnCards - property value reactivity', () => {
 		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
 		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -4032,7 +4069,7 @@ describe('patchColumnCards - property value reactivity', () => {
 		const entryV1 = createMockBasesEntry(file, { [PROPERTY_STATUS]: 'To Do' });
 		const controller = createMockQueryController([entryV1], TEST_PROPERTIES) as any;
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);

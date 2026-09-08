@@ -240,6 +240,10 @@ export function createMockQueryController(
 	return controller;
 }
 
+export function mockGroupByProperty(propertyId: BasesPropertyId): (key: string) => BasesPropertyId | null {
+	return (key) => (key === 'groupByProperty' ? propertyId : null);
+}
+
 // Mock function type
 export interface MockFn {
 	(...args: any[]): any;

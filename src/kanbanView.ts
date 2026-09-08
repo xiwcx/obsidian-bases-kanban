@@ -1,5 +1,5 @@
 import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
-import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
+import { BasesView, Keymap, normalizePath, parsePropertyId } from 'obsidian';
 import {
 	createCard as createCardEl,
 	computeCardFingerprint,
@@ -39,10 +39,10 @@ import {
 	HOVER_LINK_SOURCE_ID,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
-	SORTED_CARD_ORDER_NOTICE,
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
+import { compareCardOrderValues, readCardOrderValue } from './utils/cardOrdering.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
@@ -95,6 +95,7 @@ export class KanbanView extends BasesView {
 	containerEl: HTMLElement;
 	private legacyData: LegacyData | null;
 	private groupByPropertyId: BasesPropertyId | null = null;
+	private cardOrderPropertyId: BasesPropertyId | null = null;
 	private swimlaneByPropertyId: BasesPropertyId | null = null;
 	private cardTitlePropertyId: BasesPropertyId | null = null;
 	private imagePropertyId: BasesPropertyId | null = null;
@@ -212,6 +213,7 @@ export class KanbanView extends BasesView {
 
 	private loadConfig(): void {
 		this.groupByPropertyId = this.config.getAsPropertyId('groupByProperty');
+		this.cardOrderPropertyId = this.config.getAsPropertyId('cardOrderProperty');
 		this.swimlaneByPropertyId = this.config.getAsPropertyId('swimlaneByProperty');
 		this.cardTitlePropertyId = this.config.getAsPropertyId('cardTitleProperty');
 		this.imagePropertyId = this.config.getAsPropertyId('imageProperty');
@@ -369,6 +371,21 @@ export class KanbanView extends BasesView {
 			if (!this.groupByPropertyId) {
 				this.groupByPropertyId = availablePropertyIds[0];
 			}
+			// Renumbering must target writable frontmatter and must not overwrite
+			// either grouping axis, which would change the board structure.
+			if (
+				this.cardOrderPropertyId &&
+				(!this.cardOrderPropertyId.startsWith('note.') ||
+					this.cardOrderPropertyId === this.groupByPropertyId ||
+					this.cardOrderPropertyId === this.swimlaneByPropertyId)
+			) {
+				this.fullReset();
+				this.containerEl.createDiv({
+					text: EMPTY_STATE_MESSAGES.CARD_ORDER_PROPERTY_INVALID,
+					cls: CSS_CLASSES.EMPTY_STATE,
+				});
+				return;
+			}
 			// If groupByPropertyId is set but is no longer in availablePropertyIds
 			// (e.g. all notes with that property were removed), keep the configured
 			// value so the board renders from persisted prefs rather than switching
@@ -412,21 +429,17 @@ export class KanbanView extends BasesView {
 			const groupedEntries = groupedByLane
 				? this.flattenLanes(groupedByLane)
 				: this.groupEntriesByProperty(entries, this.groupByPropertyId);
-			const sortActive = this.hasActiveSort();
-
-			// Drop card order entries that the live data proves wrong before they
-			// are applied, so a stale path cannot keep pinning a card's old slot.
-			if (
-				!sortActive &&
-				!this._dragging &&
-				this._pruneCardOrders(this.buildLivePathToKey(groupedByLane, groupedEntries))
-			) {
-				this._persistPrefs();
-			}
-
-			// Apply manual card order only when the Base itself is not sorted.
-			// When sorting is active, Bases has already ordered `entries`.
-			if (!sortActive && groupedByLane) {
+			// Card order is always driven by dragging. A configured note property is
+			// the visible persistence layer; otherwise the view-local cardOrders map is
+			// used as the implicit persistence layer.
+			if (this.cardOrderPropertyId) {
+				const columnSets = groupedByLane ? groupedByLane.values() : [groupedEntries];
+				for (const columns of columnSets) {
+					columns.forEach((cellEntries, columnValue) => {
+						columns.set(columnValue, this.sortCardEntriesByOrderProperty(cellEntries));
+					});
+				}
+			} else if (groupedByLane) {
 				groupedByLane.forEach((columns, laneValue) => {
 					columns.forEach((cellEntries, columnValue) => {
 						const savedOrder = this._prefs.cardOrders[this.cardOrderKey(laneValue, columnValue)];
@@ -435,7 +448,7 @@ export class KanbanView extends BasesView {
 						}
 					});
 				});
-			} else if (!sortActive) {
+			} else {
 				groupedEntries.forEach((columnEntries, value) => {
 					const savedOrder = this._prefs.cardOrders[this.cardOrderKey(null, value)];
 					if (savedOrder) {
@@ -1238,9 +1251,8 @@ export class KanbanView extends BasesView {
 			delayOnTouchOnly: true,
 			touchStartThreshold: SORTABLE_CONFIG.TOUCH_START_THRESHOLD,
 
-			// Keep same-column sorting enabled so Sortable can report whether the
-			// user actually tried to move a card. Sorted boards snap back in
-			// handleCardDrop after optionally showing an action-specific notice.
+			// Card position is always controlled by dragging. Persistence is handled
+			// in handleCardDrop, independently of the Base query's Sort setting.
 			sort: true,
 
 			dragClass: CSS_CLASSES.CARD_DRAGGING,
@@ -1315,29 +1327,28 @@ export class KanbanView extends BasesView {
 
 		const oldKey = this.cardOrderKey(oldLaneValue, oldColumnValue ?? '');
 		const newKey = this.cardOrderKey(newLaneValue, newColumnValue);
-		const sortActive = this.hasActiveSort();
-
 		// Same cell reorder: update prefs and persist
 		if (oldLaneValue === newLaneValue && oldColumnValue === newColumnValue) {
-			if (sortActive) {
-				if (this.didSortableIndexChange(evt)) {
-					new Notice(SORTED_CARD_ORDER_NOTICE, 4000);
-				}
-				this.render();
-				return;
+			const paths = getColumnPaths(evt.to);
+			if (this.cardOrderPropertyId) {
+				await this.writeVisibleCardOrder(paths);
+			} else {
+				this._prefs.cardOrders[newKey] = paths;
+				this._persistPrefs();
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
-			this._persistPrefs();
 			return;
 		}
 
 		// Cross-cell drop: capture DOM order for both source and destination
-		if (!sortActive) {
+		const oldPaths = oldColumnEl?.instanceOf(HTMLElement)
+			? getColumnPaths(oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`) ?? evt.from)
+			: [];
+		const newPaths = getColumnPaths(evt.to);
+		if (!this.cardOrderPropertyId) {
 			if (oldColumnEl?.instanceOf(HTMLElement) && oldColumnValue) {
-				const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
+				this._prefs.cardOrders[oldKey] = oldPaths;
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			this._prefs.cardOrders[newKey] = newPaths;
 			this._persistPrefs();
 		}
 
@@ -1355,6 +1366,8 @@ export class KanbanView extends BasesView {
 		try {
 			const columnValueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
 			const columnPropertyName = parsePropertyId(this._prefsPropertyId).name;
+			const cardOrderPropertyName = this.cardOrderPropertyId ? parsePropertyId(this.cardOrderPropertyId).name : null;
+			const cardOrder = newPaths.indexOf(entryPath) + 1;
 
 			const swimlanePropertyId = swimlaneActive ? this._prefsSwimlanePropertyId : null;
 			const swimlaneCrossed =
@@ -1362,12 +1375,15 @@ export class KanbanView extends BasesView {
 			const swimlanePropertyName = swimlaneCrossed ? parsePropertyId(swimlanePropertyId).name : null;
 			const swimlaneValueToSet = swimlaneCrossed && newLaneValue !== UNCATEGORIZED_LABEL ? newLaneValue : '';
 
+			// Write the moved card's new group, lane, and position atomically. The
+			// remaining cards in both affected cells are renumbered below.
 			await this.app.fileManager.processFrontMatter(entry.file, (frontmatter: Record<string, unknown>) => {
 				if (columnValueToSet === '') {
 					delete frontmatter[columnPropertyName];
 				} else {
 					frontmatter[columnPropertyName] = columnValueToSet;
 				}
+				if (cardOrderPropertyName) frontmatter[cardOrderPropertyName] = cardOrder;
 				if (swimlanePropertyName) {
 					if (swimlaneValueToSet === '') {
 						delete frontmatter[swimlanePropertyName];
@@ -1376,9 +1392,14 @@ export class KanbanView extends BasesView {
 					}
 				}
 			});
+
+			if (this.cardOrderPropertyId) {
+				await Promise.all([this.writeVisibleCardOrder(oldPaths), this.writeVisibleCardOrder(newPaths, entryPath)]);
+			}
 		} catch (error) {
 			console.error('Error updating entry property:', error);
 			this.render();
+			throw error;
 		}
 	}
 
@@ -1451,21 +1472,46 @@ export class KanbanView extends BasesView {
 		this.findCardEl(this._activeCardPath)?.classList.add(CSS_CLASSES.CARD_ACTIVE);
 	}
 
-	private didSortableIndexChange(evt: Sortable.SortableEvent): boolean {
-		if (evt.oldDraggableIndex !== undefined || evt.newDraggableIndex !== undefined) {
-			return evt.oldDraggableIndex !== evt.newDraggableIndex;
-		}
-		if (evt.oldIndex !== undefined || evt.newIndex !== undefined) {
-			return evt.oldIndex !== evt.newIndex;
-		}
-		return false;
+	/** Sort one cell by its visible order property, leaving ties in source order. */
+	private sortCardEntriesByOrderProperty(entries: BasesEntry[]): BasesEntry[] {
+		if (!this.cardOrderPropertyId) return entries;
+		return [...entries].sort((a, b) =>
+			compareCardOrderValues(
+				readCardOrderValue(a.getValue(this.cardOrderPropertyId)?.toString()),
+				readCardOrderValue(b.getValue(this.cardOrderPropertyId)?.toString()),
+			),
+		);
 	}
 
-	private hasActiveSort(): boolean {
-		const sortConfig = this.config?.getSort();
-		if (Array.isArray(sortConfig)) return sortConfig.length > 0;
-		if (!sortConfig || typeof sortConfig !== 'object') return Boolean(sortConfig);
-		return Object.keys(sortConfig).length > 0;
+	/**
+	 * Write dense, one-based positions for one cell, skipping values that are
+	 * already correct. skipPath is used when a cross-cell move has already written
+	 * the moved card's position together with its grouping properties.
+	 */
+	private async writeVisibleCardOrder(paths: string[], skipPath?: string): Promise<void> {
+		const propertyId = this.cardOrderPropertyId;
+		if (!propertyId) return;
+		if (!propertyId.startsWith('note.')) {
+			throw new Error(`Card order property must be a writable note property: ${propertyId}`);
+		}
+		if (!this.app?.fileManager) {
+			throw new Error('File manager not available');
+		}
+
+		const propertyName = parsePropertyId(propertyId).name;
+		const updates = paths.flatMap((path, index) => {
+			if (path === skipPath) return [];
+			const entry = this._entryMap.get(path);
+			if (!entry) throw new Error(`Entry not found for card order: ${path}`);
+			const order = index + 1;
+			if (readCardOrderValue(entry.getValue(propertyId)?.toString()) === order) return [];
+			return [
+				this.app.fileManager.processFrontMatter(entry.file, (frontmatter: Record<string, unknown>) => {
+					frontmatter[propertyName] = order;
+				}),
+			];
+		});
+		await Promise.all(updates);
 	}
 
 	private getOrderedColumnValues(liveValues: string[]): string[] {
@@ -1586,6 +1632,13 @@ export class KanbanView extends BasesView {
 				key: 'swimlaneByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Optional: horizontal grouping',
+			},
+			{
+				displayName: 'Card order',
+				type: 'property',
+				key: 'cardOrderProperty',
+				filter: (prop: string) => prop.startsWith('note.'),
+				placeholder: 'Optional: card order property',
 			},
 			{
 				displayName: 'Add card to column folder',

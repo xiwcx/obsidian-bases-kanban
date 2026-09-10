@@ -1086,12 +1086,12 @@ export class KanbanView extends BasesView {
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
 
-		const popover = anchorEl.doc.createElement('div');
+		const popover = anchorEl.doc.createDiv();
 		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
 
 		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
 
-		const noneSwatch = anchorEl.doc.createElement('div');
+		const noneSwatch = anchorEl.doc.createDiv();
 		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
@@ -1105,7 +1105,7 @@ export class KanbanView extends BasesView {
 		popover.appendChild(noneSwatch);
 
 		for (const color of COLOR_PALETTE) {
-			const swatch = anchorEl.doc.createElement('div');
+			const swatch = anchorEl.doc.createDiv();
 			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
 			swatch.style.background = color.cssVar;
 			swatch.title = color.name;

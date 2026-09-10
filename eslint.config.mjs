@@ -4,7 +4,7 @@ import { defineConfig } from 'eslint/config';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 
 export default defineConfig([
-	...obsidianmd.configs.recommended.map((cfg) => (cfg.files ? cfg : { ...cfg, files: ['**/*.ts', '**/*.tsx'] })),
+	...obsidianmd.configs.recommended,
 
 	{
 		files: ['**/*.ts'],
@@ -31,6 +31,6 @@ export default defineConfig([
 	},
 
 	{
-		ignores: ['dist/**', 'node_modules/**', 'tests/**'],
+		ignores: ['dist/**', 'node_modules/**', 'tests/**', 'esbuild.config.mjs'],
 	},
 ]);

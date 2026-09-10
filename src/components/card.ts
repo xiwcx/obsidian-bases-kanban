@@ -88,7 +88,7 @@ export function renderCardCover(
 }
 
 export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallbacks): HTMLElement {
-	const cardEl = ctx.doc.createElement('div');
+	const cardEl = ctx.doc.createDiv();
 	cardEl.className = CSS_CLASSES.CARD;
 	const filePath = entry.file.path;
 	cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);

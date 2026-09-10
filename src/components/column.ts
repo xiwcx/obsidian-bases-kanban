@@ -40,7 +40,7 @@ export function applyColumnColor(columnEl: HTMLElement, colorName: string | null
 }
 
 export function createRemoveButton(doc: Document, value: string, onRemove: () => void): HTMLElement {
-	const btn = doc.createElement('div');
+	const btn = doc.createDiv();
 	btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
 	btn.setAttribute('aria-label', `Remove column: ${value}`);
 	btn.setAttribute('role', 'button');
@@ -59,7 +59,7 @@ export function createColumn(
 	ctx: ColumnRenderCtx,
 	cb: ColumnCallbacks,
 ): HTMLElement {
-	const columnEl = ctx.doc.createElement('div');
+	const columnEl = ctx.doc.createDiv();
 	columnEl.className = CSS_CLASSES.COLUMN;
 	columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 

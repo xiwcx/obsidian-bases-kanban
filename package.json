@@ -1,6 +1,6 @@
 {
 	"name": "kanban-bases-view",
-	"version": "0.10.3",
+	"version": "0.10.4",
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
 	"imports": {
@@ -36,7 +36,7 @@
 		"@typescript-eslint/parser": "^8.0.0",
 		"esbuild": "^0.28.0",
 		"eslint": "^9.0.0",
-		"eslint-plugin-obsidianmd": "^0.3.0",
+		"eslint-plugin-obsidianmd": "^0.4.2",
 		"jsdom": "^24.0.0",
 		"obsidian": "^1.5.8",
 		"tslib": "2.6.2",

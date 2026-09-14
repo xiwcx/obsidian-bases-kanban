@@ -24,58 +24,68 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
 (global as any).cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
 
-// Extend HTMLElement prototype with Obsidian-like methods
-const HTMLElementProto = dom.window.HTMLElement.prototype as any;
-
-if (!HTMLElementProto.createDiv) {
-	HTMLElementProto.createDiv = function (options?: { cls?: string; text?: string }): HTMLElement {
-		const child = document.createElement('div');
-		if (options?.cls) {
-			child.className = options.cls;
-		}
-		if (options?.text) {
-			child.textContent = options.text;
-		}
-		this.appendChild(child);
-		return child;
-	};
+// Extend Node prototype with Obsidian's element creators
+interface ElementOptions {
+	cls?: string | string[];
+	text?: string;
+	attr?: Record<string, string>;
 }
 
-if (!HTMLElementProto.createSpan) {
-	HTMLElementProto.createSpan = function (options?: { text?: string; cls?: string }): HTMLElement {
-		const span = document.createElement('span');
-		if (options?.text) {
-			span.textContent = options.text;
+function buildElement(tag: string, options?: ElementOptions): HTMLElement {
+	const el = document.createElement(tag);
+	if (options?.cls) {
+		el.className = Array.isArray(options.cls) ? options.cls.join(' ') : options.cls;
+	}
+	if (options?.text) {
+		el.textContent = options.text;
+	}
+	if (options?.attr) {
+		for (const [k, v] of Object.entries(options.attr)) {
+			el.setAttribute(k, v);
 		}
-		if (options?.cls) {
-			span.className = options.cls;
-		}
-		this.appendChild(span);
-		return span;
-	};
+	}
+	return el;
 }
 
-if (!HTMLElementProto.createEl) {
-	HTMLElementProto.createEl = function (
-		tag: string,
-		options?: { cls?: string; text?: string; attr?: Record<string, string> },
-	): HTMLElement {
-		const el = document.createElement(tag);
-		if (options?.cls) {
-			el.className = options.cls;
-		}
-		if (options?.text) {
-			el.textContent = options.text;
-		}
-		if (options?.attr) {
-			for (const [k, v] of Object.entries(options.attr)) {
-				el.setAttribute(k, v);
-			}
-		}
+const NodeProto = dom.window.Node.prototype as any;
+
+if (!NodeProto.createEl) {
+	NodeProto.createEl = function (tag: string, options?: ElementOptions): HTMLElement {
+		const el = buildElement(tag, options);
 		this.appendChild(el);
 		return el;
 	};
 }
+
+if (!NodeProto.createDiv) {
+	NodeProto.createDiv = function (options?: ElementOptions): HTMLElement {
+		return this.createEl('div', options);
+	};
+}
+
+if (!NodeProto.createSpan) {
+	NodeProto.createSpan = function (options?: ElementOptions): HTMLElement {
+		return this.createEl('span', options);
+	};
+}
+
+if (!NodeProto.instanceOf) {
+	NodeProto.instanceOf = function (type: any): boolean {
+		return this instanceof type;
+	};
+}
+
+// Obsidian's window-level creators
+const windowCreators = {
+	createEl: (tag: string, options?: ElementOptions): HTMLElement => buildElement(tag, options),
+	createDiv: (options?: ElementOptions): HTMLElement => buildElement('div', options),
+	createSpan: (options?: ElementOptions): HTMLElement => buildElement('span', options),
+};
+Object.assign(dom.window, windowCreators);
+Object.assign(global, windowCreators);
+
+// Extend HTMLElement prototype with Obsidian-like methods
+const HTMLElementProto = dom.window.HTMLElement.prototype as any;
 
 // Obsidian adds a delegated event helper: element.on(event, selector, callback)
 if (!HTMLElementProto.on) {
@@ -112,49 +122,6 @@ if (!Object.getOwnPropertyDescriptor(HTMLElementProto, 'doc')) {
 			return this.ownerDocument;
 		},
 	});
-}
-
-const NodeProto = dom.window.Node.prototype as any;
-
-if (!NodeProto.instanceOf) {
-	NodeProto.instanceOf = function (type: any): boolean {
-		return this instanceof type;
-	};
-}
-
-const DocumentProto = dom.window.Document.prototype as any;
-
-if (!DocumentProto.createDiv) {
-	DocumentProto.createDiv = function (options?: { cls?: string; text?: string }): HTMLElement {
-		const el = dom.window.document.createElement('div');
-		if (options?.cls) el.className = options.cls;
-		if (options?.text) el.textContent = options.text;
-		return el;
-	};
-}
-
-if (!DocumentProto.createSpan) {
-	DocumentProto.createSpan = function (options?: { cls?: string; text?: string }): HTMLElement {
-		const el = dom.window.document.createElement('span');
-		if (options?.cls) el.className = options.cls;
-		if (options?.text) el.textContent = options.text;
-		return el;
-	};
-}
-
-if (!DocumentProto.createEl) {
-	DocumentProto.createEl = function (
-		tag: string,
-		options?: { cls?: string; text?: string; attr?: Record<string, string> },
-	): HTMLElement {
-		const el = dom.window.document.createElement(tag);
-		if (options?.cls) el.className = options.cls;
-		if (options?.text) el.textContent = options.text;
-		if (options?.attr) {
-			for (const [k, v] of Object.entries(options.attr)) el.setAttribute(k, v);
-		}
-		return el;
-	};
 }
 
 const EventProto = dom.window.Event.prototype as any;

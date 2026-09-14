@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { beforeEach, describe, test } from 'node:test';
+import { beforeEach, describe, mock, test } from 'node:test';
 import type { BasesEntry, BasesPropertyId } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES, SWIMLANE_KEY_SEPARATOR, UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { isCardOrders, isCollapsedLanes, isColumnOrders, KanbanView } from '../src/kanbanView.ts';
@@ -511,5 +511,47 @@ describe('Swimlane empty-column remove button (#90)', () => {
 			!(view as any)._prefs.columnOrder.includes('Blocked'),
 			'Removed column should not appear in in-memory column order',
 		);
+	});
+});
+
+describe('Detached element creation (#112)', () => {
+	test('the test document rejects createDiv() the way Obsidian does', () => {
+		assert.throws(() => document.createDiv(), { name: 'HierarchyRequestError' });
+		assert.throws(() => document.createEl('div'), { name: 'HierarchyRequestError' });
+		assert.throws(() => document.createSpan(), { name: 'HierarchyRequestError' });
+	});
+
+	// Exercises every element the view builds detached before inserting it.
+	test('a board with lanes, an empty column, quick add and the color picker renders without errors', () => {
+		const errorLog = mock.method(console, 'error');
+		try {
+			const { view, controller } = createSwimlaneView(() => PROPERTY_PRIORITY);
+			controller.config.set('columnOrders', { [PROPERTY_STATUS]: ['To Do', 'Done', 'Blocked'] });
+			controller.config.set('quickAddFolder', 'cards');
+			triggerDataUpdate(view);
+
+			const highLane = getLane(view, 'High');
+			const toDoColumn = getColumnWithin(highLane, 'To Do');
+			assert.ok(toDoColumn.querySelector(`.${CSS_CLASSES.CARD}`), 'Cards should render inside the column');
+			assert.ok(toDoColumn.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`), 'Quick add button should render');
+			assert.ok(
+				getColumnWithin(highLane, 'Blocked').querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`),
+				'Remove button should render for the globally-empty column',
+			);
+
+			const colorBtn = toDoColumn.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_COLOR_BTN}`);
+			assert.ok(colorBtn, 'Color button should render');
+			colorBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+			const popover = document.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_COLOR_POPOVER}`);
+			assert.ok(popover, 'Color picker popover should open');
+			assert.ok(popover.querySelector(`.${CSS_CLASSES.COLUMN_COLOR_SWATCH}`), 'Popover should contain swatches');
+			document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+			assert.strictEqual(document.querySelector(`.${CSS_CLASSES.COLUMN_COLOR_POPOVER}`), null, 'Popover should close');
+
+			const logged = errorLog.mock.calls.map((call) => call.arguments.map(String).join(' ')).join('\n');
+			assert.strictEqual(errorLog.mock.callCount(), 0, `Rendering logged errors:\n${logged}`);
+		} finally {
+			errorLog.mock.restore();
+		}
 	});
 });

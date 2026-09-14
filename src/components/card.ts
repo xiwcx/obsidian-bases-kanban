@@ -5,7 +5,6 @@ import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
 export interface CardRenderCtx {
 	app: App;
-	doc: Document;
 	groupByPropertyId: BasesPropertyId | null;
 	cardTitlePropertyId: BasesPropertyId | null;
 	imagePropertyId: BasesPropertyId | null;
@@ -88,8 +87,7 @@ export function renderCardCover(
 }
 
 export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallbacks): HTMLElement {
-	const cardEl = ctx.doc.createDiv();
-	cardEl.className = CSS_CLASSES.CARD;
+	const cardEl = createDiv({ cls: CSS_CLASSES.CARD });
 	const filePath = entry.file.path;
 	cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
 

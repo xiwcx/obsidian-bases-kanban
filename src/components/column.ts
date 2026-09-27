@@ -3,7 +3,6 @@ import { COLOR_PALETTE, CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 import { createCard, computeCardFingerprint, type CardRenderCtx, type CardCallbacks } from './card.ts';
 
 export interface ColumnRenderCtx {
-	doc: Document;
 	card: CardRenderCtx;
 	cardCb: CardCallbacks;
 	prefs: { columnColors: Record<string, string> };
@@ -39,9 +38,8 @@ export function applyColumnColor(columnEl: HTMLElement, colorName: string | null
 	columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
 }
 
-export function createRemoveButton(doc: Document, value: string, onRemove: () => void): HTMLElement {
-	const btn = doc.createDiv();
-	btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
+export function createRemoveButton(value: string, onRemove: () => void): HTMLElement {
+	const btn = createDiv({ cls: CSS_CLASSES.COLUMN_REMOVE_BTN });
 	btn.setAttribute('aria-label', `Remove column: ${value}`);
 	btn.setAttribute('role', 'button');
 	btn.textContent = '×';
@@ -59,8 +57,7 @@ export function createColumn(
 	ctx: ColumnRenderCtx,
 	cb: ColumnCallbacks,
 ): HTMLElement {
-	const columnEl = ctx.doc.createDiv();
-	columnEl.className = CSS_CLASSES.COLUMN;
+	const columnEl = createDiv({ cls: CSS_CLASSES.COLUMN });
 	columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
 	const colorName = ctx.prefs.columnColors[value] ?? null;
@@ -87,7 +84,7 @@ export function createColumn(
 	}
 
 	if (ctx.globallyEmptyColumns.has(value)) {
-		headerEl.appendChild(createRemoveButton(ctx.doc, value, () => cb.onRemoveColumn(value, columnEl)));
+		headerEl.appendChild(createRemoveButton(value, () => cb.onRemoveColumn(value, columnEl)));
 	}
 
 	const bodyEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_BODY });
@@ -120,7 +117,7 @@ export function patchColumnCards(
 	const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
 	const showRemoveButton = !!columnValue && ctx.globallyEmptyColumns.has(columnValue);
 	if (headerEl && showRemoveButton && !existingRemoveBtn && columnValue) {
-		headerEl.appendChild(createRemoveButton(ctx.doc, columnValue, () => cb.onRemoveColumn(columnValue, columnEl)));
+		headerEl.appendChild(createRemoveButton(columnValue, () => cb.onRemoveColumn(columnValue, columnEl)));
 	} else if (!showRemoveButton && existingRemoveBtn) {
 		existingRemoveBtn.remove();
 	}

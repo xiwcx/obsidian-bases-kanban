@@ -1023,7 +1023,6 @@ export class KanbanView extends BasesView {
 
 	private _buildColumnCtx(): ColumnRenderCtx {
 		return {
-			doc: this.containerEl.doc,
 			card: this._buildCardCtx(),
 			cardCb: this._buildCardCallbacks(),
 			prefs: { columnColors: this._prefs.columnColors },
@@ -1054,7 +1053,6 @@ export class KanbanView extends BasesView {
 	private _buildCardCtx(): CardRenderCtx {
 		return {
 			app: this.app,
-			doc: this.containerEl.doc,
 			groupByPropertyId: this.groupByPropertyId,
 			cardTitlePropertyId: this.cardTitlePropertyId,
 			imagePropertyId: this.imagePropertyId,
@@ -1086,13 +1084,11 @@ export class KanbanView extends BasesView {
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
 
-		const popover = anchorEl.doc.createDiv();
-		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
+		const popover = createDiv({ cls: CSS_CLASSES.COLUMN_COLOR_POPOVER });
 
 		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
 
-		const noneSwatch = anchorEl.doc.createDiv();
-		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
+		const noneSwatch = popover.createDiv({ cls: [CSS_CLASSES.COLUMN_COLOR_SWATCH, CSS_CLASSES.COLUMN_COLOR_NONE] });
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
 		noneSwatch.addEventListener('click', () => {
@@ -1102,11 +1098,9 @@ export class KanbanView extends BasesView {
 			popover.remove();
 			this.activeColorPicker = null;
 		});
-		popover.appendChild(noneSwatch);
 
 		for (const color of COLOR_PALETTE) {
-			const swatch = anchorEl.doc.createDiv();
-			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
+			const swatch = popover.createDiv({ cls: CSS_CLASSES.COLUMN_COLOR_SWATCH });
 			swatch.style.background = color.cssVar;
 			swatch.title = color.name;
 			if (currentColor === color.name) swatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
@@ -1117,7 +1111,6 @@ export class KanbanView extends BasesView {
 				popover.remove();
 				this.activeColorPicker = null;
 			});
-			popover.appendChild(swatch);
 		}
 
 		const rect = anchorEl.getBoundingClientRect();

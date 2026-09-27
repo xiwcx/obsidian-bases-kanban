@@ -48,8 +48,7 @@ export function buildSwimlaneElement(
 	ctx: RowRenderCtx,
 	cb: RowCallbacks,
 ): HTMLElement {
-	const laneEl = ctx.doc.createDiv();
-	laneEl.className = CSS_CLASSES.SWIMLANE;
+	const laneEl = createDiv({ cls: CSS_CLASSES.SWIMLANE });
 	laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
 	const isCollapsed = ctx.collapsedLanes.has(laneValue);
 	if (isCollapsed) laneEl.classList.add(CSS_CLASSES.SWIMLANE_COLLAPSED);

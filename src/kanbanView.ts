@@ -155,6 +155,18 @@ export class KanbanView extends BasesView {
 	private _dragging = false;
 	private _activeCardPath: string | null = null;
 
+	/**
+	 * Cross-cell drops whose frontmatter write has not been confirmed by the
+	 * query yet, mapped to the cell they came from and the cell they were
+	 * written into. The frontmatter write triggers a re-render before the Bases
+	 * query has caught up with the new property value, so the very next render
+	 * still reports a just-dropped card under its OLD cell. While that lasts,
+	 * reconciliation defers to the drop instead of the stale view; the pending
+	 * move is consumed once the query reports the card anywhere other than the
+	 * cell it came from.
+	 */
+	private _pendingMoves: Map<string, { fromKey: string; toKey: string }> = new Map();
+
 	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
 		this.scrollEl = scrollEl;
@@ -248,6 +260,9 @@ export class KanbanView extends BasesView {
 	private _loadPrefs(propertyId: BasesPropertyId, swimlanePropertyId: BasesPropertyId | null): void {
 		this._prefsPropertyId = propertyId;
 		this._prefsSwimlanePropertyId = swimlanePropertyId;
+		// A grouping-axis switch changes every cardOrders key, so pending moves
+		// recorded under the old axis can no longer be matched.
+		this._pendingMoves.clear();
 		const swimlaneScopedKey = swimlanePropertyId ? this.swimlanePrefsKey(propertyId, swimlanePropertyId) : null;
 
 		// Column order — with legacy migration
@@ -1331,6 +1346,11 @@ export class KanbanView extends BasesView {
 				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
 			}
 			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			// The frontmatter write below triggers a re-render before the query
+			// catches up; defer reconciliation of this card until it does.
+			if (oldKey !== newKey) {
+				this._pendingMoves.set(entryPath, { fromKey: oldKey, toKey: newKey });
+			}
 			this._persistPrefs();
 		}
 
@@ -1371,6 +1391,9 @@ export class KanbanView extends BasesView {
 			});
 		} catch (error) {
 			console.error('Error updating entry property:', error);
+			// The write failed, so the card never moved; drop the pending move
+			// so the render below reconciles the saved order back immediately.
+			this._pendingMoves.delete(entryPath);
 			this.render();
 		}
 	}
@@ -1494,31 +1517,76 @@ export class KanbanView extends BasesView {
 	}
 
 	/**
-	 * Remove card order entries that no longer describe where a card lives.
+	 * True while `path` has a pending cross-cell drop that the query has not
+	 * confirmed yet. The query lags behind the frontmatter write a drop
+	 * triggers, so the live data briefly reports a just-dropped card under its
+	 * OLD cell; while it does, the drop wins over the stale view. Once the
+	 * query reports the card anywhere other than the cell it came from — it
+	 * caught up, the card moved on, or the card left the dataset — the pending
+	 * move is consumed and this returns false for good.
+	 */
+	private _deferredByPendingMove(path: string, liveKey: string | undefined): boolean {
+		const pending = this._pendingMoves.get(path);
+		if (pending === undefined) return false;
+		if (liveKey === pending.fromKey) return true;
+		this._pendingMoves.delete(path);
+		return false;
+	}
+
+	/**
+	 * Reconcile card order entries with where the live data says each card is.
 	 *
 	 * A card's cell is derived from its group-by property, which can change
 	 * without any drag: a script rewrites the frontmatter, another device syncs,
 	 * or the user edits the note directly. handleCardDrop only rewrites the two
-	 * cells it sees, so those paths linger in their old cell's list indefinitely
-	 * and every later drag rewrites the accumulated cruft back into the Base.
+	 * cells it sees, so a path relocated by other means would linger in its old
+	 * cell's list indefinitely — and every later drag rewrites the accumulated
+	 * cruft back into the Base. When the live data positively places a path in a
+	 * different cell, its entry is MOVED there (appended at the end) rather than
+	 * just dropped, so the card keeps a recorded slot in its current cell.
 	 *
-	 * Pruning is deliberately conservative — a path is only dropped when the live
-	 * data positively places it somewhere else. A path that is merely absent from
-	 * the dataset is kept, because absence is ambiguous: the card may be hidden by
-	 * the Base's own filters, or the query may not have caught up yet, and its
-	 * manual order has to survive both. Entries for deleted files therefore linger,
-	 * which is harmless — applyCardOrder skips paths it cannot resolve — and is a
-	 * far better failure mode than silently dropping a live card's slot.
+	 * Two safety valves keep this honest:
+	 * - A path with a pending cross-cell drop defers to the drop until the query
+	 *   reports it somewhere other than the cell it came from. The query lags
+	 *   behind the frontmatter write that a drop triggers, so the live data
+	 *   briefly reports a just-dropped card under its OLD cell — reconciling
+	 *   against that stale view would silently undo the drop. Once the query no
+	 *   longer reports the source cell (it caught up, the card moved on, or the
+	 *   card left the dataset), the pending move is consumed and normal
+	 *   reconciliation resumes.
+	 * - A path that is merely absent from the dataset is kept, because absence
+	 *   is ambiguous: the card may be hidden by the Base's own filters, or the
+	 *   query may not have caught up yet, and its manual order has to survive
+	 *   both. Entries for deleted files therefore linger, which is harmless —
+	 *   applyCardOrder skips paths it cannot resolve — and is a far better
+	 *   failure mode than silently dropping a live card's slot.
 	 *
 	 * @returns true if anything changed and prefs need persisting.
 	 */
 	private _pruneCardOrders(livePathToKey: Map<string, string>): boolean {
 		let changed = false;
 		for (const [key, paths] of Object.entries(this._prefs.cardOrders)) {
-			const kept = paths.filter((path) => {
+			const kept: string[] = [];
+			for (const path of paths) {
 				const liveKey = livePathToKey.get(path);
-				return liveKey === undefined || liveKey === key;
-			});
+				if (this._deferredByPendingMove(path, liveKey)) {
+					// The query still reports the pre-drop cell — trust the
+					// drop, not the stale view.
+					kept.push(path);
+					continue;
+				}
+				if (liveKey === undefined || liveKey === key) {
+					kept.push(path);
+					continue;
+				}
+				// The live data positively places this card in another cell —
+				// move its saved slot there instead of dropping it.
+				const target = this._prefs.cardOrders[liveKey] ?? (this._prefs.cardOrders[liveKey] = []);
+				if (!target.includes(path)) {
+					target.push(path);
+					changed = true;
+				}
+			}
 			if (kept.length !== paths.length) {
 				this._prefs.cardOrders[key] = kept;
 				changed = true;

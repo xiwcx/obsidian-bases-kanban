@@ -2998,6 +2998,41 @@ describe('Card Order - Persistence', () => {
 		);
 	});
 
+	test('Frontmatter change outside drag-and-drop moves the saved entry to the new column (#94)', () => {
+		// A script, sync, or manual edit rewrites the grouped property without a
+		// drag. The stale entry under the old column must MOVE into the new
+		// column's saved order — not just vanish — so persisted order stays
+		// consistent with the note data.
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('cardOrders', {
+			[PROPERTY_STATUS]: { 'To Do': ['Task 1.md', 'Task 3.md', 'Task 2.md'] },
+		});
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS]['To Do'],
+			['Task 1.md', 'Task 2.md'],
+			'Stale path should be removed from the old column',
+		);
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS].Doing,
+			['Task 3.md'],
+			'Moved path should be appended to the new column',
+		);
+		assert.strictEqual(
+			saved[PROPERTY_STATUS].Done,
+			undefined,
+			'Columns with no saved order should not be eagerly filled',
+		);
+	});
+
 	test('Initial render applies saved card order', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
@@ -4102,6 +4137,50 @@ describe('cardOrders pruning', () => {
 		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
 		assert.deepStrictEqual(saved[PROPERTY_STATUS].Done, ['Task 5.md', 'Task 4.md'], 'Filtered-out order must be kept');
 		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 2.md', 'Task 1.md'], 'Live order untouched');
+	});
+
+	test('Keeps a just-dropped card in its new column while the query lags (#115)', async () => {
+		// handleCardDrop writes cardOrders synchronously, then awaits
+		// processFrontMatter. That write triggers a re-render (~100-350 ms later)
+		// at which point the Bases query often still reports the card under its
+		// OLD column. Pruning against that stale view must not undo the drop.
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const toDoColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'To Do',
+		) as HTMLElement;
+		const doingColumn = Array.from(columns).find(
+			(col) => col.getAttribute('data-column-value') === 'Doing',
+		) as HTMLElement;
+		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
+		const doingBody = doingColumn.querySelector('.obk-column-body') as HTMLElement;
+
+		// Simulate Sortable: drop Task 1 at the FRONT of Doing.
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+		toDoBody.removeChild(card);
+		doingBody.insertBefore(card, doingBody.firstChild);
+
+		await (view as any).handleCardDrop({ item: card, from: toDoBody, to: doingBody, oldIndex: 0, newIndex: 0 });
+
+		// Simulate the lagging query: processFrontMatter is mocked and never
+		// mutates the entry, so the data still reports Task 1 under "To Do".
+		triggerDataUpdate(view);
+
+		const saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS].Doing,
+			['Task 1.md', 'Task 3.md'],
+			'Dropped position must survive the stale re-render',
+		);
+		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 2.md'], 'Old column order must stay clean');
 	});
 
 	test('Does not prune while a Base sort is active', () => {

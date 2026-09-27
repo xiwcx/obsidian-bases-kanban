@@ -37,6 +37,7 @@ import {
 	DEBOUNCE_DELAY,
 	EMPTY_STATE_MESSAGES,
 	HOVER_LINK_SOURCE_ID,
+	RECENTLY_MOVED_PROTECTION_MS,
 	SORTABLE_CONFIG,
 	SORTABLE_GROUP,
 	SORTED_CARD_ORDER_NOTICE,
@@ -154,6 +155,16 @@ export class KanbanView extends BasesView {
 	 */
 	private _dragging = false;
 	private _activeCardPath: string | null = null;
+
+	/**
+	 * Paths written by a recent cross-cell drop, mapped to the time of the drop.
+	 * The Bases query lags behind the frontmatter write that a drop triggers, so
+	 * the very next render can still report a just-dropped card under its old
+	 * cell. Entries here are shielded from pruning for
+	 * RECENTLY_MOVED_PROTECTION_MS; expired entries are discarded on read so the
+	 * map never grows unboundedly.
+	 */
+	private _recentlyMoved: Map<string, number> = new Map();
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
@@ -1331,6 +1342,9 @@ export class KanbanView extends BasesView {
 				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
 			}
 			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			// The frontmatter write below triggers a re-render before the query
+			// catches up; shield this path from pruning for that window (#115).
+			this._recentlyMoved.set(entryPath, Date.now());
 			this._persistPrefs();
 		}
 
@@ -1494,31 +1508,65 @@ export class KanbanView extends BasesView {
 	}
 
 	/**
-	 * Remove card order entries that no longer describe where a card lives.
+	 * True while `path` is inside the recently-dropped protection window.
+	 * Expired entries are discarded on read so the map never outlives its data.
+	 */
+	private _isRecentlyMoved(path: string): boolean {
+		const movedAt = this._recentlyMoved.get(path);
+		if (movedAt === undefined) return false;
+		if (Date.now() - movedAt < RECENTLY_MOVED_PROTECTION_MS) return true;
+		this._recentlyMoved.delete(path);
+		return false;
+	}
+
+	/**
+	 * Reconcile card order entries with where the live data says each card is.
 	 *
 	 * A card's cell is derived from its group-by property, which can change
 	 * without any drag: a script rewrites the frontmatter, another device syncs,
 	 * or the user edits the note directly. handleCardDrop only rewrites the two
-	 * cells it sees, so those paths linger in their old cell's list indefinitely
-	 * and every later drag rewrites the accumulated cruft back into the Base.
+	 * cells it sees, so a path relocated by other means would linger in its old
+	 * cell's list indefinitely — and every later drag rewrites the accumulated
+	 * cruft back into the Base. When the live data positively places a path in a
+	 * different cell, its entry is MOVED there (appended at the end) rather than
+	 * just dropped, so the card keeps a recorded slot in its current cell.
 	 *
-	 * Pruning is deliberately conservative — a path is only dropped when the live
-	 * data positively places it somewhere else. A path that is merely absent from
-	 * the dataset is kept, because absence is ambiguous: the card may be hidden by
-	 * the Base's own filters, or the query may not have caught up yet, and its
-	 * manual order has to survive both. Entries for deleted files therefore linger,
-	 * which is harmless — applyCardOrder skips paths it cannot resolve — and is a
-	 * far better failure mode than silently dropping a live card's slot.
+	 * Two safety valves keep this honest:
+	 * - Paths inside the recently-dropped window are left untouched. The query
+	 *   lags behind the frontmatter write that a drop triggers, so the live data
+	 *   briefly reports a just-dropped card under its OLD cell — moving it back
+	 *   would silently undo the drop (#115).
+	 * - A path that is merely absent from the dataset is kept, because absence
+	 *   is ambiguous: the card may be hidden by the Base's own filters, or the
+	 *   query may not have caught up yet, and its manual order has to survive
+	 *   both. Entries for deleted files therefore linger, which is harmless —
+	 *   applyCardOrder skips paths it cannot resolve — and is a far better
+	 *   failure mode than silently dropping a live card's slot.
 	 *
 	 * @returns true if anything changed and prefs need persisting.
 	 */
 	private _pruneCardOrders(livePathToKey: Map<string, string>): boolean {
 		let changed = false;
 		for (const [key, paths] of Object.entries(this._prefs.cardOrders)) {
-			const kept = paths.filter((path) => {
+			const kept: string[] = [];
+			for (const path of paths) {
+				if (this._isRecentlyMoved(path)) {
+					kept.push(path);
+					continue;
+				}
 				const liveKey = livePathToKey.get(path);
-				return liveKey === undefined || liveKey === key;
-			});
+				if (liveKey === undefined || liveKey === key) {
+					kept.push(path);
+					continue;
+				}
+				// The live data positively places this card in another cell —
+				// move its saved slot there instead of dropping it (#94).
+				const target = this._prefs.cardOrders[liveKey] ?? (this._prefs.cardOrders[liveKey] = []);
+				if (!target.includes(path)) {
+					target.push(path);
+					changed = true;
+				}
+			}
 			if (kept.length !== paths.length) {
 				this._prefs.cardOrders[key] = kept;
 				changed = true;

@@ -129,6 +129,15 @@ export const SORTABLE_CONFIG = {
 /** Debounce delay in ms for onDataUpdated renders */
 export const DEBOUNCE_DELAY = 50;
 
+/**
+ * Milliseconds a just-dropped card is shielded from pruning. handleCardDrop
+ * writes cardOrders synchronously, then awaits processFrontMatter; the
+ * frontmatter write triggers a re-render before the Bases query has caught up
+ * with the new property value (observed ~100-350 ms). The window is generously
+ * larger than that lag so pruning cannot undo a drop mid-flight.
+ */
+export const RECENTLY_MOVED_PROTECTION_MS = 3000;
+
 /** Empty state messages */
 export const EMPTY_STATE_MESSAGES = {
 	NO_ENTRIES: 'No entries found. Add some notes to your base.',

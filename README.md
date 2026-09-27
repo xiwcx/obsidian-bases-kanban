@@ -12,6 +12,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Drag and Drop**: Move cards between columns with smooth animations
 - **Quick Add Buttons**: Create new cards directly from a column's `+` button with the column value, and swimlane value when used, filled in automatically
 - **Column Reordering**: Drag columns by their handle (⋮⋮) to reorder them to your preference
+- **Card Order Persistence**: Drag cards to define their order; save it implicitly in the Base view or optionally write clean numeric positions to a visible note property
 - **Swimlanes**: Optionally group the board into horizontal lanes using a second property
 - **Column Color Themes**: Assign colors to columns using the color picker button for visual categorization
 - **Column Order Persistence**: Your column order is saved per property and persists across sessions
@@ -63,9 +64,11 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 5. Drag cards between columns to update the property value
 6. Optionally, set "Add card to column folder" to a folder path — this enables a `+` button in each column header for quickly creating cards with that column's value pre-filled
 7. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
-8. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
-9. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
-10. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
+8. Drag columns by their handle (⋮⋮) to reorder them; the order is saved in this Base view
+9. Leave "Card order" empty to store drag order invisibly in this Base view's `cardOrders` configuration
+10. To make order visible and reusable outside this view, select a writable note property in "Card order". Every drag renumbers the affected column or columns as `1, 2, 3, ...`
+11. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
+12. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
 ### Example
 
@@ -76,6 +79,8 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - If "Add card to column folder" is configured, click the `+` button to create a new note with that status in that folder
 - Click any card to open the note (Cmd/Ctrl+click to open in new tab)
 - Drag columns by their handle to reorder them - your order preference will be remembered
+
+Card order follows drag and drop. Without a "Card order" property, the order is private to this Base view. With a writable property such as `rank`, the plugin reads its numeric values and updates affected positions after same-column or cross-column drags. A Base Sort setting does not override the persisted drag order.
 
 If your base also has a "Priority" property with values "High", "Medium", and "Low":
 - Select "Status" in the "Group by" dropdown

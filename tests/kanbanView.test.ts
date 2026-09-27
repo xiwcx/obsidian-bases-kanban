@@ -4233,6 +4233,63 @@ describe('cardOrders pruning', () => {
 		assert.deepStrictEqual(saved[PROPERTY_STATUS].Doing, ['Task 1.md', 'Task 3.md'], 'Settled entry must not change');
 	});
 
+	test('Rapid consecutive drops keep the final position while the query lags', async () => {
+		// Two cross-cell drops land back-to-back before the query catches up
+		// with either write. The second drop must not be reconciled against
+		// the view that is still stale for the first.
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		const bodyOf = (value: string) =>
+			(Array.from(columns).find((c) => c.getAttribute('data-column-value') === value) as HTMLElement).querySelector(
+				'.obk-column-body',
+			) as HTMLElement;
+		const toDoBody = bodyOf('To Do');
+		const doingBody = bodyOf('Doing');
+		const doneBody = bodyOf('Done');
+
+		// Simulate Sortable: drop Task 1 To Do -> front of Doing...
+		const card = toDoBody.querySelector('.obk-card') as HTMLElement;
+		toDoBody.removeChild(card);
+		doingBody.insertBefore(card, doingBody.firstChild);
+		await (view as any).handleCardDrop({ item: card, from: toDoBody, to: doingBody, oldIndex: 0, newIndex: 0 });
+
+		// ...then, before any re-render, Doing -> front of Done.
+		doingBody.removeChild(card);
+		doneBody.insertBefore(card, doneBody.firstChild);
+		await (view as any).handleCardDrop({ item: card, from: doingBody, to: doneBody, oldIndex: 0, newIndex: 0 });
+
+		// The query lags behind both writes: Task 1 still reports "To Do".
+		triggerDataUpdate(view);
+		let saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS].Done,
+			['Task 1.md', 'Task 4.md', 'Task 5.md'],
+			'Final drop position must survive the stale re-render',
+		);
+
+		// The query catches up with the latest write: Task 1 reports "Done".
+		controller.data.data = entries.map((e) =>
+			e.file.path === 'Task 1.md' ? createMockBasesEntry(e.file, { [PROPERTY_STATUS]: 'Done' }) : e,
+		);
+		triggerDataUpdate(view);
+		saved = controller.config.get('cardOrders') as Record<string, Record<string, string[]>>;
+		assert.deepStrictEqual(
+			saved[PROPERTY_STATUS].Done,
+			['Task 1.md', 'Task 4.md', 'Task 5.md'],
+			'Confirmed final drop keeps its position',
+		);
+		assert.deepStrictEqual(saved[PROPERTY_STATUS]['To Do'], ['Task 2.md'], 'Old column stays clean');
+		assert.deepStrictEqual(saved[PROPERTY_STATUS].Doing, ['Task 3.md'], 'Intermediate column stays clean');
+	});
+
 	test('A failed frontmatter write reconciles the card back to its real column', async () => {
 		// If processFrontMatter rejects, the card never left its old column.
 		// The pending move must be dropped so the next render reconciles the

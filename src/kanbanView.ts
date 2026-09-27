@@ -157,15 +157,18 @@ export class KanbanView extends BasesView {
 
 	/**
 	 * Cross-cell drops whose frontmatter write has not been confirmed by the
-	 * query yet, mapped to the cell they came from and the cell they were
-	 * written into. The frontmatter write triggers a re-render before the Bases
-	 * query has caught up with the new property value, so the very next render
-	 * still reports a just-dropped card under its OLD cell. While that lasts,
-	 * reconciliation defers to the drop instead of the stale view; the pending
-	 * move is consumed once the query reports the card anywhere other than the
-	 * cell it came from.
+	 * query yet, mapped to the write chain that led to the card's current cell:
+	 * `intermediateKeys` are every cell the query may still transiently report
+	 * while catching up (each drop's source cell and earlier destinations), and
+	 * `toKey` is the destination of the latest write. The frontmatter write
+	 * triggers a re-render before the Bases query has caught up with the new
+	 * property value, so the very next render still reports a just-dropped
+	 * card under a cell it has since left. While that lasts, reconciliation
+	 * defers to the drop instead of the stale view; the pending move is
+	 * consumed once the query reports the card in the latest destination, in a
+	 * cell no write in the chain produced (an external change), or not at all.
 	 */
-	private _pendingMoves: Map<string, { fromKey: string; toKey: string }> = new Map();
+	private _pendingMoves: Map<string, { intermediateKeys: string[]; toKey: string }> = new Map();
 
 	constructor(controller: QueryController, scrollEl: HTMLElement, legacyData: LegacyData | null = null) {
 		super(controller);
@@ -1347,9 +1350,14 @@ export class KanbanView extends BasesView {
 			}
 			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
 			// The frontmatter write below triggers a re-render before the query
-			// catches up; defer reconciliation of this card until it does.
+			// catches up; defer reconciliation of this card until it does. If
+			// a prior drop is still awaiting confirmation, the query may lag
+			// behind its writes too, so the chain of cells it can still report
+			// grows with each drop.
 			if (oldKey !== newKey) {
-				this._pendingMoves.set(entryPath, { fromKey: oldKey, toKey: newKey });
+				const prior = this._pendingMoves.get(entryPath);
+				const intermediateKeys = prior ? [...new Set([...prior.intermediateKeys, prior.toKey, oldKey])] : [oldKey];
+				this._pendingMoves.set(entryPath, { intermediateKeys, toKey: newKey });
 			}
 			this._persistPrefs();
 		}
@@ -1518,17 +1526,29 @@ export class KanbanView extends BasesView {
 
 	/**
 	 * True while `path` has a pending cross-cell drop that the query has not
-	 * confirmed yet. The query lags behind the frontmatter write a drop
-	 * triggers, so the live data briefly reports a just-dropped card under its
-	 * OLD cell; while it does, the drop wins over the stale view. Once the
-	 * query reports the card anywhere other than the cell it came from — it
-	 * caught up, the card moved on, or the card left the dataset — the pending
-	 * move is consumed and this returns false for good.
+	 * confirmed yet. The query lags behind the frontmatter writes a drop
+	 * triggers, so the live data briefly reports a just-dropped card under a
+	 * cell it has since left; while it does, the drop wins over the stale
+	 * view. The pending move is consumed — and this returns false for good —
+	 * once the query reports the card in the latest write's destination, in a
+	 * cell no write in the chain produced (an external change), or not at all.
 	 */
 	private _deferredByPendingMove(path: string, liveKey: string | undefined): boolean {
 		const pending = this._pendingMoves.get(path);
 		if (pending === undefined) return false;
-		if (liveKey === pending.fromKey) return true;
+		if (liveKey === undefined || liveKey === pending.toKey) {
+			// The card left the dataset, or the query confirmed the latest
+			// write — the drop's outcome is settled.
+			this._pendingMoves.delete(path);
+			return false;
+		}
+		if (pending.intermediateKeys.includes(liveKey)) {
+			// The query is still catching up with a write in the chain —
+			// trust the drop, not the stale view.
+			return true;
+		}
+		// The query reports a cell no write in the chain produced — an
+		// external change. Settle and let normal reconciliation run.
 		this._pendingMoves.delete(path);
 		return false;
 	}
@@ -1546,14 +1566,13 @@ export class KanbanView extends BasesView {
 	 * just dropped, so the card keeps a recorded slot in its current cell.
 	 *
 	 * Two safety valves keep this honest:
-	 * - A path with a pending cross-cell drop defers to the drop until the query
-	 *   reports it somewhere other than the cell it came from. The query lags
-	 *   behind the frontmatter write that a drop triggers, so the live data
-	 *   briefly reports a just-dropped card under its OLD cell — reconciling
-	 *   against that stale view would silently undo the drop. Once the query no
-	 *   longer reports the source cell (it caught up, the card moved on, or the
-	 *   card left the dataset), the pending move is consumed and normal
-	 *   reconciliation resumes.
+	 * - A path with a pending cross-cell drop defers to the drop until the
+	 *   query confirms it. The query lags behind the frontmatter writes that
+	 *   drops trigger, so the live data briefly reports a just-dropped card
+	 *   under a cell it has since left — reconciling against that stale view
+	 *   would silently undo the drop. Once the query reports the latest
+	 *   destination (or a cell no drop wrote, or no card at all), the pending
+	 *   move is consumed and normal reconciliation resumes.
 	 * - A path that is merely absent from the dataset is kept, because absence
 	 *   is ambiguous: the card may be hidden by the Base's own filters, or the
 	 *   query may not have caught up yet, and its manual order has to survive

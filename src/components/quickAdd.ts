@@ -12,7 +12,7 @@ export interface QuickAddCtx {
 }
 
 export interface QuickAddCallbacks {
-	createFileForView: (path: string, setFrontmatter: (fm: Record<string, unknown>) => void) => Promise<void>;
+	createFileForView: (baseFileName: string, setFrontmatter: (fm: Record<string, unknown>) => void) => Promise<void>;
 }
 
 const CREATED_CARD_TIMEOUT_MS = 2000;
@@ -177,9 +177,8 @@ export async function createQuickAddCard(
 		new Notice(`Quick add folder not found: ${targetFolder}`);
 		return;
 	}
-	const fileNameToCreate = normalizePath(`${targetFolder}/${baseFileName}`);
 	const createdFilePaths = new Set(ctx.app.vault.getMarkdownFiles().map((file) => file.path));
-	const createdFilePromise = waitForCreatedMarkdownFile(ctx.app, createdFilePaths, fileNameToCreate);
+	const createdFilePromise = waitForCreatedMarkdownFile(ctx.app, createdFilePaths, baseFileName);
 
 	const setFrontmatter = (frontmatter: Record<string, unknown>): void => {
 		if (columnValue === UNCATEGORIZED_LABEL) {
@@ -197,7 +196,7 @@ export async function createQuickAddCard(
 	};
 
 	try {
-		await cb.createFileForView(fileNameToCreate, setFrontmatter);
+		await cb.createFileForView(baseFileName, setFrontmatter);
 		closeNativeNewItemPopover(ctx.doc);
 		await ensureCreatedCardInFolder(ctx.app, createdFilePaths, createdFilePromise, baseFileName, targetFolder);
 	} catch (error) {

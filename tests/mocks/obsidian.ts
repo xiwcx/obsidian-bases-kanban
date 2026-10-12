@@ -1,3 +1,7 @@
+import { createRequire } from 'node:module';
+
+const yaml = createRequire(import.meta.url)('yaml');
+
 // Mock obsidian module for testing
 // This provides the minimal interface needed for tests
 
@@ -56,6 +60,7 @@ export interface App {
 		renameFile(file: TFile, newPath: string): Promise<void>;
 	};
 	vault: {
+		process(file: TFile, update: (content: string) => string): Promise<string>;
 		getMarkdownFiles(): TFile[];
 		getFolderByPath(path: string): { path: string; name: string } | null;
 		getAbstractFileByPath(path: string): TFile | null;
@@ -410,4 +415,25 @@ export function parsePropertyId(propertyId: BasesPropertyId): { name: string; ty
 		name: propertyId,
 		type: 'note',
 	};
+}
+
+export function parseYaml(content: string): unknown {
+	return yaml.parse(content);
+}
+
+export function stringifyYaml(value: unknown): string {
+	return yaml.stringify(value, { lineWidth: 0, aliasDuplicateObjects: false });
+}
+
+export function getFrontMatterInfo(content: string): {
+	exists: boolean;
+	frontmatter: string;
+	from: number;
+	to: number;
+	contentStart: number;
+} {
+	const match = /^(?:\uFEFF)?---\r?\n([\s\S]*?)^---[ \t]*(?:\r?\n|$)/m.exec(content);
+	if (!match || match.index !== 0) return { exists: false, frontmatter: '', from: 0, to: 0, contentStart: 0 };
+	const from = content.indexOf('\n') + 1;
+	return { exists: true, frontmatter: match[1], from, to: from + match[1].length, contentStart: match[0].length };
 }

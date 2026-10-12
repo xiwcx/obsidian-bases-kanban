@@ -16,7 +16,8 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "biome format --write .",
-		"format:check": "biome format --diagnostic-level=error ."
+		"format:check": "biome format --diagnostic-level=error .",
+		"pretest": "npm run build"
 	},
 	"keywords": [
 		"obsidian",
@@ -41,7 +42,8 @@
 		"obsidian": "^1.5.8",
 		"tslib": "2.6.2",
 		"tsx": "^4.20.6",
-		"typescript": "5.3.3"
+		"typescript": "5.3.3",
+		"yaml": "^2.8.3"
 	},
 	"dependencies": {
 		"sortablejs": "^1.15.0"

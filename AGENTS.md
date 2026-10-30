@@ -114,9 +114,18 @@ npm run build         # TypeScript must compile and bundle cleanly
 
 ## Versioning & releases
 
-- Bump `version` in `manifest.json` and `package.json` (SemVer) and update `versions.json` to map plugin version → minimum app version.
+- Every ordinary PR must add a new `.changeset/*.md` file via `npm run changeset`. Missing changesets block the required **test** check. Use `npm run changeset -- --empty` for docs/tests/tooling changes that do not need a release; do not silently skip the requirement.
+- Use patch for fixes, minor for features, and major for breaking changes. A major change while on 0.x must bump to 1.0.0, not another 0.x minor.
+- Do not manually bump versions in feature/fix PRs or edit existing changesets. Keep `minAppVersion` accurate in normal PRs.
+- Maintainers manually open release PRs from current `main`: run `npm run version` with clean tracked files, review the generated changelog and version metadata, run all checks, and commit the results. No bot-created PR, GitHub App, or PAT is used.
+- The version command consumes changesets, updates `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, and generates `CHANGELOG.md` for future releases only. Empty changesets alone must not trigger a release. Preserve historical compatibility mappings.
+- Release PRs need no new changeset; CI validates them against the base branch's Changesets plan and restricts them to generated release files. Do not mix source changes or minimum-app-version changes into release PRs.
+- `main` requires an up-to-date PR with passing **test** and **build** checks; no second-person approval is required. Force pushes and deletion are blocked. Never bypass these protections.
+- CI publishes after the release PR merges, reusing the tested build and retaining provenance attestations. Notes come from the matching changelog entry. The package is private to prevent npm publishing; releases remain on GitHub.
 - Create a GitHub release whose tag exactly matches `manifest.json`'s `version`. Do not use a leading `v`.
 - Attach `manifest.json`, `main.js`, and `styles.css` (if present) to the release as individual assets.
+- Publish only after all assets have been uploaded to a draft release. Leave published releases untouched; recover failed releases by rerunning CI for the same commit, never by moving an existing tag.
+- Run `npm run versions:check` and `npm run changeset:check -- origin/main` in addition to the normal verification commands. See README.md and CONTRIBUTING.md for the full release process.
 - After the initial release, follow the process to add/update your plugin in the community catalog as required.
 
 ## Security, privacy, and compliance

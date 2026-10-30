@@ -162,31 +162,42 @@ npm run format:check
 
 ## Releasing
 
-### Creating a Release
+### Changesets
 
-1. **Update version**: Manually update the version in `manifest.json` following [Semantic Versioning](https://semver.org/).
+Every ordinary PR must add a [changeset](https://github.com/changesets/changesets):
 
-2. **Update package.json**: Ensure the version in `package.json` matches the version in `manifest.json` (the CI workflow will verify this).
+```bash
+npm run changeset
+```
 
-3. **Update versions.json**: Add an entry mapping the new version to the correct `minAppVersion` in `versions.json`.
+Select **patch** for fixes, **minor** for features, or **major** for breaking changes. A major bump from `0.x` produces `1.0.0`. Describe the user-facing change; the summary becomes release notes. For docs, tests, or tooling changes that do not need a release, use `npm run changeset -- --empty` instead. Missing changesets block CI; do not manually bump version files in ordinary PRs.
 
-4. **Push to main**: Push your changes to the `main` branch. The GitHub Actions workflow will automatically:
-   - Run tests and verify that `manifest.json` and `package.json` versions match
-   - Verify that the version exists in `versions.json`
-   - Build the plugin (runs `npm run build`)
-   - Extract the version from the built `dist/manifest.json`
-   - Create a git tag matching the version exactly (no `v` prefix) if it doesn't already exist
-   - Create a GitHub release and upload `main.js`, `manifest.json`, and `styles.css` as release assets
+### Creating a release PR
 
-   Note: The release workflow only runs on pushes to `main` (not on pull requests). You can also trigger it manually from the GitHub Actions tab.
+Release PRs are opened by maintainers, not a bot. No GitHub App, PAT, or npm publishing is needed.
 
-5. **Submit to Obsidian Community Plugins** (first release only):
-   - Follow the [Obsidian plugin submission guidelines](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)
-   - Submit a PR to the [obsidian-releases](https://github.com/obsidianmd/obsidian-releases) repository
+1. Update `main`, create a release branch, and ensure tracked changes are committed:
+   ```bash
+   git switch main
+   git pull --ff-only
+   git switch -c release/next
+   npm ci
+   npm run version
+   ```
+2. Review the generated `CHANGELOG.md` and version updates in `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`. The command consumes all pending changesets and preserves historical minimum-app-version mappings. Empty changesets alone do not trigger a release. Historical releases are not backfilled into the changelog.
+3. Run `npm run format`, `npm run lint`, `npm test`, and `npm run build`. Commit the generated changes, push the branch, and open a PR against `main`.
+4. Wait for the required **test** and **build** checks, then merge when ready to publish. Release PRs are validated against the base branch's Changesets plan and need no additional changeset. Keep them limited to generated release files; change plugin code or `minAppVersion` in a normal PR first. If more changesets land on `main`, update the release branch and regenerate before merging.
+5. CI on `main` builds and attests the plugin, creates the exact version tag (no `v`), and publishes `main.js`, `manifest.json`, and `styles.css` as individual GitHub release assets. Notes come from the new changelog entry. The npm package is private to prevent accidental npm publication; the GitHub repository and plugin releases remain public.
+
+Published releases are left untouched. Failed uploads leave a draft that CI can resume: rerun the failed job for the same commit. You can also use **Actions → CI → Run workflow** on `main` when it still points to the intended release commit. Never reuse an existing tag for a different commit.
+
+### Repository protection
+
+`main` requires a pull request and passing **test** and **build** checks against an up-to-date branch. Force pushes and branch deletion are blocked. Another person's approval is not required, so a solo maintainer can merge their own release PR. The changeset requirement runs inside **test**. The repository's Actions PR-creation setting can remain disabled because maintainers open PRs themselves.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the required changeset and verification steps.
 
 ## License
 

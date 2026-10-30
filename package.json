@@ -1,6 +1,7 @@
 {
 	"name": "kanban-bases-view",
 	"version": "0.10.6",
+	"private": true,
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
 	"imports": {
@@ -8,10 +9,14 @@
 		"sortablejs": "./tests/mocks/sortablejs.js"
 	},
 	"scripts": {
+		"changeset": "changeset",
+		"changeset:check": "node scripts/check-changesets.mjs",
+		"version": "node scripts/version.mjs",
+		"versions:check": "node scripts/check-versions.mjs",
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
-		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test tests/*.test.ts",
+		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test tests/*.test.ts tests/*.test.mjs",
 		"prepare": "git config core.hooksPath .githooks",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
@@ -29,6 +34,8 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.8",
+		"@changesets/cli": "3.0.3",
+		"@changesets/get-release-plan": "5.0.2",
 		"@types/jsdom": "^21.1.6",
 		"@types/node": "^24.0.0",
 		"@types/sortablejs": "^1.15.9",

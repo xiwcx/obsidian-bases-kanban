@@ -31,6 +31,17 @@ export default defineConfig([
 	},
 
 	{
-		ignores: ['dist/**', 'node_modules/**', 'tests/**', 'esbuild.config.mjs'],
+		files: ['scripts/**/*.mjs'],
+		languageOptions: {
+			globals: { process: 'readonly', console: 'readonly' },
+		},
+		rules: {
+			'obsidianmd/no-nodejs-modules': 'off',
+			'obsidianmd/rule-custom-message': 'off',
+		},
+	},
+
+	{
+		ignores: ['dist/**', 'node_modules/**', 'tests/**', '.claude/**', 'esbuild.config.mjs'],
 	},
 ]);

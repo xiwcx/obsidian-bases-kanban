@@ -156,6 +156,14 @@ describe('View Options', () => {
 		assert.strictEqual(byKey.groupByProperty.displayName, 'Group by');
 		assert.strictEqual(byKey.groupByProperty.type, 'property');
 
+		assert.ok(byKey.cardOrderProperty, 'cardOrderProperty option should exist');
+		assert.strictEqual(byKey.cardOrderProperty.displayName, 'Card order');
+		assert.strictEqual(byKey.cardOrderProperty.type, 'property');
+		assert.strictEqual(byKey.cardOrderProperty.placeholder, 'Optional: card order property');
+		assert.strictEqual(byKey.cardOrderProperty.filter?.('note.rank'), true);
+		assert.strictEqual(byKey.cardOrderProperty.filter?.('file.mtime'), false);
+		assert.strictEqual(byKey.cardOrderProperty.filter?.('formula.rank'), false);
+
 		assert.ok(byKey.cardTitleProperty, 'cardTitleProperty option should exist');
 		assert.strictEqual(byKey.cardTitleProperty.displayName, 'Card title property');
 		assert.strictEqual(byKey.cardTitleProperty.type, 'property');

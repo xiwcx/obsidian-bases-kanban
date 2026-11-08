@@ -5,6 +5,7 @@ import {
 	setupTestEnvironment,
 	createDivWithMethods,
 	createMockQueryController,
+	mockGroupByProperty,
 	createMockApp,
 	mockSortable,
 	addClosestPolyfill,
@@ -43,7 +44,7 @@ describe('Integration Tests - Full Workflow', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -100,7 +101,7 @@ describe('Integration Tests - Full Workflow', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -143,7 +144,7 @@ describe('Integration Tests - Full Workflow', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -201,7 +202,7 @@ describe('Integration Tests - Property Selection', () => {
 		const view = new KanbanView(controller, scrollEl);
 
 		// First, use STATUS property
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
 		const statusColumns = view.containerEl.querySelectorAll('.obk-column');
@@ -218,7 +219,7 @@ describe('Integration Tests - Property Selection', () => {
 		);
 
 		// Now change to PRIORITY property
-		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 		triggerDataUpdate(view);
 
 		const priorityColumns = view.containerEl.querySelectorAll('.obk-column');
@@ -251,14 +252,14 @@ describe('Integration Tests - Property Selection', () => {
 		const view = new KanbanView(controller, scrollEl);
 
 		// Use STATUS property
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
 		const statusCards = view.containerEl.querySelectorAll('.obk-card');
 		const statusCardCount = statusCards.length;
 
 		// Change to PRIORITY property
-		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 		triggerDataUpdate(view);
 
 		const priorityCards = view.containerEl.querySelectorAll('.obk-card');
@@ -286,11 +287,11 @@ describe('Integration Tests - Multiple Views', () => {
 
 		const controller1 = createMockQueryController(entries1, TEST_PROPERTIES) as any;
 		controller1.app = app;
-		controller1.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller1.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const controller2 = createMockQueryController(entries2, TEST_PROPERTIES) as any;
 		controller2.app = app;
-		controller2.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller2.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 
 		const scrollEl1 = createDivWithMethods();
 		const scrollEl2 = createDivWithMethods();
@@ -328,11 +329,11 @@ describe('Integration Tests - Multiple Views', () => {
 		const entries = createEntriesWithStatus();
 		const controller1 = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller1.app = app;
-		controller1.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller1.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const controller2 = createMockQueryController(entries, TEST_PROPERTIES) as any;
 		controller2.app = app;
-		controller2.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller2.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const scrollEl1 = createDivWithMethods();
 		const scrollEl2 = createDivWithMethods();
@@ -385,13 +386,13 @@ describe('Integration Tests - Edge Cases', () => {
 		const view = new KanbanView(controller, scrollEl);
 
 		// Rapidly change properties
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
-		controller.config.getAsPropertyId = () => PROPERTY_PRIORITY;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_PRIORITY);
 		triggerDataUpdate(view);
 
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 		triggerDataUpdate(view);
 
 		// Should not crash and should render correctly
@@ -408,7 +409,7 @@ describe('Integration Tests - Edge Cases', () => {
 		const entries = [entry1, entry2, entry3];
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.getAsPropertyId = mockGroupByProperty(PROPERTY_STATUS);
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);

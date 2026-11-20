@@ -126,6 +126,10 @@ This will watch for changes and rebuild automatically.
 npm test
 ```
 
+For isolated testing in **real Obsidian**, run `npm run test:e2e`.
+The harness uses only an invented polygon-laboratory fixture, never your personal vault.
+See [E2E testing](docs/e2e-testing.md) for local debugging, CI, and failure diagnostics.
+
 ### Type Checking
 
 ```bash

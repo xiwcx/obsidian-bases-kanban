@@ -81,7 +81,6 @@ jobs:
           NODE_ENV: production
       
       - name: Upload build artifacts
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: plugin-artifacts
@@ -89,10 +88,14 @@ jobs:
             dist/main.js
             dist/manifest.json
             dist/styles.css
-          retention-days: 1
+          retention-days: 7
+
+  e2e:
+    needs: build
+    uses: ./.github/workflows/e2e-runner.yml
 
   release:
-    needs: build
+    needs: [build, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

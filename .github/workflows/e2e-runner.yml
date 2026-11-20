@@ -1,0 +1,56 @@
+name: Real Obsidian tests
+
+on:
+  workflow_call:
+    inputs:
+      app-version:
+        type: string
+        default: '1.10.6'
+      installer-version:
+        type: string
+        default: '1.10.6'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      OBSIDIAN_APP_VERSION: ${{ inputs.app-version }}
+      OBSIDIAN_INSTALLER_VERSION: ${{ inputs.installer-version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - name: Download the exact plugin build under test
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: plugin-artifacts
+          path: dist
+      - name: Cache pinned Obsidian and ChromeDriver downloads
+        if: inputs.app-version != 'latest'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: .obsidian-cache
+          key: obsidian-ubuntu-24.04-${{ runner.arch }}-${{ inputs.app-version }}-${{ inputs.installer-version }}-${{ hashFiles('package-lock.json') }}
+      - name: Install virtual desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth openbox libgtk-3-0t64 libnss3 libgbm1 libasound2t64 fonts-liberation
+      - name: Test the built plugin in real Obsidian
+        run: bash scripts/e2e-linux.sh
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: obsidian-e2e-${{ inputs.app-version }}-${{ github.run_attempt }}
+          path: e2e-results/
+          retention-days: 7
+          if-no-files-found: warn

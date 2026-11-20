@@ -15,14 +15,18 @@ Check the [issue tracker](https://github.com/xiwcx/obsidian-bases-kanban/issues)
    - Commit the new `.changeset/*.md` file with your changes. Every ordinary PR must add one, including follow-up PRs; missing changesets block CI.
    - Do not edit existing changesets or manually bump version files. Keep `minAppVersion` accurate when using newer Obsidian APIs; the release command adds the new compatibility mapping later.
 4. Make sure all checks pass locally before opening a PR:
-   ```
+    ```
    npm run format        # Biome must report no formatting violations
    npm run lint          # ESLint must report no errors
    npm test              # all tests must pass
     npm run build         # TypeScript must compile and bundle cleanly
     npm run versions:check
-    npm run changeset:check -- origin/main
+     npm run changeset:check -- origin/main
    ```
+
+For UI, drag-and-drop, or Bases integration changes, also run `npm run test:e2e`.
+See [Testing in real Obsidian](docs/e2e-testing.md). Its fixture is synthetic;
+never import personal vault content or settings into it.
 
 ## Opening a pull request
 

@@ -1,5 +1,5 @@
 import type { App, BasesEntry, BasesPropertyId, Component } from 'obsidian';
-import { DateValue, Keymap, MarkdownRenderer, NullValue, StringValue } from 'obsidian';
+import { DateValue, Keymap, MarkdownRenderer, NullValue, RelativeDateValue, StringValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
@@ -50,7 +50,8 @@ export function renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, ctx: Ca
 		titleEl.textContent = entry.file.basename;
 		return;
 	}
-	if (titleValue instanceof DateValue) titleEl.textContent = titleValue.toString();
+	if (titleValue instanceof DateValue && !(titleValue instanceof RelativeDateValue))
+		titleEl.textContent = titleValue.toString();
 	else titleValue.renderTo(titleEl, ctx.app.renderContext);
 }
 
@@ -123,7 +124,7 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		// Plain Markdown-link strings use Obsidian's parser; other types retain
 		// their native renderers.
 		const text = value.toString();
-		if (value instanceof DateValue) valueEl.textContent = text;
+		if (value instanceof DateValue && !(value instanceof RelativeDateValue)) valueEl.textContent = text;
 		else if (
 			Object.getPrototypeOf(value) === StringValue.prototype &&
 			/\[[^\]\n]+\]\([^\n]+\)/.test(text) &&

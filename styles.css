@@ -615,3 +615,7 @@
 	border: 2px dashed var(--interactive-accent);
 	border-radius: 6px;
 }
+.obk-card--colored {
+	border-inline-start: 4px solid var(--obk-card-accent-color);
+	background: color-mix(in srgb, var(--obk-card-accent-color) 10%, var(--background-primary));
+}

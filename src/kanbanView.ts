@@ -1089,6 +1089,7 @@ export class KanbanView extends BasesView {
 			app: this.app,
 			groupByPropertyId: this.groupByPropertyId,
 			cardTitlePropertyId: this.cardTitlePropertyId,
+			cardColorPropertyId: this.config.getAsPropertyId('cardColorProperty'),
 			imagePropertyId: this.imagePropertyId,
 			imageFit: this._lastImageFit ?? 'cover',
 			imageAspectRatio: this._lastImageAspectRatio ?? 0.5,
@@ -1767,6 +1768,12 @@ export class KanbanView extends BasesView {
 				displayName: 'Wrap property values',
 				type: 'toggle',
 				key: 'wrapPropertyValues',
+			},
+			{
+				displayName: 'Card color property',
+				type: 'property',
+				key: 'cardColorProperty',
+				placeholder: 'Optional: color cards by a property',
 			},
 		];
 	}

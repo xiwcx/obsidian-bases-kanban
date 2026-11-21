@@ -2,11 +2,13 @@ import type { App, BasesEntry, BasesPropertyId } from 'obsidian';
 import { Keymap, NullValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
+import { cardColor } from '../utils/cardColor.ts';
 
 export interface CardRenderCtx {
 	app: App;
 	groupByPropertyId: BasesPropertyId | null;
 	cardTitlePropertyId: BasesPropertyId | null;
+	cardColorPropertyId: BasesPropertyId | null;
 	imagePropertyId: BasesPropertyId | null;
 	imageFit: string;
 	imageAspectRatio: number;
@@ -23,6 +25,8 @@ export interface CardCallbacks {
 
 export function computeCardFingerprint(entry: BasesEntry, ctx: CardRenderCtx): string {
 	const parts: string[] = [];
+	const colorValue = ctx.cardColorPropertyId ? entry.getValue(ctx.cardColorPropertyId) : null;
+	parts.push(ctx.cardColorPropertyId ?? '', colorValue?.toString() ?? '');
 	for (const propId of ctx.order) {
 		if (propId === ctx.groupByPropertyId) continue;
 		const val = entry.getValue(propId);
@@ -90,6 +94,12 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 	const cardEl = createDiv({ cls: CSS_CLASSES.CARD });
 	const filePath = entry.file.path;
 	cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
+	const colorValue = ctx.cardColorPropertyId ? entry.getValue(ctx.cardColorPropertyId) : null;
+	const accent = colorValue && !(colorValue instanceof NullValue) ? cardColor(colorValue.toString()) : null;
+	if (accent) {
+		cardEl.classList.add(CSS_CLASSES.CARD_COLORED);
+		cardEl.style.setProperty('--obk-card-accent-color', accent);
+	}
 
 	if (ctx.imagePropertyId) {
 		const coverEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_COVER });

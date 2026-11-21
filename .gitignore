@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 *.log
 dist/
+.obsidian-cache/
+e2e-results/

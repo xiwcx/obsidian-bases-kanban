@@ -1,0 +1,9 @@
+filters:
+  and:
+    - file.inFolder("Specimens")
+views:
+  - type: kanban-view
+    name: Polygon laboratory
+    groupByProperty: note.phase
+    swimlaneByProperty: note.band
+    quickAddFolder: Specimens

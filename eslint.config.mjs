@@ -42,6 +42,35 @@ export default defineConfig([
 	},
 
 	{
-		ignores: ['dist/**', 'node_modules/**', 'tests/**', '.claude/**', 'esbuild.config.mjs'],
+		files: ['e2e/**/*.ts', 'e2e/**/*.mts'],
+		languageOptions: {
+			parser: tsparser,
+			parserOptions: { project: './e2e/tsconfig.json' },
+			globals: {
+				process: 'readonly',
+				console: 'readonly',
+				describe: 'readonly',
+				before: 'readonly',
+				beforeEach: 'readonly',
+				it: 'readonly',
+				WebdriverIO: 'readonly',
+			},
+		},
+		rules: {
+			'obsidianmd/no-nodejs-modules': 'off',
+			'obsidianmd/rule-custom-message': 'off',
+		},
+	},
+
+	{
+		ignores: [
+			'dist/**',
+			'node_modules/**',
+			'tests/**',
+			'.claude/**',
+			'.obsidian-cache/**',
+			'e2e-results/**',
+			'esbuild.config.mjs',
+		],
 	},
 ]);

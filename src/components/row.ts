@@ -31,12 +31,12 @@ export function sortSwimlaneValues(values: string[]): string[] {
 	});
 }
 
-export function getOrderedSwimlaneValues(liveValues: string[], swimlaneOrder: string[]): string[] {
+export function getOrderedSwimlaneValues(liveValues: string[], swimlaneOrder: string[], showEmpty = true): string[] {
 	if (!swimlaneOrder.length) {
 		return sortSwimlaneValues(liveValues);
 	}
 	const liveSet = new Set(liveValues);
-	const ordered = swimlaneOrder.filter((v) => liveSet.has(v));
+	const ordered = swimlaneOrder.filter((v) => liveSet.has(v) || (showEmpty && v !== UNCATEGORIZED_LABEL));
 	const orderedSet = new Set(ordered);
 	const newOnes = liveValues.filter((v) => !orderedSet.has(v));
 	return [...ordered, ...newOnes];

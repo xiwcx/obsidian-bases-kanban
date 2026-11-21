@@ -1,4 +1,5 @@
 import type { BasesEntry, MetadataCache } from 'obsidian';
+import { setIcon } from 'obsidian';
 import { COLOR_PALETTE, CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 import { resolveWikilinkDisplay } from '../utils/wikilink.ts';
 import { createCard, computeCardFingerprint, type CardRenderCtx, type CardCallbacks } from './card.ts';
@@ -6,7 +7,7 @@ import { createCard, computeCardFingerprint, type CardRenderCtx, type CardCallba
 export interface ColumnRenderCtx {
 	card: CardRenderCtx;
 	cardCb: CardCallbacks;
-	prefs: { columnColors: Record<string, string> };
+	prefs: { columnColors: Record<string, string>; collapsedColumns: Set<string> };
 	dragging: boolean;
 	cardFingerprints: Map<string, string>;
 	// Column values that are empty across the whole board (every swimlane). These
@@ -20,6 +21,7 @@ export interface ColumnCallbacks {
 	applyColumnColor: (columnEl: HTMLElement, colorName: string | null) => void;
 	onColorPickerClick: (anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string) => void;
 	onRemoveColumn: (columnValue: string, columnEl: HTMLElement) => void;
+	onToggleColumn: (columnValue: string) => void;
 	createAddButton: (columnValue: string, swimlaneValue: string | null) => HTMLElement;
 	getQuickAddFolder: () => string | null;
 }
@@ -50,6 +52,17 @@ export function createRemoveButton(value: string, onRemove: () => void): HTMLEle
 		onRemove();
 	});
 	return btn;
+}
+
+export function applyColumnCollapsed(columnEl: HTMLElement, collapsed: boolean): void {
+	columnEl.classList.toggle(CSS_CLASSES.COLUMN_COLLAPSED, collapsed);
+	const toggle = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_TOGGLE}`);
+	if (!toggle || toggle.getAttribute('aria-expanded') === String(!collapsed)) return;
+	const value = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) ?? '';
+	toggle.empty();
+	setIcon(toggle, collapsed ? 'chevron-right' : 'chevron-left');
+	toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} column: ${value}`);
+	toggle.setAttribute('aria-expanded', String(!collapsed));
 }
 
 export function createColumn(
@@ -83,6 +96,15 @@ export function createColumn(
 		cls: CSS_CLASSES.COLUMN_TITLE,
 	});
 	headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
+	const toggle = headerEl.createEl('button', {
+		cls: CSS_CLASSES.COLUMN_TOGGLE,
+		attr: { type: 'button' },
+	});
+	toggle.addEventListener('click', (event) => {
+		event.stopPropagation();
+		cb.onToggleColumn(value);
+	});
+	applyColumnCollapsed(columnEl, ctx.prefs.collapsedColumns.has(value));
 
 	if (cb.getQuickAddFolder()) {
 		headerEl.appendChild(cb.createAddButton(value, options.swimlaneValue ?? null));
@@ -120,6 +142,7 @@ export function patchColumnCards(
 	// in another, so `newEntries.length` is not a reliable signal of global emptiness.
 	const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
 	const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+	if (columnValue) applyColumnCollapsed(columnEl, ctx.prefs.collapsedColumns.has(columnValue));
 	const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
 	const showRemoveButton = !!columnValue && ctx.globallyEmptyColumns.has(columnValue);
 	if (headerEl && showRemoveButton && !existingRemoveBtn && columnValue) {

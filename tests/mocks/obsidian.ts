@@ -270,6 +270,12 @@ export class LinkValue extends StringValue {
 	}
 }
 
+export class MarkdownRenderer {
+	static async render(_app: unknown, markdown: string, el: HTMLElement): Promise<void> {
+		el.textContent = markdown;
+	}
+}
+
 export class TagValue extends StringValue {}
 export class UrlValue extends StringValue {}
 export class IconValue extends StringValue {}

@@ -19,7 +19,7 @@ const status = 'note.status' as BasesPropertyId;
 const lane = 'note.lane' as BasesPropertyId;
 
 for (const swimlanes of [false, true]) {
-	test(`filtered drops preserve complete saved orders (${swimlanes ? 'swimlanes' : 'flat'})`, async () => {
+	test(`filtered drops preserve complete saved orders (${swimlanes ? 'swimlanes' : 'flat'})`, async (t) => {
 		const entry = (path: string, column: string, band: string) =>
 			createMockBasesEntry(createMockTFile(path), { [status]: column, [lane]: band });
 		const a = entry('a.md', 'Todo', 'High');
@@ -42,6 +42,17 @@ for (const swimlanes of [false, true]) {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 		const card = (path: string) => view.containerEl.querySelector<HTMLElement>(`[data-entry-path="${path}"]`)!;
+		const writes = t.mock.method(controller.config, 'set');
+		const aCard = card('a.md');
+		await (view as any).handleCardDrop({
+			item: aCard,
+			from: aCard.parentElement,
+			to: aCard.parentElement,
+			oldIndex: 0,
+			newIndex: 0,
+		});
+		assert.deepEqual(controller.config.get('cardOrders')[scope][source], ['a.md', 'hiddenA.md', 'b.md']);
+		assert.equal(writes.mock.callCount(), 0, 'An unchanged drag must not rewrite hidden positions');
 		const bCard = card('b.md');
 		const from = bCard.parentElement!;
 		from.insertBefore(bCard, card('a.md'));

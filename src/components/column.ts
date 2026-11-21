@@ -139,15 +139,12 @@ export function patchColumnCards(
 	}
 
 	const newPaths = new Set(newEntries.map((e) => e.file.path));
-	body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-		const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-		if (path && !newPaths.has(path)) card.remove();
-	});
-
 	const existingCards = new Map<string, HTMLElement>();
 	body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
 		const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-		if (path) existingCards.set(path, card);
+		if (!path) return;
+		if (newPaths.has(path)) existingCards.set(path, card);
+		else card.remove();
 	});
 	newEntries.forEach((entry) => {
 		const fp = computeCardFingerprint(entry, ctx.card);
@@ -162,20 +159,16 @@ export function patchColumnCards(
 		} else {
 			body.appendChild(newCard);
 		}
+		existingCards.set(entry.file.path, newCard);
 	});
 
 	// Reorder cards in the DOM to match newEntries order.
 	// Skipped during active drags — Sortable owns the DOM during a drag and
 	// reordering here would fight its live preview, causing visual thrashing.
 	if (!ctx.dragging) {
-		const pathToCard = new Map<string, Element>();
-		body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			const path = card.instanceOf(HTMLElement) ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
-			if (path) pathToCard.set(path, card);
-		});
 		let next = body.firstElementChild;
 		newEntries.forEach((entry) => {
-			const card = pathToCard.get(entry.file.path);
+			const card = existingCards.get(entry.file.path);
 			if (!card) return;
 			// Leave already-correct nodes in place. Appending every card on every
 			// update invalidates layout for the whole column after a single drop.

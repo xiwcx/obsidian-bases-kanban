@@ -16,8 +16,9 @@ third-party plugins, or themes. Its `.obsidian` files are minimal test configura
 not exported application settings.
 
 The service copies this fixture and creates an isolated application profile. Each
-test explicitly requests a fresh copy. Filesystem helpers check both the running
-app's vault path and the synthetic marker before accessing the copy, and refuse
+test starts with a fresh copy, reusing the service's initial launch for the first
+test and explicitly reseeding between subsequent tests. Filesystem helpers check
+both the running app's vault path and the synthetic marker before accessing the copy, and refuse
 the tracked fixture itself. Restart tests deliberately preserve the current copy
 so they actually test persistence. Only the built plugin and the service's helper
 plugin are installed. The service owns process/profile/vault cleanup.
@@ -61,8 +62,9 @@ OBSIDIAN_APP_VERSION=latest OBSIDIAN_INSTALLER_VERSION=latest npm run test:e2e
 ```
 
 Installer and app versions are distinct: the installer determines Electron and
-ChromeDriver compatibility. Change the pinned defaults in the config, CI inputs,
-and manual-launch command together. No binary/profile/vault overrides are exposed.
+ChromeDriver compatibility. Change the pinned defaults in `e2e/runtime.json`;
+the test runner, pinned CI, and manual launcher share them. No binary/profile/vault
+overrides are exposed.
 
 ## Coverage
 

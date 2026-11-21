@@ -8,6 +8,7 @@ import {
 	cell,
 	dragCard,
 	expectCard,
+	expectInitialBoard,
 	expectProperties,
 	externallyChangePhase,
 	fixture,
@@ -18,6 +19,7 @@ import {
 } from '../helpers/board.mjs';
 
 describe('Synthetic polygon laboratory in real Obsidian', () => {
+	let firstTest = true;
 	before(async () => {
 		// Mocha hooks run after the service installs its browser commands.
 		const versions = {
@@ -33,8 +35,11 @@ describe('Synthetic polygon laboratory in real Obsidian', () => {
 	beforeEach(async () => {
 		// Passing the fixture explicitly creates a new copy/profile, unlike a
 		// no-argument restart which deliberately preserves the current test state.
-		await browser.reloadObsidian({ vault: fixture, copy: true });
+		// The service already launches a fresh fixture for the first test.
+		if (!firstTest) await browser.reloadObsidian({ vault: fixture, copy: true });
+		firstTest = false;
 		await openBoard();
+		await expectInitialBoard();
 	});
 
 	it('registers the Bases view, groups specimens, and excludes the sentinel', async () => {
@@ -76,12 +81,7 @@ describe('Synthetic polygon laboratory in real Obsidian', () => {
 			return content.includes('purple') && content.includes('collapsedLanes');
 		});
 		await browser.reloadObsidian();
-		await sandboxPath();
-		await browser.executeObsidian(async ({ app }, fileName) => {
-			const file = app.vault.getFileByPath(fileName);
-			if (!file) throw new Error('Synthetic board missing');
-			await app.workspace.getLeaf(false).openFile(file);
-		}, baseFile);
+		await openBoard();
 		await expect(browser.$(cell('Amber'))).toHaveAttribute('data-column-color', 'purple');
 		await expect(browser.$('.obk-swimlane[data-swimlane-value="Lower"]')).toHaveElementClass('obk-swimlane--collapsed');
 	});
@@ -100,6 +100,7 @@ describe('Synthetic polygon laboratory in real Obsidian', () => {
 		await browser.waitUntil(async () => (await readFile(path.join(vault, baseFile), 'utf8')).includes('cardOrders:'));
 		await browser.reloadObsidian();
 		await openBoard();
+		await expectInitialBoard();
 		expect(await columns()).toEqual(savedColumns);
 		expect(await cards()).toEqual(savedCards);
 	});

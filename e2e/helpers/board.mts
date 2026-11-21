@@ -34,6 +34,9 @@ export async function openBoard(): Promise<void> {
 		await app.workspace.getLeaf(false).openFile(file);
 	}, baseFile);
 	await expect(browser.$('.obk-board')).toBeDisplayed();
+}
+
+export async function expectInitialBoard(): Promise<void> {
 	await browser.waitUntil(async () => (await browser.$$('.obk-card').length) === 4, {
 		timeoutMsg: 'Synthetic specimens did not finish indexing/rendering',
 	});

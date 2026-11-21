@@ -2,10 +2,11 @@ import path from 'node:path';
 import { access } from 'node:fs/promises';
 import { fixture } from './helpers/board.mjs';
 import { captureFailure } from './helpers/diagnostics.mjs';
+import runtime from './runtime.json' with { type: 'json' };
 
 // Public, reproducible defaults. Latest stable is opt-in for scheduled CI.
-const appVersion = process.env.OBSIDIAN_APP_VERSION ?? '1.10.6';
-const installerVersion = process.env.OBSIDIAN_INSTALLER_VERSION ?? '1.10.6';
+const appVersion = process.env.OBSIDIAN_APP_VERSION || runtime.appVersion;
+const installerVersion = process.env.OBSIDIAN_INSTALLER_VERSION || runtime.installerVersion;
 
 export const config: WebdriverIO.Config = {
 	runner: 'local',

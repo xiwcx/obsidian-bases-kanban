@@ -3,6 +3,7 @@ import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import ObsidianLauncher from 'obsidian-launcher';
+import runtime from '../e2e/runtime.json' with { type: 'json' };
 
 // Fixed synthetic source; no CLI argument or environment variable can select a
 // different vault. This script owns this directory and only this child process.
@@ -16,8 +17,7 @@ try {
 	await cp(fixture, vault, { recursive: true });
 	const launcher = new ObsidianLauncher({ cacheDir: path.resolve('.obsidian-cache') });
 	const launched = await launcher.launch({
-		appVersion: '1.10.6',
-		installerVersion: '1.10.6',
+		...runtime,
 		vault,
 		copy: false, // Already copied into the directory we own above.
 		plugins: [path.resolve('dist')],

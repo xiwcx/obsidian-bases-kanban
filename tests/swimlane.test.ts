@@ -4,6 +4,7 @@ import type { BasesEntry, BasesPropertyId } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES, SWIMLANE_KEY_SEPARATOR, UNCATEGORIZED_LABEL } from '../src/constants.ts';
 import { isCardOrders, isCollapsedLanes, isColumnOrders, KanbanView } from '../src/kanbanView.ts';
 import {
+	confirmColumnRemoval,
 	createDivWithMethods,
 	createMockApp,
 	createMockBasesEntry,
@@ -543,6 +544,7 @@ describe('Swimlane empty-column remove button (#90)', () => {
 		);
 		assert.ok(removeBtn, 'Precondition: remove button should exist');
 		removeBtn.click();
+		confirmColumnRemoval();
 
 		assert.strictEqual(
 			view.containerEl.querySelectorAll(`[${DATA_ATTRIBUTES.COLUMN_VALUE}="Blocked"]`).length,
@@ -560,6 +562,7 @@ describe('Swimlane empty-column remove button (#90)', () => {
 		);
 		assert.ok(removeBtn, 'Precondition: remove button should exist');
 		removeBtn.click();
+		confirmColumnRemoval();
 
 		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]>;
 		const savedOrder = savedOrders?.[PROPERTY_STATUS] ?? [];

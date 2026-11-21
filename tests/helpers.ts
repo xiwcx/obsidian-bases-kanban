@@ -2,7 +2,7 @@ import { mock } from 'node:test';
 import { JSDOM } from 'jsdom';
 import type { App, BasesEntry, BasesPropertyId, QueryController, TFile } from 'obsidian';
 import type Sortable from 'sortablejs';
-import { DEBOUNCE_DELAY } from '../src/constants.ts';
+import { CSS_CLASSES, DEBOUNCE_DELAY } from '../src/constants.ts';
 import { BooleanValue, NumberValue, StringValue } from './mocks/obsidian.ts';
 
 // Setup jsdom environment
@@ -430,4 +430,10 @@ export function triggerDataUpdate(view: any): void {
 	view.onDataUpdated();
 	mock.timers.tick(DEBOUNCE_DELAY);
 	mock.timers.reset();
+}
+
+export function confirmColumnRemoval(): void {
+	const button = document.querySelector<HTMLButtonElement>(`.${CSS_CLASSES.COLUMN_REMOVE_CONFIRM}`);
+	if (!button) throw new Error('Expected column removal confirmation');
+	button.click();
 }

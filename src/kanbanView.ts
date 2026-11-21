@@ -48,6 +48,7 @@ import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { cardDragAnimation } from './utils/dragAnimation.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
+import { ConfirmColumnRemovalModal } from './confirmColumnRemovalModal.ts';
 
 export interface LegacyData {
 	columnOrders: Record<string, string[]>;
@@ -90,6 +91,7 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
+	private columnRemovalModal: ConfirmColumnRemovalModal | null = null;
 	// Test ownership directly rather than relying on globally unique group IDs.
 	private readonly cardSortableGroup: Sortable.GroupOptions = {
 		name: SORTABLE_GROUP,
@@ -1245,10 +1247,37 @@ export class KanbanView extends BasesView {
 	}
 
 	private removeColumn(value: string, columnEl: HTMLElement): void {
-		if (!this._prefsPropertyId) return;
-		this._prefs.columnOrder = this._prefs.columnOrder.filter((v) => v !== value);
-		this._persistPrefs();
-		this.detachColumn(value, columnEl);
+		if (!this._prefsPropertyId || this.columnRemovalModal) return;
+		const propertyId = this._prefsPropertyId;
+		const groupOption = this.config.getAsPropertyId('groupByProperty');
+		const swimlaneOption = this.config.getAsPropertyId('swimlaneByProperty');
+		this.columnRemovalModal = new ConfirmColumnRemovalModal(
+			this.app,
+			value,
+			() => {
+				// The board can change while the modal is open. A stale confirmation
+				// must not remove a different grouping's column or a newly populated one.
+				if (
+					propertyId !== this._prefsPropertyId ||
+					groupOption !== this.config.getAsPropertyId('groupByProperty') ||
+					swimlaneOption !== this.config.getAsPropertyId('swimlaneByProperty')
+				) {
+					return;
+				}
+				if (this.data.data.some((entry) => normalizePropertyValue(entry.getValue(propertyId)) === value)) return;
+				const orders = this.config.get('columnOrders');
+				if (!isColumnOrders(orders) || !orders[propertyId]?.includes(value)) return;
+				// Remove from the latest order, not the modal's old snapshot, and
+				// write only this preference so other panes' changes survive.
+				this._prefs.columnOrder = orders[propertyId].filter((v) => v !== value);
+				this._persistConfigKey('columnOrders', isColumnOrders, this._prefs.columnOrder, propertyId);
+				this.detachColumn(value, columnEl);
+			},
+			() => {
+				this.columnRemovalModal = null;
+			},
+		);
+		this.columnRemovalModal.open();
 	}
 
 	private ownsCardContainer(body: HTMLElement): boolean {
@@ -1655,6 +1684,7 @@ export class KanbanView extends BasesView {
 
 	onClose(): void {
 		this._debouncedRender.cancel();
+		this.columnRemovalModal?.close();
 		this.destroySortables();
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;

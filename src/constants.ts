@@ -105,6 +105,9 @@ export const CSS_CLASSES = {
 
 	// Column remove button (shown only when column is empty)
 	COLUMN_REMOVE_BTN: 'obk-column-remove-btn',
+	COLUMN_REMOVE_DIALOG: 'obk-column-remove-dialog',
+	COLUMN_REMOVE_CONFIRM: 'obk-column-remove-confirm',
+	COLUMN_REMOVE_CANCEL: 'obk-column-remove-cancel',
 
 	// Quick add modal
 	QUICK_ADD_FORM: 'obk-quick-add-form',

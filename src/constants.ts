@@ -46,6 +46,8 @@ export const SWIMLANE_KEY_SEPARATOR = '\u001F';
 
 /** CSS class names */
 export const CSS_CLASSES = {
+	COLUMN_COLLAPSED: 'obk-column--collapsed',
+	COLUMN_TOGGLE: 'obk-column-toggle',
 	// Container
 	VIEW_CONTAINER: 'obk-view-container',
 	VIEW_CONTAINER_WITH_SWIMLANES: 'obk-view-container--with-swimlanes',
@@ -72,6 +74,8 @@ export const CSS_CLASSES = {
 	// Column
 	COLUMN: 'obk-column',
 	COLUMN_HEADER: 'obk-column-header',
+	COLUMN_HEADING: 'obk-column-heading',
+	COLUMN_CONTROL: 'obk-column-control',
 	COLUMN_TITLE: 'obk-column-title',
 	COLUMN_COUNT: 'obk-column-count',
 	COLUMN_BODY: 'obk-column-body',

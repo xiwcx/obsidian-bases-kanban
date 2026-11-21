@@ -15,6 +15,7 @@ import {
 } from './components/quickAdd.ts';
 import {
 	applyColumnColor as applyColumnColorEl,
+	applyColumnCollapsed,
 	createColumn as createColumnEl,
 	patchColumnCards as patchColumnCardsEl,
 	type ColumnRenderCtx,
@@ -91,6 +92,7 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
+	private collapsedColumns = new Set<string>();
 	private columnRemovalModal: ConfirmColumnRemovalModal | null = null;
 	// Test ownership directly rather than relying on globally unique group IDs.
 	private readonly cardSortableGroup: Sortable.GroupOptions = {
@@ -416,6 +418,10 @@ export class KanbanView extends BasesView {
 			}
 
 			const hasNoEntries = entries.length === 0;
+			const rawCollapsedColumns = this.config.get('collapsedColumns');
+			this.collapsedColumns = new Set(
+				isCollapsedLanes(rawCollapsedColumns) ? (rawCollapsedColumns[this.groupByPropertyId] ?? []) : [],
+			);
 			const hasNoSavedColumns = this._prefs.columnOrder.length === 0;
 			if (hasNoEntries && hasNoSavedColumns) {
 				this.fullReset();
@@ -1062,7 +1068,7 @@ export class KanbanView extends BasesView {
 		return {
 			card: this._buildCardCtx(),
 			cardCb: this._buildCardCallbacks(),
-			prefs: { columnColors: this._prefs.columnColors },
+			prefs: { columnColors: this._prefs.columnColors, collapsedColumns: this.collapsedColumns },
 			dragging: this._dragging,
 			cardFingerprints: this._cardFingerprints,
 			globallyEmptyColumns: this._globallyEmptyColumns,
@@ -1075,6 +1081,7 @@ export class KanbanView extends BasesView {
 			applyColumnColor: (el, name) => this.applyColumnColor(el, name),
 			onColorPickerClick: (anchor, col, val) => this.openColorPicker(anchor, col, val),
 			onRemoveColumn: (val, el) => this.removeColumn(val, el),
+			onToggleColumn: (value) => this.toggleColumnCollapsed(value),
 			createAddButton: (colVal, laneVal) => this.createAddButton(colVal, laneVal),
 			getQuickAddFolder: () => this.getQuickAddFolder(),
 		};
@@ -1086,6 +1093,22 @@ export class KanbanView extends BasesView {
 		options: { swimlaneValue?: string | null } = {},
 	): HTMLElement {
 		return createColumnEl(value, entries, options, this._buildColumnCtx(), this._buildColumnCallbacks());
+	}
+
+	private toggleColumnCollapsed(value: string): void {
+		const property = this._prefsPropertyId;
+		if (!property) return;
+		const raw = this.config.get('collapsedColumns');
+		const collapsed = new Set(isCollapsedLanes(raw) ? (raw[property] ?? []) : []);
+		if (collapsed.has(value)) collapsed.delete(value);
+		else collapsed.add(value);
+		this._persistConfigKey('collapsedColumns', isCollapsedLanes, [...collapsed], property);
+		this.collapsedColumns = collapsed;
+		this.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((column) => {
+			if (column.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) === value) {
+				applyColumnCollapsed(column, collapsed.has(value));
+			}
+		});
 	}
 
 	private _buildCardCtx(): CardRenderCtx {

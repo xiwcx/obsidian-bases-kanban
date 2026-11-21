@@ -615,3 +615,34 @@
 	border: 2px dashed var(--interactive-accent);
 	border-radius: 6px;
 }
+.obk-column-toggle {
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	padding: 2px;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.obk-column.obk-column--collapsed {
+	width: 44px;
+	min-width: 44px;
+	flex: 0 0 44px;
+}
+
+.obk-column--collapsed .obk-column-header {
+	flex-direction: column;
+	gap: 8px;
+}
+
+.obk-column--collapsed .obk-column-title {
+	writing-mode: vertical-rl;
+	overflow: visible;
+}
+
+.obk-column--collapsed .obk-column-body,
+.obk-column--collapsed .obk-column-color-btn,
+.obk-column--collapsed .obk-column-add-btn,
+.obk-column--collapsed .obk-column-remove-btn {
+	display: none;
+}

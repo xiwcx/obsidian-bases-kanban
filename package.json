@@ -1,6 +1,6 @@
 {
 	"name": "kanban-bases-view",
-	"version": "0.10.7",
+	"version": "0.10.8",
 	"private": true,
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",

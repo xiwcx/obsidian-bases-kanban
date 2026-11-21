@@ -16,7 +16,7 @@ export class ConfirmColumnRemovalModal extends Modal {
 		this.setTitle('Remove column?');
 		this.modalEl.classList.add(CSS_CLASSES.COLUMN_REMOVE_DIALOG);
 		this.contentEl.createEl('p', {
-			text: `Remove “${this.columnValue}” from this view's saved column order? This also affects notes that embed this view. No notes will be deleted.`,
+			text: `Remove “${this.columnValue}” from this view? It will also disappear from notes that embed this view. No notes will be deleted.`,
 		});
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
 		const cancel = actions.createEl('button', {

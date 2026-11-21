@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mock, test } from 'node:test';
+import { test } from 'node:test';
 import type { BasesPropertyId } from 'obsidian';
 import { CSS_CLASSES } from '../src/constants.ts';
 import { KanbanView } from '../src/kanbanView.ts';
@@ -33,10 +33,10 @@ function setup() {
 	return { view, controller, remove };
 }
 
-test('clicking × opens one confirmation without persisting; cancel retains saved order', () => {
+test('clicking × opens one confirmation without persisting; cancel retains saved order', (t) => {
 	const { view, controller, remove } = setup();
 	const saved = JSON.stringify(controller.config.get('columnOrders'));
-	const write = mock.method(controller.config, 'set');
+	const write = t.mock.method(controller.config, 'set');
 	remove.click();
 	remove.click();
 	assert.equal(document.querySelectorAll(`.${CSS_CLASSES.COLUMN_REMOVE_DIALOG}`).length, 1);
@@ -49,7 +49,6 @@ test('clicking × opens one confirmation without persisting; cancel retains save
 	assert.equal(JSON.stringify(controller.config.get('columnOrders')), saved);
 	assert.ok(view.containerEl.querySelector('[data-column-value="Empty"]'));
 	view.onClose();
-	mock.restoreAll();
 });
 
 test('dismissing the modal or closing the view never removes the column', () => {
@@ -74,13 +73,31 @@ test('confirmation refuses a column populated while the dialog was open', () => 
 	view.onClose();
 });
 
-test('confirmation refuses a stale grouping after the board switches axes', () => {
+for (const rendered of [false, true]) {
+	test(`confirmation refuses a changed grouping (${rendered ? 'after' : 'before'} render)`, () => {
+		const { view, controller, remove } = setup();
+		remove.click();
+		controller.config.getAsPropertyId = (key: string) => (key === 'groupByProperty' ? lane : null);
+		if (rendered) triggerDataUpdate(view);
+		confirmColumnRemoval();
+		assert.ok(controller.config.get('columnOrders')[status].includes('Empty'));
+		view.onClose();
+	});
+}
+
+test('confirmation changes only the latest saved column order, not unrelated preferences', (t) => {
 	const { view, controller, remove } = setup();
 	remove.click();
-	controller.config.getAsPropertyId = (key: string) => (key === 'groupByProperty' ? lane : null);
-	triggerDataUpdate(view);
+	// Model another pane or an external .base edit while the modal is open.
+	controller.config.set('columnOrders', { [status]: ['Later', 'Empty', 'Amber'], [lane]: ['Upper'] });
+	controller.config.set('columnColors', { [status]: { Amber: 'purple' } });
+	controller.config.set('cardOrders', { [status]: { Amber: ['New prism.md', 'Prism.md'] } });
+	const writes = t.mock.method(controller.config, 'set');
 	confirmColumnRemoval();
-	assert.ok(controller.config.get('columnOrders')[status].includes('Empty'));
-	assert.ok(view.containerEl.querySelector('[data-column-value="Upper"]'));
+	assert.deepEqual(controller.config.get('columnOrders'), { [status]: ['Later', 'Amber'], [lane]: ['Upper'] });
+	assert.deepEqual(controller.config.get('columnColors'), { [status]: { Amber: 'purple' } });
+	assert.deepEqual(controller.config.get('cardOrders'), { [status]: { Amber: ['New prism.md', 'Prism.md'] } });
+	assert.equal(writes.mock.callCount(), 1);
+	assert.equal(writes.mock.calls[0]?.arguments[0], 'columnOrders');
 	view.onClose();
 });

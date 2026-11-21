@@ -97,6 +97,7 @@ export function createColumn(
 
 	entries.forEach((entry) => {
 		bodyEl.appendChild(createCard(entry, ctx.card, ctx.cardCb));
+		ctx.cardFingerprints.set(entry.file.path, computeCardFingerprint(entry, ctx.card));
 	});
 
 	return columnEl;
@@ -172,9 +173,14 @@ export function patchColumnCards(
 			const path = card.instanceOf(HTMLElement) ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
 			if (path) pathToCard.set(path, card);
 		});
+		let next = body.firstElementChild;
 		newEntries.forEach((entry) => {
 			const card = pathToCard.get(entry.file.path);
-			if (card) body.appendChild(card);
+			if (!card) return;
+			// Leave already-correct nodes in place. Appending every card on every
+			// update invalidates layout for the whole column after a single drop.
+			if (card !== next) body.insertBefore(card, next);
+			next = card.nextElementSibling;
 		});
 	}
 }

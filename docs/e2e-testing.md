@@ -66,6 +66,20 @@ ChromeDriver compatibility. Change the pinned defaults in `e2e/runtime.json`;
 the test runner, pinned CI, and manual launcher share them. No binary/profile/vault
 overrides are exposed.
 
+The quick-add folder-tree regression (#105 / #106) reproduces on app **1.13.7**,
+but not the pinned 1.10.6 baseline. Run its filesystem assertions explicitly with:
+
+```sh
+npm run build
+OBSIDIAN_APP_VERSION=1.13.7 npm run test:e2e:built -- --spec e2e/specs/quick-add-folder.e2e.mts
+```
+
+This checks three default-note locations, repeated titles/collision handling,
+both grouping properties, and the absence of new directories. On 1.13.7, Bases
+derives the parent from the fixture's folder filter regardless of those defaults.
+Correct card paths alone do not catch this bug: the fallback move can hide the
+stray directories.
+
 ## Coverage
 
 - Real Bases registration, filtering, columns, and swimlanes.

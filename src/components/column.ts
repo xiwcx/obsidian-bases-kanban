@@ -1,5 +1,6 @@
-import type { BasesEntry } from 'obsidian';
+import type { BasesEntry, MetadataCache } from 'obsidian';
 import { COLOR_PALETTE, CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
+import { resolveWikilinkDisplay } from '../utils/wikilink.ts';
 import { createCard, computeCardFingerprint, type CardRenderCtx, type CardCallbacks } from './card.ts';
 
 export interface ColumnRenderCtx {
@@ -12,6 +13,7 @@ export interface ColumnRenderCtx {
 	// persist only because they're saved in columnOrder, so they get a remove
 	// button. Board-wide, so it can't be derived from a single column's entries.
 	globallyEmptyColumns: Set<string>;
+	metadataCache: MetadataCache | null;
 }
 
 export interface ColumnCallbacks {
@@ -76,7 +78,10 @@ export function createColumn(
 		cb.onColorPickerClick(colorBtn, columnEl, value);
 	});
 
-	headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
+	headerEl.createSpan({
+		text: resolveWikilinkDisplay(value, ctx.metadataCache),
+		cls: CSS_CLASSES.COLUMN_TITLE,
+	});
 	headerEl.createSpan({ text: `${entries.length}`, cls: CSS_CLASSES.COLUMN_COUNT });
 
 	if (cb.getQuickAddFolder()) {

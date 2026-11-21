@@ -1662,7 +1662,7 @@ export class KanbanView extends BasesView {
 				// move its saved slot there instead of dropping it.
 				const target = this._prefs.cardOrders[liveKey] ?? (this._prefs.cardOrders[liveKey] = []);
 				if (!target.includes(path)) {
-					target.push(path);
+					target.splice(this.config.get('newCardPosition') === 'top' ? 0 : target.length, 0, path);
 					changed = true;
 				}
 			}
@@ -1679,7 +1679,7 @@ export class KanbanView extends BasesView {
 		const savedPaths = new Set(savedOrder);
 		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
 		const unsaved = entries.filter((e) => !savedPaths.has(e.file.path));
-		return [...ordered, ...unsaved];
+		return this.config.get('newCardPosition') === 'top' ? [...unsaved, ...ordered] : [...ordered, ...unsaved];
 	}
 
 	onClose(): void {
@@ -1767,6 +1767,13 @@ export class KanbanView extends BasesView {
 				displayName: 'Wrap property values',
 				type: 'toggle',
 				key: 'wrapPropertyValues',
+			},
+			{
+				displayName: 'New cards go to',
+				type: 'dropdown',
+				key: 'newCardPosition',
+				default: 'bottom',
+				options: { bottom: 'Bottom', top: 'Top' },
 			},
 		];
 	}

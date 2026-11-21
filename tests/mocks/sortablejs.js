@@ -32,6 +32,11 @@ class MockSortable {
 	destroy() {
 		this.destroyed = true;
 	}
+
+	option(name, value) {
+		if (arguments.length === 1) return this.options[name];
+		this.options[name] = value;
+	}
 }
 
 // Default export

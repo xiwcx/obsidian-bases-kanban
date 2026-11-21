@@ -43,8 +43,10 @@ import {
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
+import { mergeCardOrder } from './utils/cardOrder.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
+import { cardDragAnimation } from './utils/dragAnimation.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 import { ConfirmColumnRemovalModal } from './confirmColumnRemovalModal.ts';
 
@@ -90,6 +92,12 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 
 export class KanbanView extends BasesView {
 	private columnRemovalModal: ConfirmColumnRemovalModal | null = null;
+	// Test ownership directly rather than relying on globally unique group IDs.
+	private readonly cardSortableGroup: Sortable.GroupOptions = {
+		name: SORTABLE_GROUP,
+		pull: (to) => this.ownsCardContainer(to.el),
+		put: (_to, from) => this.ownsCardContainer(from.el),
+	};
 	type = 'kanban-view';
 	hoverPopover: HoverPopover | null = null;
 
@@ -947,6 +955,11 @@ export class KanbanView extends BasesView {
 
 	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
 		patchColumnCardsEl(columnEl, newEntries, this._buildColumnCtx(), this._buildColumnCallbacks());
+		const value = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+		const lane = columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`)?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
+		if (value !== null) {
+			this._columnSortables.get(this.cardOrderKey(lane, value))?.option('animation', cardDragAnimation(newEntries.length));
+		}
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -1267,11 +1280,18 @@ export class KanbanView extends BasesView {
 		this.columnRemovalModal.open();
 	}
 
+	private ownsCardContainer(body: HTMLElement): boolean {
+		return body.closest(`.${CSS_CLASSES.VIEW_CONTAINER}`) === this.containerEl;
+	}
+
 	private attachCardSortable(body: HTMLElement, value: string): void {
 		const sortable = new Sortable(body, {
-			group: SORTABLE_GROUP,
+			group: this.cardSortableGroup,
+			// If the pointer leaves valid cells (including another view), discard
+			// any local preview traversed on the way there.
+			revertOnSpill: true,
 
-			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			animation: cardDragAnimation(body.children.length),
 
 			// require a press-and-hold before drag begins on touch so that
 			// swiping to scroll a column isn't mistaken for a card drag
@@ -1307,6 +1327,15 @@ export class KanbanView extends BasesView {
 		}
 
 		const cardEl = evt.item;
+		if (!this.ownsCardContainer(evt.from) || !this.ownsCardContainer(evt.to)) {
+			// Defense in depth: even a stale/external drop event must not persist
+			// another view's grouping values or leave a false-success preview.
+			if (this.ownsCardContainer(evt.from)) {
+				const index = evt.oldIndex ?? evt.oldDraggableIndex ?? evt.from.children.length;
+				evt.from.insertBefore(cardEl, evt.from.children[index] ?? null);
+			}
+			return;
+		}
 		const entryPath = cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
 
 		if (!entryPath) {
@@ -1348,11 +1377,13 @@ export class KanbanView extends BasesView {
 			: null;
 		const newLaneValue = swimlaneActive ? newLaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
 
-		// Helper: read card paths from a column body element
-		const getColumnPaths = (bodyEl: Element): string[] =>
-			Array.from(bodyEl.querySelectorAll(`.${CSS_CLASSES.CARD}`))
+		// Capture only the visible order, retaining the saved hidden paths.
+		const saveColumnOrder = (key: string, bodyEl: Element): void => {
+			const paths = Array.from(bodyEl.querySelectorAll(`.${CSS_CLASSES.CARD}`))
 				.map((c) => (c.instanceOf(HTMLElement) ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
 				.filter((p): p is string => p !== null);
+			this._prefs.cardOrders[key] = mergeCardOrder(this._prefs.cardOrders[key] ?? [], paths, entryPath);
+		};
 
 		const oldKey = this.cardOrderKey(oldLaneValue, oldColumnValue ?? '');
 		const newKey = this.cardOrderKey(newLaneValue, newColumnValue);
@@ -1360,14 +1391,13 @@ export class KanbanView extends BasesView {
 
 		// Same cell reorder: update prefs and persist
 		if (oldLaneValue === newLaneValue && oldColumnValue === newColumnValue) {
+			if (!this.didSortableIndexChange(evt)) return;
 			if (sortActive) {
-				if (this.didSortableIndexChange(evt)) {
-					new Notice(SORTED_CARD_ORDER_NOTICE, 4000);
-				}
+				new Notice(SORTED_CARD_ORDER_NOTICE, 4000);
 				this.render();
 				return;
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			saveColumnOrder(newKey, evt.to);
 			this._persistPrefs();
 			return;
 		}
@@ -1376,9 +1406,9 @@ export class KanbanView extends BasesView {
 		if (!sortActive) {
 			if (oldColumnEl?.instanceOf(HTMLElement) && oldColumnValue) {
 				const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
+				if (oldBody) saveColumnOrder(oldKey, oldBody);
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			saveColumnOrder(newKey, evt.to);
 			// The frontmatter write below triggers a re-render before the query
 			// catches up; defer reconciliation of this card until it does. If
 			// a prior drop is still awaiting confirmation, the query may lag
@@ -1646,8 +1676,9 @@ export class KanbanView extends BasesView {
 
 	private applyCardOrder(entries: BasesEntry[], savedOrder: string[]): BasesEntry[] {
 		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
+		const savedPaths = new Set(savedOrder);
 		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
-		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
+		const unsaved = entries.filter((e) => !savedPaths.has(e.file.path));
 		return [...ordered, ...unsaved];
 	}
 

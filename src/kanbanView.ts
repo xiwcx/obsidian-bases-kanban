@@ -88,10 +88,12 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
-	private static nextDragGroupId = 0;
-	// Sortable's string group is global, not scoped to a Bases view. Only cells
-	// belonging to this instance may exchange cards.
-	private readonly cardSortableGroup = `${SORTABLE_GROUP}-${KanbanView.nextDragGroupId++}`;
+	// Test ownership directly rather than relying on globally unique group IDs.
+	private readonly cardSortableGroup: Sortable.GroupOptions = {
+		name: SORTABLE_GROUP,
+		pull: (to) => this.ownsCardContainer(to.el),
+		put: (_to, from) => this.ownsCardContainer(from.el),
+	};
 	type = 'kanban-view';
 	hoverPopover: HoverPopover | null = null;
 
@@ -1242,9 +1244,16 @@ export class KanbanView extends BasesView {
 		this.detachColumn(value, columnEl);
 	}
 
+	private ownsCardContainer(body: HTMLElement): boolean {
+		return body.closest(`.${CSS_CLASSES.VIEW_CONTAINER}`) === this.containerEl;
+	}
+
 	private attachCardSortable(body: HTMLElement, value: string): void {
 		const sortable = new Sortable(body, {
 			group: this.cardSortableGroup,
+			// If the pointer leaves valid cells (including another view), discard
+			// any local preview traversed on the way there.
+			revertOnSpill: true,
 
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 
@@ -1282,11 +1291,11 @@ export class KanbanView extends BasesView {
 		}
 
 		const cardEl = evt.item;
-		if (!this.containerEl.contains(evt.from) || !this.containerEl.contains(evt.to)) {
+		if (!this.ownsCardContainer(evt.from) || !this.ownsCardContainer(evt.to)) {
 			// Defense in depth: even a stale/external drop event must not persist
 			// another view's grouping values or leave a false-success preview.
-			if (this.containerEl.contains(evt.from)) {
-				const index = evt.oldDraggableIndex ?? evt.oldIndex ?? evt.from.children.length;
+			if (this.ownsCardContainer(evt.from)) {
+				const index = evt.oldIndex ?? evt.oldDraggableIndex ?? evt.from.children.length;
 				evt.from.insertBefore(cardEl, evt.from.children[index] ?? null);
 			}
 			return;

@@ -13,17 +13,23 @@ describe('Cross-view drag rejection', () => {
 		await browser.execute(() => {
 			document.querySelectorAll('.obk-view-container').forEach((el, i) => el.setAttribute('data-e2e-view', `${i}`));
 		});
-		// Drag right-to-left so the path does not pass through another valid
-		// column in the source view on the way to the foreign destination.
-		const a = '[data-e2e-view="1"]';
-		const b = '[data-e2e-view="0"]';
-		await pointerDrag(`${a} ${card('Prism-001')}`, `${b} ${cell('Cobalt')} .obk-column-body`);
-		await expectProperties('Prism-001', 'Amber', 'Upper');
-		await expect(browser.$(`${a} ${cell('Amber')} ${card('Prism-001')}`)).toExist();
-		await expect(browser.$(`${b} ${cell('Amber')} ${card('Prism-001')}`)).toExist();
-		await expect(browser.$$(`${a} .obk-card`)).toBeElementsArrayOfSize(4);
-		await expect(browser.$$(`${b} .obk-card`)).toBeElementsArrayOfSize(4);
+		for (const [source, target] of [
+			[1, 0],
+			[0, 1],
+		]) {
+			const a = `[data-e2e-view="${source}"]`;
+			const b = `[data-e2e-view="${target}"]`;
+			// Left-to-right also crosses valid local cells before leaving the
+			// source view. Rejecting the destination must cancel that preview.
+			await pointerDrag(`${a} ${card('Prism-001')}`, `${b} ${cell('Cobalt')} .obk-column-body`);
+			await expectProperties('Prism-001', 'Amber', 'Upper');
+			await expect(browser.$(`${a} ${cell('Amber')} ${card('Prism-001')}`)).toExist();
+			await expect(browser.$(`${b} ${cell('Amber')} ${card('Prism-001')}`)).toExist();
+			await expect(browser.$$(`${a} .obk-card`)).toBeElementsArrayOfSize(4);
+			await expect(browser.$$(`${b} .obk-card`)).toBeElementsArrayOfSize(4);
+		}
 		// Scoping must not disable legitimate moves within the original view.
+		const a = '[data-e2e-view="0"]';
 		await pointerDrag(`${a} ${card('Prism-001')}`, `${a} ${cell('Cobalt')} .obk-column-body`);
 		await expectProperties('Prism-001', 'Cobalt', 'Upper');
 		await expect(browser.$(`${a} ${cell('Cobalt')} ${card('Prism-001')}`)).toExist();

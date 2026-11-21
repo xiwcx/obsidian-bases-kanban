@@ -1,5 +1,5 @@
 import type { App, BasesEntry, BasesPropertyId } from 'obsidian';
-import { DateValue, Keymap, NullValue } from 'obsidian';
+import { DateValue, Keymap, NullValue, RelativeDateValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
@@ -49,7 +49,8 @@ export function renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, ctx: Ca
 		titleEl.textContent = entry.file.basename;
 		return;
 	}
-	if (titleValue instanceof DateValue) titleEl.textContent = titleValue.toString();
+	if (titleValue instanceof DateValue && !(titleValue instanceof RelativeDateValue))
+		titleEl.textContent = titleValue.toString();
 	else titleValue.renderTo(titleEl, ctx.app.renderContext);
 }
 
@@ -120,7 +121,7 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
 		// Native date renderers create disabled inputs that clip inside narrow
 		// cards. Dates are read-only here; use the public value's text instead.
-		if (value instanceof DateValue) valueEl.textContent = value.toString();
+		if (value instanceof DateValue && !(value instanceof RelativeDateValue)) valueEl.textContent = value.toString();
 		else value.renderTo(valueEl, ctx.app.renderContext);
 	}
 

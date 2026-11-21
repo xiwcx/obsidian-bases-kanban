@@ -43,6 +43,7 @@ import {
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
+import { mergeCardOrder } from './utils/cardOrder.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
@@ -1338,7 +1339,11 @@ export class KanbanView extends BasesView {
 				this.render();
 				return;
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			this._prefs.cardOrders[newKey] = mergeCardOrder(
+				this._prefs.cardOrders[newKey] ?? [],
+				getColumnPaths(evt.to),
+				entryPath,
+			);
 			this._persistPrefs();
 			return;
 		}
@@ -1347,9 +1352,19 @@ export class KanbanView extends BasesView {
 		if (!sortActive) {
 			if (oldColumnEl?.instanceOf(HTMLElement) && oldColumnValue) {
 				const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
-				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
+				if (oldBody) {
+					this._prefs.cardOrders[oldKey] = mergeCardOrder(
+						this._prefs.cardOrders[oldKey] ?? [],
+						getColumnPaths(oldBody),
+						entryPath,
+					);
+				}
 			}
-			this._prefs.cardOrders[newKey] = getColumnPaths(evt.to);
+			this._prefs.cardOrders[newKey] = mergeCardOrder(
+				this._prefs.cardOrders[newKey] ?? [],
+				getColumnPaths(evt.to),
+				entryPath,
+			);
 			// The frontmatter write below triggers a re-render before the query
 			// catches up; defer reconciliation of this card until it does. If
 			// a prior drop is still awaiting confirmation, the query may lag

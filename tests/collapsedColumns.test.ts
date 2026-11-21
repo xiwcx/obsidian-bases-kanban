@@ -49,3 +49,42 @@ test('column collapse is shared across lanes, scoped by grouping, and writes onl
 	assert.deepEqual(controller.config.get('collapsedColumns'), { [status]: [] });
 	view.onClose();
 });
+
+test('headers group title and count, order visible actions, and use a native trash button', () => {
+	const status = 'note.status' as BasesPropertyId;
+	const app = createMockApp();
+	const controller: any = createMockQueryController(
+		[createMockBasesEntry(createMockTFile('Prism.md'), { [status]: 'Amber' })],
+		[status],
+	);
+	controller.app = app;
+	controller.config.getAsPropertyId = (key: string) => (key === 'groupByProperty' ? status : null);
+	controller.config.set('columnOrders', { [status]: ['Amber', 'Empty'] });
+	controller.config.set('quickAddFolder', 'Specimens');
+	const view = new KanbanView(controller, createDivWithMethods());
+	setupKanbanViewWithApp(view, app);
+	triggerDataUpdate(view);
+	const header = view.containerEl.querySelector<HTMLElement>('[data-column-value="Empty"] .obk-column-header')!;
+	assert.deepEqual(
+		[...header.children].map((element) => element.classList[0]),
+		[
+			'obk-column-drag-handle',
+			'obk-column-color-btn',
+			'obk-column-heading',
+			'obk-column-add-btn',
+			'obk-column-toggle',
+			'obk-column-remove-btn',
+		],
+	);
+	assert.equal(header.querySelector('.obk-column-heading .obk-column-title')?.textContent, 'Empty');
+	assert.equal(header.querySelector('.obk-column-heading .obk-column-count')?.textContent, '0');
+	const remove = header.querySelector<HTMLButtonElement>('.obk-column-remove-btn')!;
+	assert.equal(remove.tagName, 'BUTTON');
+	assert.equal(remove.type, 'button');
+	assert.equal(remove.querySelector('svg')?.getAttribute('data-icon'), 'trash-2');
+	assert.equal(view.containerEl.querySelector('[data-column-value="Amber"] .obk-column-remove-btn'), null);
+	remove.click();
+	assert.ok(document.querySelector('.obk-column-remove-dialog'));
+	assert.ok(view.containerEl.querySelector('[data-column-value="Empty"]'), 'removal still requires confirmation');
+	view.onClose();
+});

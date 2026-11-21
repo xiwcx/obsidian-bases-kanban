@@ -213,7 +213,7 @@ export function createAddButton(
 	ctx: QuickAddCtx,
 	cb: QuickAddCallbacks,
 ): HTMLElement {
-	const btn = createDiv({ cls: CSS_CLASSES.COLUMN_ADD_BTN });
+	const btn = createDiv({ cls: [CSS_CLASSES.COLUMN_ADD_BTN, CSS_CLASSES.COLUMN_CONTROL] });
 	btn.setAttribute(
 		'aria-label',
 		swimlaneValue ? `Add card to column: ${columnValue} in lane: ${swimlaneValue}` : `Add card to column: ${columnValue}`,

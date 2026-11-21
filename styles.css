@@ -253,33 +253,63 @@
 }
 
 .obk-column-header {
-	padding: 12px 16px;
+	padding: 8px;
 	background: color-mix(in srgb, var(--obk-column-accent-color, transparent) 15%, var(--background-primary-alt));
 	border-bottom: 1px solid var(--background-modifier-border);
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
 	flex-shrink: 0;
-	gap: 8px;
+	gap: 4px;
 }
 
-/* Column color picker button */
-.obk-column-color-btn {
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	border: 2px solid var(--background-modifier-border);
-	background: var(--obk-column-accent-color, transparent);
-	cursor: pointer;
+.obk-column-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+/* A single unboxed control treatment, including keyboard focus. */
+.obk-column-header .obk-column-control {
+	--icon-size: 16px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	flex-shrink: 0;
-	transition:
-		transform 0.1s ease,
-		border-color 0.1s ease;
+	box-sizing: border-box;
+	width: 28px;
+	min-width: 28px;
+	height: 28px;
+	margin: 0;
+	padding: 6px;
+	border: 0;
+	border-radius: 4px;
+	box-shadow: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
 }
 
-.obk-column-color-btn:hover {
-	border-color: var(--text-muted);
-	transform: scale(1.15);
+.obk-column-header .obk-column-control:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.obk-column-header .obk-column-control:focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: 1px;
+}
+
+/* The dot sets color; its hit area is larger than the visible dot. */
+.obk-column-color-btn::before {
+	content: "";
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--obk-column-accent-color, transparent);
+	box-shadow: inset 0 0 0 1px var(--text-faint);
 }
 
 /* Color picker popover */
@@ -342,16 +372,13 @@
 	transform: translate(-50%, -50%) rotate(-45deg);
 }
 
-.obk-column-drag-handle {
+.obk-column-header .obk-column-drag-handle {
 	cursor: grab;
-	padding: 4px;
-	opacity: 0.5;
+	width: 20px;
+	min-width: 20px;
+	padding-inline: 2px;
+	opacity: 0.65;
 	user-select: none;
-	font-size: 16px;
-	line-height: 1;
-	color: var(--text-muted);
-	display: flex;
-	align-items: center;
 }
 
 .obk-column-drag-handle:hover {
@@ -359,12 +386,15 @@
 	color: var(--text-normal);
 }
 
-.obk-column-drag-handle:active {
+.obk-column-header .obk-column-drag-handle:active {
 	cursor: grabbing;
 }
 
 .obk-column-title {
-	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-weight: 600;
 	font-size: 14px;
 	color: var(--text-normal);
@@ -374,51 +404,11 @@
 .obk-column-count {
 	font-size: 12px;
 	color: var(--text-muted);
-	background: color-mix(in srgb, var(--obk-column-accent-color, transparent) 15%, var(--background-modifier-border));
-	padding: 2px 8px;
-	border-radius: 12px;
-}
-
-.obk-column-add-btn,
-.obk-column-remove-btn {
-	width: 24px;
-	height: 24px;
-	border-radius: 4px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--text-muted);
-	cursor: pointer;
 	flex-shrink: 0;
-	transition:
-		background 0.1s ease,
-		color 0.1s ease,
-		opacity 0.1s ease;
 }
 
-.obk-column-add-btn {
-	opacity: 0.55;
-}
-
-.obk-column:hover .obk-column-add-btn,
-.obk-column-add-btn:focus-visible {
-	opacity: 1;
-}
-
-.obk-column-add-btn:hover,
-.obk-column-remove-btn:hover {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
-}
-
-.obk-column-add-btn .svg-icon {
-	width: 16px;
-	height: 16px;
-}
-
-.obk-column-remove-btn {
-	font-size: 18px;
-	line-height: 1;
+.obk-column-header .obk-column-remove-btn {
+	margin-inline-start: 8px;
 }
 
 .obk-column-body {
@@ -615,15 +605,6 @@
 	border: 2px dashed var(--interactive-accent);
 	border-radius: 6px;
 }
-.obk-column-toggle {
-	background: transparent;
-	border: 0;
-	box-shadow: none;
-	padding: 2px;
-	color: var(--text-muted);
-	flex-shrink: 0;
-}
-
 .obk-column.obk-column--collapsed {
 	width: 44px;
 	min-width: 44px;
@@ -632,7 +613,19 @@
 
 .obk-column--collapsed .obk-column-header {
 	flex-direction: column;
+	flex: 1;
+	gap: 0;
+	min-height: 224px;
+	padding: 0 6px;
+	border-bottom: 0;
+}
+
+.obk-column--collapsed .obk-column-heading {
+	flex: 0 0 auto;
+	flex-direction: column;
+	align-items: center;
 	gap: 8px;
+	margin-block: 8px;
 }
 
 .obk-column--collapsed .obk-column-title {
@@ -640,8 +633,19 @@
 	overflow: visible;
 }
 
+.obk-column--collapsed .obk-column-drag-handle,
+.obk-column--collapsed .obk-column-toggle {
+	width: 28px;
+	min-width: 28px;
+	height: 48px;
+	padding: 16px 6px;
+}
+
+.obk-column--collapsed .obk-column-toggle {
+	margin-block-start: auto;
+}
+
 .obk-column--collapsed .obk-column-body,
-.obk-column--collapsed .obk-column-color-btn,
 .obk-column--collapsed .obk-column-add-btn,
 .obk-column--collapsed .obk-column-remove-btn {
 	display: none;

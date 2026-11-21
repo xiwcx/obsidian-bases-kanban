@@ -88,6 +88,10 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
+	private static nextDragGroupId = 0;
+	// Sortable's string group is global, not scoped to a Bases view. Only cells
+	// belonging to this instance may exchange cards.
+	private readonly cardSortableGroup = `${SORTABLE_GROUP}-${KanbanView.nextDragGroupId++}`;
 	type = 'kanban-view';
 	hoverPopover: HoverPopover | null = null;
 
@@ -1240,7 +1244,7 @@ export class KanbanView extends BasesView {
 
 	private attachCardSortable(body: HTMLElement, value: string): void {
 		const sortable = new Sortable(body, {
-			group: SORTABLE_GROUP,
+			group: this.cardSortableGroup,
 
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 
@@ -1278,6 +1282,15 @@ export class KanbanView extends BasesView {
 		}
 
 		const cardEl = evt.item;
+		if (!this.containerEl.contains(evt.from) || !this.containerEl.contains(evt.to)) {
+			// Defense in depth: even a stale/external drop event must not persist
+			// another view's grouping values or leave a false-success preview.
+			if (this.containerEl.contains(evt.from)) {
+				const index = evt.oldDraggableIndex ?? evt.oldIndex ?? evt.from.children.length;
+				evt.from.insertBefore(cardEl, evt.from.children[index] ?? null);
+			}
+			return;
+		}
 		const entryPath = cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
 
 		if (!entryPath) {

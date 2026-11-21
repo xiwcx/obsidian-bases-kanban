@@ -1226,7 +1226,10 @@ describe('Drag and Drop - Sortable Initialization', () => {
 				true,
 				'Card Sortable should allow same-column drag attempts so a sorted board can warn on reorder',
 			);
-			assert.strictEqual(instance.options.group, SORTABLE_GROUP, 'Card Sortable should still allow cross-column dragging');
+			assert.ok(
+				instance.options.group.startsWith(`${SORTABLE_GROUP}-`),
+				'Card Sortable should allow cross-column dragging within its view-scoped group',
+			);
 		});
 	});
 

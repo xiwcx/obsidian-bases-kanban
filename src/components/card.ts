@@ -1,5 +1,5 @@
 import type { App, BasesEntry, BasesPropertyId, Component } from 'obsidian';
-import { Keymap, MarkdownRenderer, NullValue, StringValue } from 'obsidian';
+import { DateValue, Keymap, MarkdownRenderer, NullValue, StringValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
@@ -50,7 +50,8 @@ export function renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, ctx: Ca
 		titleEl.textContent = entry.file.basename;
 		return;
 	}
-	titleValue.renderTo(titleEl, ctx.app.renderContext);
+	if (titleValue instanceof DateValue) titleEl.textContent = titleValue.toString();
+	else titleValue.renderTo(titleEl, ctx.app.renderContext);
 }
 
 export function renderCardCover(
@@ -118,10 +119,12 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		}
 		propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 		const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
-		// Keep typed values (wikilinks, URLs, dates, etc.) on their native
-		// renderers. Only plain strings containing Markdown links need parsing.
+		// Absolute dates use read-only text rather than clipped native inputs.
+		// Plain Markdown-link strings use Obsidian's parser; other types retain
+		// their native renderers.
 		const text = value.toString();
-		if (
+		if (value instanceof DateValue) valueEl.textContent = text;
+		else if (
 			Object.getPrototypeOf(value) === StringValue.prototype &&
 			/\[[^\]\n]+\]\([^\n]+\)/.test(text) &&
 			!/[!<]/.test(text)

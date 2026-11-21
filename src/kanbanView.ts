@@ -90,6 +90,12 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
+	// Test ownership directly rather than relying on globally unique group IDs.
+	private readonly cardSortableGroup: Sortable.GroupOptions = {
+		name: SORTABLE_GROUP,
+		pull: (to) => this.ownsCardContainer(to.el),
+		put: (_to, from) => this.ownsCardContainer(from.el),
+	};
 	type = 'kanban-view';
 	hoverPopover: HoverPopover | null = null;
 
@@ -1245,9 +1251,16 @@ export class KanbanView extends BasesView {
 		this.detachColumn(value, columnEl);
 	}
 
+	private ownsCardContainer(body: HTMLElement): boolean {
+		return body.closest(`.${CSS_CLASSES.VIEW_CONTAINER}`) === this.containerEl;
+	}
+
 	private attachCardSortable(body: HTMLElement, value: string): void {
 		const sortable = new Sortable(body, {
-			group: SORTABLE_GROUP,
+			group: this.cardSortableGroup,
+			// If the pointer leaves valid cells (including another view), discard
+			// any local preview traversed on the way there.
+			revertOnSpill: true,
 
 			animation: cardDragAnimation(body.children.length),
 
@@ -1285,6 +1298,15 @@ export class KanbanView extends BasesView {
 		}
 
 		const cardEl = evt.item;
+		if (!this.ownsCardContainer(evt.from) || !this.ownsCardContainer(evt.to)) {
+			// Defense in depth: even a stale/external drop event must not persist
+			// another view's grouping values or leave a false-success preview.
+			if (this.ownsCardContainer(evt.from)) {
+				const index = evt.oldIndex ?? evt.oldDraggableIndex ?? evt.from.children.length;
+				evt.from.insertBefore(cardEl, evt.from.children[index] ?? null);
+			}
+			return;
+		}
 		const entryPath = cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
 
 		if (!entryPath) {

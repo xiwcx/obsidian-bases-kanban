@@ -1226,7 +1226,8 @@ describe('Drag and Drop - Sortable Initialization', () => {
 				true,
 				'Card Sortable should allow same-column drag attempts so a sorted board can warn on reorder',
 			);
-			assert.strictEqual(instance.options.group, SORTABLE_GROUP, 'Card Sortable should still allow cross-column dragging');
+			assert.strictEqual(instance.options.group.name, SORTABLE_GROUP, 'Card Sortable should use the card group');
+			assert.strictEqual(instance.options.revertOnSpill, true, 'Dropping outside a valid cell should revert');
 		});
 	});
 

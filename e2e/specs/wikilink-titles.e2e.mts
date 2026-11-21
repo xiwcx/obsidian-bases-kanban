@@ -51,7 +51,11 @@ describe('Wikilink grouping titles in real Obsidian', () => {
 			await expect(browser.$(`${cell(value, value)} ${card(name)}`)).toBeDisplayed();
 			await expect(browser.$$(card(name))).toBeElementsArrayOfSize(1);
 		}
-		await expect(browser.$$('.obk-swimlane')).toBeElementsArrayOfSize(4);
+		// The two original fixture lanes now persist as empty drop targets.
+		for (const value of ['Lower', 'Upper']) {
+			await expect(browser.$$(`.obk-swimlane[data-swimlane-value="${value}"] .obk-card`)).toBeElementsArrayOfSize(0);
+		}
+		await expect(browser.$$('.obk-swimlane')).toBeElementsArrayOfSize(6);
 		await expect(browser.$$('.obk-card')).toBeElementsArrayOfSize(4);
 	});
 });

@@ -46,6 +46,7 @@ import {
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
+import { ConfirmColumnRemovalModal } from './confirmColumnRemovalModal.ts';
 
 export interface LegacyData {
 	columnOrders: Record<string, string[]>;
@@ -88,6 +89,7 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
+	private columnRemovalModal: ConfirmColumnRemovalModal | null = null;
 	type = 'kanban-view';
 	hoverPopover: HoverPopover | null = null;
 
@@ -1232,10 +1234,27 @@ export class KanbanView extends BasesView {
 	}
 
 	private removeColumn(value: string, columnEl: HTMLElement): void {
-		if (!this._prefsPropertyId) return;
-		this._prefs.columnOrder = this._prefs.columnOrder.filter((v) => v !== value);
-		this._persistPrefs();
-		this.detachColumn(value, columnEl);
+		if (!this._prefsPropertyId || this.columnRemovalModal) return;
+		const propertyId = this._prefsPropertyId;
+		const swimlanePropertyId = this._prefsSwimlanePropertyId;
+		this.columnRemovalModal = new ConfirmColumnRemovalModal(
+			this.app,
+			value,
+			() => {
+				// The board can change while the modal is open. A stale confirmation
+				// must not remove a different grouping's column or a newly populated one.
+				if (propertyId !== this._prefsPropertyId || swimlanePropertyId !== this._prefsSwimlanePropertyId) return;
+				if (this.data.data.some((entry) => normalizePropertyValue(entry.getValue(propertyId)) === value)) return;
+				if (!this._prefs.columnOrder.includes(value)) return;
+				this._prefs.columnOrder = this._prefs.columnOrder.filter((v) => v !== value);
+				this._persistPrefs();
+				this.detachColumn(value, columnEl);
+			},
+			() => {
+				this.columnRemovalModal = null;
+			},
+		);
+		this.columnRemovalModal.open();
 	}
 
 	private attachCardSortable(body: HTMLElement, value: string): void {
@@ -1624,6 +1643,7 @@ export class KanbanView extends BasesView {
 
 	onClose(): void {
 		this._debouncedRender.cancel();
+		this.columnRemovalModal?.close();
 		this.destroySortables();
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;

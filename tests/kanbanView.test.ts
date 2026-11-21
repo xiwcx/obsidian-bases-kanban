@@ -41,6 +41,7 @@ import {
 } from './fixtures.ts';
 import {
 	addClosestPolyfill,
+	confirmColumnRemoval,
 	createDivWithMethods,
 	createMockApp,
 	createMockBasesEntry,
@@ -3474,6 +3475,8 @@ describe('Empty Column Persistence - Remove column action', () => {
 		assert.ok(removeBtn, 'Precondition: remove button should exist');
 
 		removeBtn.click();
+		assert.ok(view.containerEl.querySelector('[data-column-value="In Progress"]'), 'Click alone must not remove it');
+		confirmColumnRemoval();
 
 		assert.ok(
 			!view.containerEl.querySelector('[data-column-value="In Progress"]'),
@@ -3495,6 +3498,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		triggerDataUpdate(view);
 
 		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+		confirmColumnRemoval();
 
 		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]>;
 		const savedOrder = savedOrders?.[PROPERTY_STATUS] ?? [];
@@ -3515,6 +3519,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		triggerDataUpdate(view);
 
 		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+		confirmColumnRemoval();
 
 		assert.ok(view.containerEl.querySelector('[data-column-value="To Do"]'), 'To Do column should remain');
 		assert.ok(view.containerEl.querySelector('[data-column-value="Doing"]'), 'Doing column should remain');
@@ -3543,6 +3548,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		);
 
 		(view.containerEl.querySelector('[data-column-value="In Progress"] .obk-column-remove-btn') as HTMLElement).click();
+		confirmColumnRemoval();
 
 		assert.ok(
 			!(view as any)._columnSortables.has('In Progress'),
@@ -3581,6 +3587,7 @@ describe('Empty Column Persistence - Remove column action', () => {
 		) as HTMLElement;
 		assert.ok(removeBtn, 'Precondition: emptied column should show a remove button');
 		removeBtn.click();
+		confirmColumnRemoval();
 
 		assert.ok(
 			!deferred.has('Review'),

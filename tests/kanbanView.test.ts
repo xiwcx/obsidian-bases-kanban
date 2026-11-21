@@ -371,7 +371,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'cards/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 	});
 
@@ -388,7 +388,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		await (view as any).createQuickAddCard('New Task', UNCATEGORIZED_LABEL, null);
 
-		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'cards/New Task', frontmatter: {} }]);
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'New Task', frontmatter: {} }]);
 	});
 
 	test('quick add sets both column and swimlane properties when used inside a lane', async () => {
@@ -410,7 +410,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
 			{
-				baseFileName: 'cards/New Lane Task',
+				baseFileName: 'New Lane Task',
 				frontmatter: { status: 'Doing', priority: 'High' },
 			},
 		]);
@@ -446,7 +446,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls, []);
 	});
@@ -481,7 +481,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});
@@ -516,7 +516,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});
@@ -552,7 +552,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task 1.md']);
 	});
@@ -596,7 +596,7 @@ describe('Data Rendering - Column Rendering', () => {
 		await (view as any).createQuickAddCard('New Task', 'Doing', null);
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'energy/New Task', frontmatter: { status: 'Doing' } },
+			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
 		]);
 		assert.deepStrictEqual(app.fileManager.renameFile.calls[0], [createdFile, 'energy/New Task.md']);
 	});

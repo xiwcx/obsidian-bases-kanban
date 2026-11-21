@@ -1,5 +1,5 @@
 import type { App, BasesEntry, BasesPropertyId } from 'obsidian';
-import { Keymap, NullValue } from 'obsidian';
+import { DateValue, Keymap, NullValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
@@ -49,7 +49,8 @@ export function renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, ctx: Ca
 		titleEl.textContent = entry.file.basename;
 		return;
 	}
-	titleValue.renderTo(titleEl, ctx.app.renderContext);
+	if (titleValue instanceof DateValue) titleEl.textContent = titleValue.toString();
+	else titleValue.renderTo(titleEl, ctx.app.renderContext);
 }
 
 export function renderCardCover(
@@ -117,7 +118,10 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		}
 		propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 		const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
-		value.renderTo(valueEl, ctx.app.renderContext);
+		// Native date renderers create disabled inputs that clip inside narrow
+		// cards. Dates are read-only here; use the public value's text instead.
+		if (value instanceof DateValue) valueEl.textContent = value.toString();
+		else value.renderTo(valueEl, ctx.app.renderContext);
 	}
 
 	// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the

@@ -1091,6 +1091,7 @@ export class KanbanView extends BasesView {
 	private _buildCardCtx(): CardRenderCtx {
 		return {
 			app: this.app,
+			component: this,
 			groupByPropertyId: this.groupByPropertyId,
 			cardTitlePropertyId: this.cardTitlePropertyId,
 			imagePropertyId: this.imagePropertyId,

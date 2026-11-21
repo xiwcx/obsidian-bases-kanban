@@ -1,10 +1,11 @@
-import type { App, BasesEntry, BasesPropertyId } from 'obsidian';
-import { Keymap, NullValue } from 'obsidian';
+import type { App, BasesEntry, BasesPropertyId, Component } from 'obsidian';
+import { Keymap, MarkdownRenderer, NullValue, StringValue } from 'obsidian';
 import type { TFile } from 'obsidian';
 import { CSS_CLASSES, DATA_ATTRIBUTES } from '../constants.ts';
 
 export interface CardRenderCtx {
 	app: App;
+	component: Component;
 	groupByPropertyId: BasesPropertyId | null;
 	cardTitlePropertyId: BasesPropertyId | null;
 	imagePropertyId: BasesPropertyId | null;
@@ -117,7 +118,19 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		}
 		propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 		const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
-		value.renderTo(valueEl, ctx.app.renderContext);
+		// Keep typed values (wikilinks, URLs, dates, etc.) on their native
+		// renderers. Only plain strings containing Markdown links need parsing.
+		const text = value.toString();
+		if (
+			Object.getPrototypeOf(value) === StringValue.prototype &&
+			/\[[^\]\n]+\]\([^\n]+\)/.test(text) &&
+			!/[!<]/.test(text)
+		) {
+			void MarkdownRenderer.render(ctx.app, text, valueEl, filePath, ctx.component).catch((error: unknown) => {
+				valueEl.textContent = text;
+				console.error('KanbanView: could not render property link', error);
+			});
+		} else value.renderTo(valueEl, ctx.app.renderContext);
 	}
 
 	// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the

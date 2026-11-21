@@ -46,6 +46,7 @@ import {
 import { mergeCardOrder } from './utils/cardOrder.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
+import { cardDragAnimation } from './utils/dragAnimation.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 
 export interface LegacyData {
@@ -946,6 +947,11 @@ export class KanbanView extends BasesView {
 
 	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
 		patchColumnCardsEl(columnEl, newEntries, this._buildColumnCtx(), this._buildColumnCallbacks());
+		const value = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+		const lane = columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`)?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
+		if (value !== null) {
+			this._columnSortables.get(this.cardOrderKey(lane, value))?.option('animation', cardDragAnimation(newEntries.length));
+		}
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -1243,7 +1249,7 @@ export class KanbanView extends BasesView {
 		const sortable = new Sortable(body, {
 			group: SORTABLE_GROUP,
 
-			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			animation: cardDragAnimation(body.children.length),
 
 			// require a press-and-hold before drag begins on touch so that
 			// swiping to scroll a column isn't mistaken for a card drag
@@ -1619,8 +1625,9 @@ export class KanbanView extends BasesView {
 
 	private applyCardOrder(entries: BasesEntry[], savedOrder: string[]): BasesEntry[] {
 		const entryMap = new Map(entries.map((e) => [e.file.path, e]));
+		const savedPaths = new Set(savedOrder);
 		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
-		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
+		const unsaved = entries.filter((e) => !savedPaths.has(e.file.path));
 		return [...ordered, ...unsaved];
 	}
 

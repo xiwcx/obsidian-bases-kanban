@@ -426,8 +426,9 @@ describe('Swimlane patch path', () => {
 		assert.strictEqual(view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length, 0, 'No lanes in flat mode');
 	});
 
-	test('lane removed on second render destroys its columnSortable and removes from DOM', () => {
+	test('hiding an empty lane destroys its columnSortable and removes it from DOM', () => {
 		const { view, controller } = createSwimlaneView(() => PROPERTY_PRIORITY);
+		controller.config.set('showEmptySwimlanes', false);
 		triggerDataUpdate(view);
 
 		assert.strictEqual(

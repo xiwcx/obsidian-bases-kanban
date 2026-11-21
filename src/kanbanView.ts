@@ -1034,7 +1034,11 @@ export class KanbanView extends BasesView {
 	}
 
 	private getOrderedSwimlaneValues(liveValues: string[]): string[] {
-		return getOrderedSwimlaneValuesEl(liveValues, this._prefs.swimlaneOrder);
+		return getOrderedSwimlaneValuesEl(
+			liveValues,
+			this._prefs.swimlaneOrder,
+			this.config.get('showEmptySwimlanes') !== false,
+		);
 	}
 
 	/**
@@ -1767,6 +1771,12 @@ export class KanbanView extends BasesView {
 				displayName: 'Wrap property values',
 				type: 'toggle',
 				key: 'wrapPropertyValues',
+			},
+			{
+				displayName: 'Show empty swimlanes',
+				type: 'toggle',
+				key: 'showEmptySwimlanes',
+				default: true,
 			},
 		];
 	}

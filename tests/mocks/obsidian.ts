@@ -297,6 +297,8 @@ export class DateValue extends NotNullValue {
 	}
 }
 
+export class RelativeDateValue extends DateValue {}
+
 // Real class: ListValue extends NotNullValue
 // API surface used: length(), get(index) → Value, toString() → comma-separated string
 export class ListValue extends NotNullValue {

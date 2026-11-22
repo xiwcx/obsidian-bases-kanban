@@ -118,8 +118,8 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 		}
 		propertyEl.createSpan({ text: label, cls: CSS_CLASSES.CARD_PROPERTY_LABEL });
 		const valueEl = propertyEl.createSpan({ cls: CSS_CLASSES.CARD_PROPERTY_VALUE });
-		// Keep typed values (wikilinks, URLs, dates, etc.) on their native
-		// renderers. Only plain strings containing Markdown links need parsing.
+		// Keep typed values on their native renderers, including localized dates.
+		// Only plain strings containing Markdown links need parsing.
 		const text = value.toString();
 		if (
 			Object.getPrototypeOf(value) === StringValue.prototype &&

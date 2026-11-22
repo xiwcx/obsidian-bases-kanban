@@ -1,4 +1,4 @@
-import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
+import type { BasesAllOptions, BasesEntry, BasesPropertyId, HoverPopover, QueryController } from 'obsidian';
 import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
 import {
 	createCard as createCardEl,
@@ -1764,7 +1764,7 @@ export class KanbanView extends BasesView {
 	 * and the file simply becomes stale once each base has migrated its own state.
 	 */
 
-	static getViewOptions(this: void): ViewOption[] {
+	static getViewOptions(this: void): BasesAllOptions[] {
 		return [
 			{
 				displayName: 'Group by',

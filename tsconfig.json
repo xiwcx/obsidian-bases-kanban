@@ -1,13 +1,13 @@
 {
 	"compilerOptions": {
-		"baseUrl": ".",
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
 		"target": "ES2020",
 		"allowJs": true,
+		"strict": false,
 		"noImplicitAny": true,
-		"moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"importHelpers": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,

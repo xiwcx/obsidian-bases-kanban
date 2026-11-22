@@ -16,7 +16,7 @@ import {
 
 setupTestEnvironment();
 
-test('date titles and properties use text while relative-date formulas keep their native renderer', (t) => {
+test('date titles, properties, and relative-date formulas retain their native renderer', (t) => {
 	const app = createMockApp();
 	const controller: any = createMockQueryController([], []);
 	controller.app = app;
@@ -29,18 +29,18 @@ test('date titles and properties use text while relative-date formulas keep thei
 			? new RelativeDateValue(new Date('2026-11-20T14:30:00Z'))
 			: new DateValue(new Date('2026-11-20T14:30:00Z'));
 		const renderer = t.mock.method(value, 'renderTo', (el: HTMLElement) => {
-			el.textContent = 'relative date';
+			el.textContent = relative ? 'relative date' : 'localized date';
 		});
 		const entry = { ...createMockBasesEntry(createMockTFile('Prism.md')), getValue: () => value };
 		const title = createDivWithMethods();
 		renderCardTitle(title, entry, ctx);
 		const card = createCard(entry, ctx, (view as any)._buildCardCallbacks());
-		assert.equal(title.textContent, relative ? 'relative date' : value.toString());
+		assert.equal(title.textContent, relative ? 'relative date' : 'localized date');
 		assert.equal(
 			card.querySelector('.obk-card-property-value')?.textContent,
-			relative ? 'relative date' : value.toString(),
+			relative ? 'relative date' : 'localized date',
 		);
-		assert.equal(renderer.mock.callCount(), relative ? 3 : 0);
+		assert.equal(renderer.mock.callCount(), 3);
 	}
 	view.onClose();
 });

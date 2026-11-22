@@ -554,6 +554,31 @@
 	margin: 0;
 }
 
+/* Preserve native localized dates, without the bulky disabled-input chrome.
+   Let a date move below its label rather than squeeze its internal segments. */
+.obk-card-property:has(input:is([type="date"], [type="datetime-local"])) {
+	align-items: baseline;
+	flex-wrap: wrap;
+	row-gap: 2px;
+}
+
+.obk-card-property-value:has(input:is([type="date"], [type="datetime-local"])) {
+	flex-shrink: 0;
+	max-width: 100%;
+}
+
+.obk-card :is(.obk-card-property-value, .obk-card-title) input:is([type="date"], [type="datetime-local"]) {
+	min-height: 0;
+	height: auto;
+	max-width: 100%;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	padding: 0;
+	color: inherit;
+	font: inherit;
+}
+
 .obk-quick-add-form {
 	display: flex;
 	flex-direction: column;

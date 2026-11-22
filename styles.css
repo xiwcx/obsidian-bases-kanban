@@ -390,6 +390,12 @@
 	cursor: grabbing;
 }
 
+.obk-column-drag-handle[aria-disabled="true"],
+.obk-swimlane-drag-handle[aria-disabled="true"] {
+	cursor: default;
+	opacity: 0.35;
+}
+
 .obk-column-title {
 	min-width: 0;
 	overflow: hidden;

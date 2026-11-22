@@ -6,6 +6,7 @@ import { createColumn, type ColumnRenderCtx, type ColumnCallbacks } from './colu
 
 export interface RowRenderCtx extends ColumnRenderCtx {
 	collapsedLanes: Set<string>;
+	swimlaneReorderEnabled: boolean;
 }
 
 export interface RowCallbacks extends ColumnCallbacks {
@@ -59,6 +60,11 @@ export function buildSwimlaneElement(
 	dragHandle.textContent = '⋮⋮';
 	const laneDisplay = resolveWikilinkDisplay(laneValue, ctx.metadataCache);
 	dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneDisplay}`);
+	dragHandle.setAttribute('aria-disabled', String(!ctx.swimlaneReorderEnabled));
+	dragHandle.setAttribute(
+		'title',
+		ctx.swimlaneReorderEnabled ? 'Drag to reorder lane' : 'Set Swimlane sort to Manual to reorder lanes',
+	);
 	headerEl.createSpan({ text: laneDisplay, cls: CSS_CLASSES.SWIMLANE_TITLE });
 	const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
 	headerEl.createSpan({ text: `${laneCount}`, cls: CSS_CLASSES.SWIMLANE_COUNT });

@@ -50,6 +50,7 @@ import { debounce } from './utils/debounce.ts';
 import { cardDragAnimation } from './utils/dragAnimation.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
 import { ConfirmColumnRemovalModal } from './confirmColumnRemovalModal.ts';
+import { parseAxisSort, sortAxisValues } from './utils/axisSort.ts';
 
 export interface LegacyData {
 	columnOrders: Record<string, string[]>;
@@ -136,6 +137,7 @@ export class KanbanView extends BasesView {
 	private _lastImageAspectRatio: number | undefined = undefined;
 	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
 	private _lastQuickAddFolder: string | null | undefined = undefined;
+	private _lastAxisSortKey = '';
 	private _cardFingerprints: Map<string, string> = new Map();
 	// Column values empty across the whole board (every swimlane). Recomputed each
 	// render() and read via _buildColumnCtx so components can show a remove button
@@ -534,6 +536,10 @@ export class KanbanView extends BasesView {
 			const quickAddFolderChanged = currentQuickAddFolder !== this._lastQuickAddFolder;
 			this._lastQuickAddFolder = currentQuickAddFolder;
 
+			const axisSortKey = `${parseAxisSort(this.config?.get('columnSort'))}:${parseAxisSort(this.config?.get('swimlaneSort'))}`;
+			const axisSortChanged = axisSortKey !== this._lastAxisSortKey;
+			this._lastAxisSortKey = axisSortKey;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
 			const optionsChanged =
 				orderChanged ||
@@ -543,7 +549,8 @@ export class KanbanView extends BasesView {
 				imageFitChanged ||
 				imageAspectRatioChanged ||
 				swimlanePropertyChanged ||
-				quickAddFolderChanged;
+				quickAddFolderChanged ||
+				axisSortChanged;
 
 			const lanes = new Map<string | null, Map<string, BasesEntry[]>>();
 			if (groupedByLane) {
@@ -655,6 +662,7 @@ export class KanbanView extends BasesView {
 		return {
 			...this._buildColumnCtx(),
 			collapsedLanes: this._prefs.collapsedLanes,
+			swimlaneReorderEnabled: parseAxisSort(this.config?.get('swimlaneSort')) === 'manual',
 		};
 	}
 
@@ -683,6 +691,7 @@ export class KanbanView extends BasesView {
 
 	private _createColumnSortable(containerEl: HTMLElement): Sortable {
 		return new Sortable(containerEl, {
+			disabled: parseAxisSort(this.config?.get('columnSort')) !== 'manual',
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
 			draggable: `.${CSS_CLASSES.COLUMN}`,
@@ -709,6 +718,7 @@ export class KanbanView extends BasesView {
 		}
 
 		this.swimlaneSortable = new Sortable(boardEl, {
+			disabled: parseAxisSort(this.config?.get('swimlaneSort')) !== 'manual',
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 			handle: `.${CSS_CLASSES.SWIMLANE_DRAG_HANDLE}`,
 			draggable: `.${CSS_CLASSES.SWIMLANE}`,
@@ -725,6 +735,10 @@ export class KanbanView extends BasesView {
 	}
 
 	private handleSwimlaneDrop(boardEl: HTMLElement): void {
+		if (parseAxisSort(this.config?.get('swimlaneSort')) !== 'manual') {
+			this.render();
+			return;
+		}
 		const lanes = boardEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`);
 		const order = Array.from(lanes)
 			.map((lane) => lane.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE))
@@ -734,6 +748,10 @@ export class KanbanView extends BasesView {
 	}
 
 	private handleSwimlaneColumnDrop(evt: Sortable.SortableEvent): void {
+		if (parseAxisSort(this.config?.get('columnSort')) !== 'manual') {
+			this.render();
+			return;
+		}
 		if (!this._prefsPropertyId || !evt.to.instanceOf(HTMLElement)) return;
 
 		const order = Array.from(evt.to.children)
@@ -1040,11 +1058,13 @@ export class KanbanView extends BasesView {
 	}
 
 	private getOrderedSwimlaneValues(liveValues: string[]): string[] {
-		return getOrderedSwimlaneValuesEl(
+		const values = getOrderedSwimlaneValuesEl(
 			liveValues,
 			this._prefs.swimlaneOrder,
 			this.config.get('showEmptySwimlanes') !== false,
 		);
+		const sort = parseAxisSort(this.config?.get('swimlaneSort'));
+		return sort === 'manual' ? values : sortAxisValues(values, sort);
 	}
 
 	/**
@@ -1073,6 +1093,7 @@ export class KanbanView extends BasesView {
 			cardFingerprints: this._cardFingerprints,
 			globallyEmptyColumns: this._globallyEmptyColumns,
 			metadataCache: this.app?.metadataCache ?? null,
+			columnReorderEnabled: parseAxisSort(this.config?.get('columnSort')) === 'manual',
 		};
 	}
 
@@ -1581,10 +1602,12 @@ export class KanbanView extends BasesView {
 	}
 
 	private getOrderedColumnValues(liveValues: string[]): string[] {
-		if (!this._prefs.columnOrder.length) return liveValues.sort();
+		const sort = parseAxisSort(this.config?.get('columnSort'));
 		// Include all saved columns (even empty ones); append any new live values.
 		const newValues = liveValues.filter((v) => !this._prefs.columnOrder.includes(v));
-		return [...this._prefs.columnOrder, ...newValues];
+		const values = [...this._prefs.columnOrder, ...newValues];
+		if (sort !== 'manual') return sortAxisValues(values, sort);
+		return this._prefs.columnOrder.length ? values : [...liveValues].sort();
 	}
 
 	/**
@@ -1751,11 +1774,25 @@ export class KanbanView extends BasesView {
 				placeholder: 'Select property',
 			},
 			{
+				displayName: 'Column sort',
+				type: 'dropdown',
+				key: 'columnSort',
+				default: 'manual',
+				options: { manual: 'Manual', asc: 'Ascending', desc: 'Descending' },
+			},
+			{
 				displayName: 'Swimlane by',
 				type: 'property',
 				key: 'swimlaneByProperty',
 				filter: (prop: string) => !prop.startsWith('file.'),
 				placeholder: 'Optional: horizontal grouping',
+			},
+			{
+				displayName: 'Swimlane sort',
+				type: 'dropdown',
+				key: 'swimlaneSort',
+				default: 'manual',
+				options: { manual: 'Manual', asc: 'Ascending', desc: 'Descending' },
 			},
 			{
 				displayName: 'Add card to column folder',

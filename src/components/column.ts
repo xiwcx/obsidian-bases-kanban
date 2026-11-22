@@ -15,6 +15,7 @@ export interface ColumnRenderCtx {
 	// button. Board-wide, so it can't be derived from a single column's entries.
 	globallyEmptyColumns: Set<string>;
 	metadataCache: MetadataCache | null;
+	columnReorderEnabled: boolean;
 }
 
 export interface ColumnCallbacks {
@@ -85,6 +86,11 @@ export function createColumn(
 	const dragHandle = headerEl.createDiv({ cls: [CSS_CLASSES.COLUMN_DRAG_HANDLE, CSS_CLASSES.COLUMN_CONTROL] });
 	dragHandle.setAttribute('aria-label', `Drag to reorder column: ${value}`);
 	setIcon(dragHandle, 'grip-vertical');
+	dragHandle.setAttribute('aria-disabled', String(!ctx.columnReorderEnabled));
+	dragHandle.setAttribute(
+		'title',
+		ctx.columnReorderEnabled ? 'Drag to reorder column' : 'Set Column sort to Manual to reorder columns',
+	);
 
 	const colorBtn = headerEl.createEl('button', {
 		cls: [CSS_CLASSES.COLUMN_COLOR_BTN, CSS_CLASSES.COLUMN_CONTROL],

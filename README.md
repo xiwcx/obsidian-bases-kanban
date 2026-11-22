@@ -69,6 +69,25 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 9. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
 10. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
+### Sorting
+
+Use the Base toolbar's **Sort** menu to order cards by properties. Sorting applies
+within each column, or within each column/swimlane cell when swimlanes are enabled.
+Column and swimlane order are configured separately in the view options:
+
+- **Column sort** and **Swimlane sort** each offer **Manual** (the default),
+  **Ascending**, and **Descending**.
+- Automatic axis sorting orders group values, including empty saved columns.
+  ISO dates sort chronologically, numeric values sort numerically, and
+  **Uncategorized** stays last in either direction.
+- Drag handles are disabled for an automatically sorted axis. Switch that axis
+  back to **Manual** to restore its saved order and enable dragging again.
+
+An active Base sort takes precedence over saved manual card ordering. You can
+still move cards between columns and swimlanes, but their position follows the
+sort rather than where you drop them. Clear all sort rules to manually reorder
+cards again; saved manual ordering is retained while sorting is active.
+
 ### Example
 
 If your base has a "Status" property with values "To Do", "Doing", and "Done":

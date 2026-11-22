@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0
+
+### Minor Changes
+
+- 654de72: Render Markdown links in plain-text card properties using Obsidian's Markdown renderer.
+- c1e1733: Add independent ascending and descending sorting for columns and swimlanes while preserving saved manual orders. Keep Base sorting for cards within each cell.
+- 09a202b: Keep saved empty swimlanes as drop targets, with an option to hide them without discarding their saved order.
+- 88aaec9: Collapse columns into narrow pills, sharing state across swimlanes and persisting it per grouping property.
+
+### Patch Changes
+
+- 88aaec9: Unify column header controls, use native trash icons for empty columns, and add vertical padding to narrow collapsed rails.
+- 917bbc3: Preserve native localized date rendering and remove bulky date-input styling in Kanban cards. Allow date values to wrap below their labels instead of squeezing them.
+
 ## 0.10.8
 
 ### Patch Changes

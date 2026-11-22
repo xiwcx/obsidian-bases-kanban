@@ -161,6 +161,25 @@ describe('Independent column and swimlane sorting', () => {
 		assert.deepEqual(columns(view.containerEl), manualColumns);
 	});
 
+	test('automatic lane sorting respects the show-empty-swimlanes setting', () => {
+		const { view, controller, entries } = createView();
+		controller.config.set('swimlaneSort', 'asc');
+		triggerDataUpdate(view);
+		entries.splice(1, 1);
+		triggerDataUpdate(view);
+		assert.deepEqual(
+			lanes(view).map((el) => el.getAttribute('data-swimlane-value')),
+			[...manualLanes].sort(),
+		);
+		controller.config.set('showEmptySwimlanes', false);
+		triggerDataUpdate(view);
+		assert.deepEqual(
+			lanes(view).map((el) => el.getAttribute('data-swimlane-value')),
+			['2026-07-12'],
+		);
+		assert.deepEqual(controller.config.get('swimlaneOrders'), { [scope]: manualLanes });
+	});
+
 	test('automatic axis drop guards do not save accidental DOM reorderings', () => {
 		const { view, controller } = createView();
 		controller.config.set('columnSort', 'asc');

@@ -390,7 +390,7 @@
 	cursor: grabbing;
 }
 
-.obk-column-drag-handle[aria-disabled="true"],
+.obk-column-header .obk-column-drag-handle[aria-disabled="true"],
 .obk-swimlane-drag-handle[aria-disabled="true"] {
 	cursor: default;
 	opacity: 0.35;
